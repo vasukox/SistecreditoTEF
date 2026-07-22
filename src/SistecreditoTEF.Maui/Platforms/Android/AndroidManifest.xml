@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Manifest del modulo TEF Sistecredito.
+
+  IMPORTANTE: el atributo [Activity] + [IntentFilter] en C# genera
+  automaticamente el bloque <activity> con todos sus intent-filters.
+  Aqui solo declaramos permisos y la metadata base de la aplicacion.
+
+  android:exported="true" es OBLIGATORIO en Android 12+ cuando la
+  Activity tiene intent-filters: ya viene del atributo C#.
+
+  Si ICG te pide un apk_name distinto, cambia [HioposActions.ApkName].
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Red: para hablar con api.credinet.co -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!--
+      Almacenamiento: requeridos para leer el DocumentData XML que
+      HioPosCloud escribe en disco cuando OnlyUseDocumentPath=true
+      (doc §6 y §12 gotcha #9).
+      En Android 13 (API 33+) READ_EXTERNAL_STORAGE queda deprecado;
+      se necesita READ_MEDIA_* para compatibilidad, aunque la app
+      normalmente lee de un path interno de HioPosCloud.
+    -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+                     android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+                     android:maxSdkVersion="29" />
+
+    <application
+        android:label="Sistecredito"
+        android:allowBackup="false"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.SistecreditoTEF" />
+
+</manifest>

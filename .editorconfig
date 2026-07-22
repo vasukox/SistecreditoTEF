@@ -1,0 +1,19 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 4
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+[*.{xaml,xml,json,csproj,props,targets}]
+indent_size = 2
+
+[*.cs]
+# Nullable reference types ON
+# Style: file-scoped namespace + braces on next line (Kotlin-era's team pref)
+csharp_style_namespace_declarations = file_scoped:suggestion
+csharp_new_line_before_open_brace = all
+dotnet_style_namespace_match_folder = true:suggestion

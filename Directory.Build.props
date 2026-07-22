@@ -1,0 +1,14 @@
+<Project>
+  <!--
+    Configuracion comun para todos los proyectos de la solucion.
+    Centraliza constantes de MSBuild, TargetFramework default, etc.
+  -->
+  <PropertyGroup Label="Build">
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+</Project>

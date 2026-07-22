@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+    AppShell: Define las rutas de navegacion.
+
+    Convencion:
+      - Cada Page tiene un Route que se usa para Shell.GoToAsync("ruta")
+      - Rutas en formato "PascalCase" para legibilidad
+      - TabBar/FlyoutItem comentados: en MVP usamos Shell puro (push/pop).
+        Migrar a TabBar cuando haya mas de 4 destinos principales.
+
+    Entry point real: MainActivity (Platforms/Android) recibe el Intent
+    de HioPosCloud y navega a "CapturaCedula" con los extras parseados.
+-->
+<Shell xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+       xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+       xmlns:views="clr-namespace:SistecreditoTEF.Maui.Views"
+       x:Class="SistecreditoTEF.Maui.AppShell"
+       FlyoutBehavior="Disabled"
+       Title="SistecreditoTEF">
+
+    <Shell.Resources>
+        <ResourceDictionary>
+            <Style TargetType="Shell" ApplyToDerivedTypes="True" BasedOn="{StaticResource DefaultShellStyle}" />
+        </ResourceDictionary>
+    </Shell.Resources>
+
+    <!--
+        Flujo de Pantallas (1 a 8). Las rutas planas funcionan como stack
+        de navegacion tipo Activity en Kotlin: Shell.GoToAsync empuja,
+        Shell.GoToAsync("..") pop.
+    -->
+    <!--
+        HU8-973: solo 'home' es ShellContent (raíz). El resto del flujo se
+        registra como rutas en AppShell.xaml.cs y se navega con PUSH (rutas
+        relativas), de modo que el botón "atrás" haga pop y NO cierre la app.
+    -->
+    <ShellContent
+        Route="home"
+        ContentTemplate="{DataTemplate views:HomePage}" />
+</Shell>

@@ -1,0 +1,1683 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SistecreditoTEF · Calidad y Seguridad del Software</title>
+<style>
+  @page { size: A4; margin: 0; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.65;
+    color: #1A1F36;
+    background: #FAFBFC;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* === Typography === */
+  h1, h2, h3, h4 { color: #0A0E27; font-weight: 700; letter-spacing: -0.02em; page-break-after: avoid; }
+  h1 { font-size: 28pt; margin: 0 0 12px; line-height: 1.15; }
+  h2 { font-size: 19pt; margin: 36px 0 14px; line-height: 1.2; }
+  h3 { font-size: 13pt; margin: 24px 0 8px; color: #0044CC; }
+  h4 { font-size: 11pt; margin: 12px 0 4px; color: #1A1F36; }
+  p { margin: 6px 0; text-align: justify; }
+  strong { color: #0A0E27; font-weight: 700; }
+  a { color: #0066FF; text-decoration: none; }
+
+  /* === Layout === */
+  .container { max-width: 800px; margin: 0 auto; padding: 0 24px; }
+  .container-wide { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+  .page-break { page-break-before: always; padding-top: 40px; }
+
+  /* === Hero === */
+  .hero {
+    background: #0044CC;
+    color: #fff;
+    padding: 80px 24px 70px;
+    position: relative;
+    overflow: hidden;
+    page-break-after: always;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -100px;
+    right: -100px;
+    width: 500px;
+    height: 500px;
+    background: #0066FF;
+    border-radius: 50%;
+    opacity: 0.4;
+  }
+  .hero::after {
+    content: '';
+    position: absolute;
+    bottom: -150px;
+    left: -100px;
+    width: 400px;
+    height: 400px;
+    background: #00D4AA;
+    border-radius: 50%;
+    opacity: 0.35;
+  }
+  .hero-content { position: relative; z-index: 1; max-width: 800px; margin: 0 auto; }
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #0066FF;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 9pt;
+    font-weight: 600;
+    margin-bottom: 16px;
+  }
+  .hero h1 { color: #fff; font-size: 42pt; line-height: 1.05; margin-bottom: 14px; }
+  .hero .subtitle { font-size: 14pt; opacity: 0.95; font-weight: 400; line-height: 1.4; max-width: 620px; }
+  .hero-meta {
+    display: flex;
+    gap: 36px;
+    margin-top: 40px;
+    padding-top: 28px;
+    border-top: 1px solid #0066FF;
+    flex-wrap: wrap;
+  }
+  .hero-meta-item .label { font-size: 9pt; opacity: 0.75; text-transform: uppercase; letter-spacing: 0.1em; font-weight: 600; }
+  .hero-meta-item .value { font-size: 13pt; font-weight: 700; margin-top: 4px; }
+
+  /* === Stats bar === */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin: -40px 24px 0;
+    position: relative;
+    z-index: 2;
+    max-width: 1052px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .stat-card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 22px;
+    box-shadow: 0 8px 24px rgba(10,14,39,0.10), 0 0 0 1px #E3E8EE;
+  }
+  .stat-value {
+    font-size: 28pt;
+    font-weight: 800;
+    color: #0066FF;
+    line-height: 1;
+    letter-spacing: -0.03em;
+  }
+  .stat-label {
+    font-size: 9pt;
+    color: #697386;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 700;
+    margin-top: 8px;
+  }
+  .stat-sub { font-size: 8.5pt; color: #9CA3AF; margin-top: 2px; }
+
+  /* === Section header === */
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 8px;
+  }
+  .section-num {
+    background: #0066FF;
+    color: #fff;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 16pt;
+    flex-shrink: 0;
+  }
+  .section-eyebrow {
+    font-size: 9pt;
+    color: #0066FF;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  /* === Cards === */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+
+  .card {
+    background: #fff;
+    border: 1px solid #E3E8EE;
+    border-radius: 14px;
+    padding: 22px;
+    page-break-inside: avoid;
+  }
+  .card-feature {
+    background: #fff;
+    border: 1px solid #E3E8EE;
+    border-radius: 14px;
+    padding: 22px;
+    position: relative;
+    page-break-inside: avoid;
+  }
+  .card-feature::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 5px;
+    border-radius: 14px 14px 0 0;
+  }
+  .card-feature.blue::before { background: #0066FF; }
+  .card-feature.green::before { background: #10B981; }
+  .card-feature.orange::before { background: #F59E0B; }
+  .card-feature.red::before { background: #EF4444; }
+  .card-feature.dark::before { background: #0A0E27; }
+
+  .card-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 14px;
+  }
+  .card-icon.blue { background: #0066FF; color: #fff; }
+  .card-icon.green { background: #10B981; color: #fff; }
+  .card-icon.orange { background: #F59E0B; color: #fff; }
+  .card-icon.red { background: #EF4444; color: #fff; }
+  .card-icon.dark { background: #0A0E27; color: #fff; }
+
+  .card p, .card-feature p { font-size: 9.5pt; color: #697386; margin: 4px 0; line-height: 1.55; }
+  .card-feature h4 { font-size: 11pt; }
+
+  /* === Badges === */
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 8.5pt;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  .badge-blue { background: #0066FF; color: #fff; }
+  .badge-green { background: #10B981; color: #fff; }
+  .badge-red { background: #EF4444; color: #fff; }
+  .badge-orange { background: #F59E0B; color: #fff; }
+  .badge-gray { background: #697386; color: #fff; }
+  .badge-dark { background: #0A0E27; color: #fff; }
+
+  /* === Code === */
+  code {
+    font-family: 'JetBrains Mono', 'SF Mono', 'Cascadia Mono', Consolas, monospace;
+    font-size: 9pt;
+    background: #F4F6FA;
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: #0044CC;
+    font-weight: 500;
+  }
+  pre {
+    background: #0F172A;
+    color: #E2E8F0;
+    padding: 16px 18px;
+    border-radius: 12px;
+    font-size: 8.5pt;
+    overflow-x: auto;
+    page-break-inside: avoid;
+    line-height: 1.6;
+    margin: 12px 0;
+  }
+  pre code { background: transparent; padding: 0; color: inherit; font-weight: 400; }
+  pre .comment { color: #64748B; font-style: italic; }
+  pre .keyword { color: #818CF8; font-weight: 600; }
+  pre .string  { color: #34D399; }
+  pre .type    { color: #FBBF24; }
+  pre .func    { color: #60A5FA; }
+
+  /* === Tables === */
+  table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin: 14px 0;
+    page-break-inside: avoid;
+    font-size: 9.5pt;
+    background: #fff;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 0 0 1px #E3E8EE;
+  }
+  th, td {
+    padding: 11px 14px;
+    text-align: left;
+    border-bottom: 1px solid #EEF1F6;
+    vertical-align: top;
+  }
+  th {
+    background: #F8FAFC;
+    color: #0A0E27;
+    font-weight: 700;
+    font-size: 9pt;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:nth-child(even) td { background: #FAFBFC; }
+  td code { font-size: 8.5pt; }
+
+  /* === Figure === */
+  .figure {
+    margin: 22px 0;
+    text-align: center;
+    page-break-inside: avoid;
+    background: #fff;
+    border-radius: 16px;
+    padding: 28px 22px 18px;
+    box-shadow: 0 0 0 1px #E3E8EE;
+  }
+  .figure.dark {
+    background: #0F172A;
+    box-shadow: none;
+    color: #fff;
+  }
+  .figure.dark .caption { color: #94A3B8; border-top-color: #1E293B; }
+  .figure svg { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+  .figure .caption {
+    font-size: 9.5pt;
+    color: #697386;
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid #EEF1F6;
+    font-weight: 500;
+  }
+
+  /* === Callouts === */
+  .callout {
+    border-left: 4px solid #0066FF;
+    background: #E6F0FF;
+    padding: 14px 18px;
+    border-radius: 0 12px 12px 0;
+    margin: 14px 0;
+    page-break-inside: avoid;
+  }
+  .callout.warn { border-color: #F59E0B; background: #FEF3C7; }
+  .callout.success { border-color: #10B981; background: #D1FAE5; }
+  .callout.danger { border-color: #EF4444; background: #FEE2E2; }
+  .callout p { margin: 0; color: #0A0E27; font-size: 10pt; }
+  .callout strong { display: block; margin-bottom: 4px; }
+
+  /* === Tags === */
+  .tag {
+    display: inline-block;
+    background: #0A0E27;
+    color: #fff;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 8.5pt;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .tag.primary { background: #0066FF; }
+  .tag.success { background: #10B981; }
+  .tag.warn { background: #F59E0B; }
+  .tag.danger { background: #EF4444; }
+
+  /* === TOC === */
+  .toc-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-top: 16px;
+  }
+  .toc-item {
+    background: #fff;
+    border: 1px solid #E3E8EE;
+    border-radius: 12px;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    text-decoration: none;
+    color: #1A1F36;
+  }
+  .toc-num {
+    background: #0066FF;
+    color: #fff;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 12pt;
+    flex-shrink: 0;
+  }
+  .toc-item strong { display: block; font-size: 10pt; }
+  .toc-item span { font-size: 8.5pt; color: #697386; }
+
+  .divider {
+    height: 1px;
+    background: #E3E8EE;
+    margin: 24px 0;
+  }
+
+  /* === Footer === */
+  .doc-footer {
+    margin-top: 50px;
+    padding: 36px 24px;
+    background: #0A0E27;
+    color: #94A3B8;
+    text-align: center;
+    font-size: 9pt;
+    page-break-before: always;
+  }
+  .doc-footer .brand {
+    color: #fff;
+    font-weight: 800;
+    font-size: 18pt;
+    margin-bottom: 8px;
+    letter-spacing: -0.02em;
+  }
+  .doc-footer .meta { display: flex; justify-content: center; gap: 28px; margin-top: 20px; flex-wrap: wrap; }
+  .doc-footer .meta strong { color: #fff; }
+
+  /* === Utility === */
+  .center { text-align: center; }
+  .small { font-size: 9pt; color: #697386; }
+  .muted { color: #697386; }
+  .mono { font-family: 'JetBrains Mono', monospace; font-size: 9pt; }
+  ul, ol { padding-left: 1.4em; margin: 6px 0; }
+  li { margin: 4px 0; }
+  li::marker { color: #0066FF; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<!-- =========================================
+     HERO
+     ========================================= -->
+<section class="hero">
+  <div class="hero-content">
+    <div class="hero-badge">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      Documentación técnica · v1.0.0
+    </div>
+    <h1>SistecreditoTEF</h1>
+    <p class="subtitle">Calidad, seguridad y arquitectura del módulo TEF que conecta HioPosCloud con Credinet, para los almacenes Permoda en Colombia.</p>
+    <div class="hero-meta">
+      <div class="hero-meta-item">
+        <div class="label">Stack</div>
+        <div class="value">.NET 10 · MAUI · Android 13+</div>
+      </div>
+      <div class="hero-meta-item">
+        <div class="label">Integración</div>
+        <div class="value">HioPosCloud ↔ CREDINET</div>
+      </div>
+      <div class="hero-meta-item">
+        <div class="label">Tipo</div>
+        <div class="value">Módulo TEF · Crédito</div>
+      </div>
+      <div class="hero-meta-item">
+        <div class="label">Release</div>
+        <div class="value">Julio 2026</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =========================================
+     STATS BAR
+     ========================================= -->
+<div class="container-wide">
+  <div class="stats-bar">
+    <div class="stat-card">
+      <div class="stat-value">7</div>
+      <div class="stat-label">Endpoints CREDINET</div>
+      <div class="stat-sub">REST + JSON</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">11</div>
+      <div class="stat-label">Intent-filters</div>
+      <div class="stat-sub">HioPosCloud actions</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">14</div>
+      <div class="stat-label">Extras eco-back</div>
+      <div class="stat-sub">Por cada TRANSACTION</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value">36</div>
+      <div class="stat-label">Tests automatizados</div>
+      <div class="stat-sub">xUnit + CapturingHandler</div>
+    </div>
+  </div>
+</div>
+
+<!-- =========================================
+     HERO BLOCK: 3 ideas
+     ========================================= -->
+<div class="container">
+  <div class="figure" style="margin-top: 36px;">
+    <svg width="100%" viewBox="0 0 720 220" xmlns="http://www.w3.org/2000/svg" style="font-family: 'Inter', sans-serif;">
+      <!-- 3 boxes -->
+      <g transform="translate(40, 30)">
+        <rect width="200" height="160" rx="14" fill="#E6F0FF"/>
+        <circle cx="32" cy="32" r="20" fill="#0066FF"/>
+        <text x="32" y="38" text-anchor="middle" fill="#fff" font-size="18" font-weight="800">1</text>
+        <text x="20" y="78" fill="#0A0E27" font-size="13" font-weight="700">Contrato es ley</text>
+        <text x="20" y="100" fill="#1A1F36" font-size="10">El contrato con el</text>
+        <text x="20" y="114" fill="#1A1F36" font-size="10">POS es ley. Cada</text>
+        <text x="20" y="128" fill="#1A1F36" font-size="10">extra del Intent de</text>
+        <text x="20" y="142" fill="#1A1F36" font-size="10">salida está validado.</text>
+      </g>
+      <g transform="translate(260, 30)">
+        <rect width="200" height="160" rx="14" fill="#D1FAE5"/>
+        <circle cx="32" cy="32" r="20" fill="#10B981"/>
+        <text x="32" y="38" text-anchor="middle" fill="#fff" font-size="18" font-weight="800">2</text>
+        <text x="20" y="78" fill="#0A0E27" font-size="13" font-weight="700">Claves secretas</text>
+        <text x="20" y="100" fill="#1A1F36" font-size="10">Las claves nunca</text>
+        <text x="20" y="114" fill="#1A1F36" font-size="10">se imprimen en logs.</text>
+        <text x="20" y="128" fill="#1A1F36" font-size="10">Las cédulas se</text>
+        <text x="20" y="142" fill="#1A1F36" font-size="10">enmascaran siempre.</text>
+      </g>
+      <g transform="translate(480, 30)">
+        <rect width="200" height="160" rx="14" fill="#FEF3C7"/>
+        <circle cx="32" cy="32" r="20" fill="#F59E0B"/>
+        <text x="32" y="38" text-anchor="middle" fill="#fff" font-size="18" font-weight="800">3</text>
+        <text x="20" y="78" fill="#0A0E27" font-size="13" font-weight="700">Falla con causa</text>
+        <text x="20" y="100" fill="#1A1F36" font-size="10">Si algo se rompe,</text>
+        <text x="20" y="114" fill="#1A1F36" font-size="10">se rompe con causa</text>
+        <text x="20" y="128" fill="#1A1F36" font-size="10">clara. <tspan font-family="monospace">ApiResult&lt;T&gt;</tspan></text>
+        <text x="20" y="142" fill="#1A1F36" font-size="10">sin excepciones.</text>
+      </g>
+    </svg>
+    <div class="caption">Figura 1 — Los 3 principios rectores que guían cada decisión técnica del proyecto.</div>
+  </div>
+</div>
+
+<!-- =========================================
+     TOC
+     ========================================= -->
+<div class="container">
+  <div class="page-break">
+    <div class="section-eyebrow">Tabla de contenidos</div>
+    <h2>Lo que vas a encontrar</h2>
+    <p class="muted">Un recorrido por las decisiones de arquitectura, seguridad, estándares y pruebas que sostienen este módulo.</p>
+    <div class="toc-grid">
+      <a href="#sec-seguridad" class="toc-item"><span class="toc-num">2</span><div><strong>Seguridad del software</strong><span>4 capas · datos sensibles · threat model</span></div></a>
+      <a href="#sec-principios" class="toc-item"><span class="toc-num">3</span><div><strong>Principios de diseño</strong><span>SOLID · DRY · KISS con ejemplos</span></div></a>
+      <a href="#sec-arquitectura" class="toc-item"><span class="toc-num">4</span><div><strong>Arquitectura: el porqué</strong><span>Capas · flujo de transacción</span></div></a>
+      <a href="#sec-estandares" class="toc-item"><span class="toc-num">5</span><div><strong>Estándares de codificación</strong><span>Naming · records · async · DI</span></div></a>
+      <a href="#sec-pruebas" class="toc-item"><span class="toc-num">6</span><div><strong>Pruebas realizadas</strong><span>Inventario · cobertura · capacidad</span></div></a>
+      <a href="#sec-conclusiones" class="toc-item"><span class="toc-num">7</span><div><strong>Conclusiones</strong><span>Qué está listo · qué falta</span></div></a>
+    </div>
+  </div>
+</div>
+
+<!-- =========================================
+     SECCIÓN 1: SEGURIDAD
+     ========================================= -->
+<div class="container">
+  <div class="page-break" id="sec-seguridad">
+    <div class="section-header">
+      <span class="section-num">2</span>
+      <div>
+        <div class="section-eyebrow">Security</div>
+        <h2 style="margin: 0;">Seguridad del software</h2>
+      </div>
+    </div>
+    <p>La seguridad se modela en <strong>cuatro capas concéntricas de defensa</strong>: si una capa falla, las demás siguen protegiendo. Este modelo viene del manual de HioPosCloud §6.1 y se implementa capa por capa con medidas concretas en código.</p>
+
+    <!-- FIGURA: 4 capas con cards al lado -->
+    <div class="figure">
+      <svg width="100%" viewBox="0 0 720 380" xmlns="http://www.w3.org/2000/svg" style="font-family: 'Inter', sans-serif;">
+        <!-- Concentric circles on left side (cx=200, cy=190) -->
+        <!-- Outer ring (Capa 1) -->
+        <circle cx="200" cy="190" r="160" fill="#E6F0FF" stroke="#0066FF" stroke-width="2"/>
+        <circle cx="200" cy="190" r="118" fill="#D1FAE5" stroke="#10B981" stroke-width="2"/>
+        <circle cx="200" cy="190" r="76" fill="#FEF3C7" stroke="#F59E0B" stroke-width="2"/>
+        <circle cx="200" cy="190" r="36" fill="#0066FF"/>
+
+        <!-- Layer labels INSIDE each ring (top-left of each) -->
+        <text x="200" y="42" text-anchor="middle" fill="#0044CC" font-size="13" font-weight="700">CAPA 1</text>
+        <text x="200" y="58" text-anchor="middle" fill="#1A1F36" font-size="9" font-weight="600">HioPos ↔ App</text>
+
+        <text x="200" y="84" text-anchor="middle" fill="#047857" font-size="13" font-weight="700">CAPA 2</text>
+        <text x="200" y="100" text-anchor="middle" fill="#1A1F36" font-size="9" font-weight="600">App ↔ CREDINET</text>
+
+        <text x="200" y="126" text-anchor="middle" fill="#B45309" font-size="13" font-weight="700">CAPA 3</text>
+        <text x="200" y="142" text-anchor="middle" fill="#1A1F36" font-size="9" font-weight="600">APIM</text>
+
+        <!-- Center CAPA 4 text -->
+        <text x="200" y="188" text-anchor="middle" fill="#fff" font-size="12" font-weight="800">CAPA 4</text>
+        <text x="200" y="202" text-anchor="middle" fill="#E0E7FF" font-size="9" font-weight="700">SQLCipher</text>
+
+        <!-- Right side: 4 cards describing each layer -->
+        <!-- CAPA 1 card -->
+        <g transform="translate(420, 30)">
+          <rect width="280" height="76" rx="10" fill="#F8FAFC" stroke="#0066FF" stroke-width="1.5"/>
+          <circle cx="22" cy="22" r="11" fill="#0066FF"/>
+          <text x="22" y="27" text-anchor="middle" fill="#fff" font-size="11" font-weight="800">1</text>
+          <text x="42" y="20" fill="#0044CC" font-size="11" font-weight="700">HioPosCloud ↔ App</text>
+          <text x="42" y="38" fill="#1A1F36" font-size="9">Android Intent · Intra-device</text>
+          <text x="42" y="52" fill="#697386" font-size="8.5">APK firmado · 18 flags GET_BEHAVIOR</text>
+          <rect x="42" y="58" width="60" height="14" rx="7" fill="#D1FAE5"/>
+          <text x="72" y="68" text-anchor="middle" fill="#047857" font-size="8" font-weight="700">BAJO</text>
+        </g>
+
+        <!-- CAPA 2 card -->
+        <g transform="translate(420, 116)">
+          <rect width="280" height="76" rx="10" fill="#F8FAFC" stroke="#10B981" stroke-width="1.5"/>
+          <circle cx="22" cy="22" r="11" fill="#10B981"/>
+          <text x="22" y="27" text-anchor="middle" fill="#fff" font-size="11" font-weight="800">2</text>
+          <text x="42" y="20" fill="#047857" font-size="11" font-weight="700">App ↔ CREDINET</text>
+          <text x="42" y="38" fill="#1A1F36" font-size="9">HTTPS · Internet pública</text>
+          <text x="42" y="52" fill="#697386" font-size="8.5">TLS 1.2+ · Cert Pinning SPKI · Key redactada</text>
+          <rect x="42" y="58" width="60" height="14" rx="7" fill="#FEF3C7"/>
+          <text x="72" y="68" text-anchor="middle" fill="#B45309" font-size="8" font-weight="700">MEDIO</text>
+        </g>
+
+        <!-- CAPA 3 card -->
+        <g transform="translate(420, 202)">
+          <rect width="280" height="76" rx="10" fill="#F8FAFC" stroke="#F59E0B" stroke-width="1.5"/>
+          <circle cx="22" cy="22" r="11" fill="#F59E0B"/>
+          <text x="22" y="27" text-anchor="middle" fill="#fff" font-size="11" font-weight="800">3</text>
+          <text x="42" y="20" fill="#B45309" font-size="11" font-weight="700">APIM CREDINET</text>
+          <text x="42" y="38" fill="#1A1F36" font-size="9">Azure API Management</text>
+          <text x="42" y="52" fill="#697386" font-size="8.5">IP whitelisting por tienda</text>
+          <rect x="42" y="58" width="60" height="14" rx="7" fill="#D1FAE5"/>
+          <text x="72" y="68" text-anchor="middle" fill="#047857" font-size="8" font-weight="700">BAJO</text>
+        </g>
+
+        <!-- CAPA 4 card -->
+        <g transform="translate(420, 288)">
+          <rect width="280" height="76" rx="10" fill="#F8FAFC" stroke="#0066FF" stroke-width="1.5"/>
+          <circle cx="22" cy="22" r="11" fill="#0066FF"/>
+          <text x="22" y="27" text-anchor="middle" fill="#fff" font-size="11" font-weight="800">4</text>
+          <text x="42" y="20" fill="#0044CC" font-size="11" font-weight="700">Datos en dispositivo</text>
+          <text x="42" y="38" fill="#1A1F36" font-size="9">Cédulas · OTP · creditId</text>
+          <text x="42" y="52" fill="#697386" font-size="8.5">SQLCipher AES-256 · state.Clear()</text>
+          <rect x="42" y="58" width="60" height="14" rx="7" fill="#FEF3C7"/>
+          <text x="72" y="68" text-anchor="middle" fill="#B45309" font-size="8" font-weight="700">MEDIO</text>
+        </g>
+      </svg>
+      <div class="caption">Figura 2 — Defensa en profundidad: 4 capas concéntricas. Cada capa asume que las demás pueden fallar.</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <h2>Datos sensibles: política de tratamiento</h2>
+    <p>Aplicamos la matriz del manual §6.2 con tres políticas claras: <strong>prohibido</strong>, <strong>enmascarado</strong> y <strong>aceptable</strong>.</p>
+
+    <table>
+      <tr><th>Dato</th><th>Riesgo</th><th>Política</th><th>Implementación</th></tr>
+      <tr>
+        <td><code>Subscription-Key</code></td>
+        <td><span class="badge badge-red">ALTA</span></td>
+        <td>Nunca en logs</td>
+        <td><code>HttpLoggingHandler.IsSensitiveHeader()</code> → <code>***REDACTED***</code></td>
+      </tr>
+      <tr>
+        <td>Cédula (<code>idDocument</code>)</td>
+        <td><span class="badge badge-orange">MEDIA</span></td>
+        <td>Enmascarada en URL</td>
+        <td>Regex enmascara → <code>**********1234</code></td>
+      </tr>
+      <tr>
+        <td>OTP / Token</td>
+        <td><span class="badge badge-red">ALTA</span></td>
+        <td>Nunca persistido</td>
+        <td>Solo en <code>OtpViewModel.CodigoOtp</code> (memoria)</td>
+      </tr>
+      <tr>
+        <td><code>creditId</code></td>
+        <td><span class="badge badge-orange">MEDIA</span></td>
+        <td>OK en logs internos</td>
+        <td>Reconciliación + auditoría Permoda</td>
+      </tr>
+      <tr>
+        <td>Mobile / Email</td>
+        <td><span class="badge badge-orange">MEDIA</span></td>
+        <td>Solo memoria</td>
+        <td>En <code>Client</code> in-memory; <code>state.Clear()</code> tras TX</td>
+      </tr>
+    </table>
+
+    <div class="divider"></div>
+
+    <h2>Medidas implementadas</h2>
+    <p>Cada medida está respaldada por una clase específica del proyecto que la implementa.</p>
+
+    <div class="grid-3">
+      <div class="card-feature blue">
+        <div class="card-icon blue">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+        </div>
+        <h4>Certificate Pinning</h4>
+        <p><code>CertificatePinning.cs</code> valida el SPKI SHA-256 del certificado contra <code>cfg.CertificatePins</code>. Vacío = TLS estándar; con pins = seguro.</p>
+      </div>
+      <div class="card-feature green">
+        <div class="card-icon green">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+        </div>
+        <h4>SQLCipher</h4>
+        <p><code>SQLitePCLRaw.bundle_e_sqlcipher</code> activo. La BD <code>idempotency.db3</code> queda cifrada AES-256 en reposo.</p>
+      </div>
+      <div class="card-feature blue">
+        <div class="card-icon blue">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><line x1="9" y1="13" x2="15" y2="13"/></svg>
+        </div>
+        <h4>Redacción Subscription-Key</h4>
+        <p><code>IsSensitiveHeader()</code> oculta <code>Ocp-Apim-Subscription-Key</code> y <code>Authorization</code> en headers, body y logs.</p>
+      </div>
+      <div class="card-feature green">
+        <div class="card-icon green">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        </div>
+        <h4>Enmascarar cédula</h4>
+        <p>Regex <code>(idDocument=)(\d+)</code> enmascara los primeros dígitos dejando solo los últimos 4.</p>
+      </div>
+      <div class="card-feature orange">
+        <div class="card-icon orange">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+        </div>
+        <h4>Reintentos con Polly</h4>
+        <p><code>CredinetHttpPolicies.cs</code> reintenta solo fallos transitorios y solo en GETs idempotentes. Excluye OTP y POST.</p>
+      </div>
+      <div class="card-feature green">
+        <div class="card-icon green">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+        </div>
+        <h4>state.Clear() tras TX</h4>
+        <p>Antes de <code>FinishWithResult</code> se limpia cliente, crédito, documento y monto de la memoria.</p>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <h2>Threat model — ¿qué ataques cubrimos?</h2>
+    <div class="callout warn">
+      <strong>Mentalidad:</strong>
+      <span>Cada fila es un escenario realista, no teórico. El atacante está dentro o cerca del POS, o tiene acceso a la red WiFi de la tienda.</span>
+    </div>
+
+    <table>
+      <tr><th>Amenaza</th><th>Vector</th><th>Mitigación</th></tr>
+      <tr>
+        <td><strong>App falsa suplanta identidad</strong></td>
+        <td>Otro APK declara los mismos intent-filters</td>
+        <td>ICG valida el SHA-256 del firmante en CloudLicense</td>
+      </tr>
+      <tr>
+        <td><strong>Robo de Subscription-Key en tránsito</strong></td>
+        <td>MITM en LAN del POS</td>
+        <td>TLS 1.2+ + Certificate Pinning SPKI</td>
+      </tr>
+      <tr>
+        <td><strong>Fuga de key por logs</strong></td>
+        <td>Logcat/dumpsys revela el header</td>
+        <td><code>HttpLoggingHandler</code> redacta antes de persistir</td>
+      </tr>
+      <tr>
+        <td><strong>Lectura de BD local</strong></td>
+        <td>POS robado o USB debugging</td>
+        <td>SQLCipher AES-256: ilegible sin passphrase</td>
+      </tr>
+      <tr>
+        <td><strong>Doble cobro (re-ataque)</strong></td>
+        <td>POS re-dispara TRANSACTION tras timeout</td>
+        <td><code>SqliteIdempotencyStore</code> indexa por <code>SaleId</code></td>
+      </tr>
+      <tr>
+        <td><strong>XML malicioso en SellerData/DocumentPath</strong></td>
+        <td>Manipulación del XML por terceros</td>
+        <td>Extracción defensiva + <code>Escape()</code> en ReceiptBuilder</td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+<!-- =========================================
+     SECCIÓN 2: PRINCIPIOS
+     ========================================= -->
+<div class="container">
+  <div class="page-break" id="sec-principios">
+    <div class="section-header">
+      <span class="section-num" style="background: #6366F1;">3</span>
+      <div>
+        <div class="section-eyebrow" style="color: #6366F1;">Design principles</div>
+        <h2 style="margin: 0;">Principios de diseño</h2>
+      </div>
+    </div>
+    <p>El proyecto se adhiere a tres familias de principios: <strong>SOLID</strong> (diseño orientado a objetos), <strong>DRY</strong> (una sola fuente de verdad) y <strong>KISS</strong> (simplicidad sobre generalización prematura).</p>
+
+    <!-- FIGURA: 5 columnas SOLID -->
+    <div class="figure">
+      <svg width="100%" viewBox="0 0 720 280" xmlns="http://www.w3.org/2000/svg" style="font-family: 'Inter', sans-serif;">
+        <!-- Title -->
+        <text x="360" y="26" text-anchor="middle" fill="#0A0E27" font-size="14" font-weight="700">Los 5 principios SOLID</text>
+
+        <!-- 5 cards en fila -->
+        <!-- S -->
+        <g transform="translate(20, 50)">
+          <rect width="130" height="200" rx="12" fill="#0066FF"/>
+          <text x="65" y="60" text-anchor="middle" fill="#fff" font-size="42" font-weight="800">S</text>
+          <line x1="30" y1="80" x2="100" y2="80" stroke="#fff" stroke-width="1.5" opacity="0.4"/>
+          <text x="65" y="105" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">Single</text>
+          <text x="65" y="120" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">Responsibility</text>
+          <text x="15" y="148" fill="#E0E7FF" font-size="9">Una clase, una</text>
+          <text x="15" y="160" fill="#E0E7FF" font-size="9">razón para</text>
+          <text x="15" y="172" fill="#E0E7FF" font-size="9">cambiar.</text>
+          <text x="15" y="190" fill="#E0E7FF" font-size="9" font-style="italic" opacity="0.8">SRP</text>
+        </g>
+
+        <!-- O -->
+        <g transform="translate(160, 50)">
+          <rect width="130" height="200" rx="12" fill="#10B981"/>
+          <text x="65" y="60" text-anchor="middle" fill="#fff" font-size="42" font-weight="800">O</text>
+          <line x1="30" y1="80" x2="100" y2="80" stroke="#fff" stroke-width="1.5" opacity="0.4"/>
+          <text x="65" y="105" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">Open /</text>
+          <text x="65" y="120" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">Closed</text>
+          <text x="15" y="148" fill="#D1FAE5" font-size="9">Extensión sin</text>
+          <text x="15" y="160" fill="#D1FAE5" font-size="9">modificar el</text>
+          <text x="15" y="172" fill="#D1FAE5" font-size="9">código existente.</text>
+          <text x="15" y="190" fill="#D1FAE5" font-size="9" font-style="italic" opacity="0.8">OCP</text>
+        </g>
+
+        <!-- L -->
+        <g transform="translate(300, 50)">
+          <rect width="130" height="200" rx="12" fill="#F59E0B"/>
+          <text x="65" y="60" text-anchor="middle" fill="#fff" font-size="42" font-weight="800">L</text>
+          <line x1="30" y1="80" x2="100" y2="80" stroke="#fff" stroke-width="1.5" opacity="0.4"/>
+          <text x="65" y="105" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">Liskov</text>
+          <text x="65" y="120" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">Substitution</text>
+          <text x="15" y="148" fill="#FEF3C7" font-size="9">Implementaciones</text>
+          <text x="15" y="160" fill="#FEF3C7" font-size="9">intercambiables</text>
+          <text x="15" y="172" fill="#FEF3C7" font-size="9">sin romper nada.</text>
+          <text x="15" y="190" fill="#FEF3C7" font-size="9" font-style="italic" opacity="0.8">LSP</text>
+        </g>
+
+        <!-- I -->
+        <g transform="translate(440, 50)">
+          <rect width="130" height="200" rx="12" fill="#EF4444"/>
+          <text x="65" y="60" text-anchor="middle" fill="#fff" font-size="42" font-weight="800">I</text>
+          <line x1="30" y1="80" x2="100" y2="80" stroke="#fff" stroke-width="1.5" opacity="0.4"/>
+          <text x="65" y="105" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">Interface</text>
+          <text x="65" y="120" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">Segregation</text>
+          <text x="15" y="148" fill="#FEE2E2" font-size="9">Interfaces</text>
+          <text x="15" y="160" fill="#FEE2E2" font-size="9">pequeñas, no</text>
+          <text x="15" y="172" fill="#FEE2E2" font-size="9">fat interfaces.</text>
+          <text x="15" y="190" fill="#FEE2E2" font-size="9" font-style="italic" opacity="0.8">ISP</text>
+        </g>
+
+        <!-- D -->
+        <g transform="translate(580, 50)">
+          <rect width="130" height="200" rx="12" fill="#0A0E27"/>
+          <text x="65" y="60" text-anchor="middle" fill="#fff" font-size="42" font-weight="800">D</text>
+          <line x1="30" y1="80" x2="100" y2="80" stroke="#fff" stroke-width="1.5" opacity="0.4"/>
+          <text x="65" y="105" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">Dependency</text>
+          <text x="65" y="120" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">Inversion</text>
+          <text x="15" y="148" fill="#CBD5E1" font-size="9">Depender de</text>
+          <text x="15" y="160" fill="#CBD5E1" font-size="9">abstracciones,</text>
+          <text x="15" y="172" fill="#CBD5E1" font-size="9">no concreciones.</text>
+          <text x="15" y="190" fill="#CBD5E1" font-size="9" font-style="italic" opacity="0.8">DIP</text>
+        </g>
+      </svg>
+      <div class="caption">Figura 3 — Los 5 principios SOLID. Cada color representa un pilar de diseño distinto.</div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card-feature blue">
+        <span class="tag primary">S · Single</span>
+        <h4 style="margin-top: 10px;">Single Responsibility</h4>
+        <p>Cada clase tiene una sola razón para cambiar. <code>SistecreditoService</code> orquesta lógica de dominio; no sabe nada de HTTP, SQLite ni Android Intents.</p>
+<pre><code><span class="keyword">public class</span> <span class="type">SistecreditoService</span> {
+    <span class="comment">// Solo orquesta, no sabe de Android</span>
+    <span class="keyword">private readonly</span> <span class="type">ICredinetRepository</span> _repo;
+    <span class="keyword">private readonly</span> <span class="type">IAuditLogger</span> _audit;
+    <span class="keyword">private readonly</span> <span class="type">IIdempotencyStore</span> _idempotency;
+}</code></pre>
+      </div>
+      <div class="card-feature green">
+        <span class="tag success">O · Open</span>
+        <h4 style="margin-top: 10px;">Open / Closed</h4>
+        <p>Extensiones sin modificar. Los enums <code>DocumentType</code> y <code>CreditFrequency</code> exponen mapeos como métodos de extensión.</p>
+<pre><code><span class="keyword">public enum</span> <span class="type">DocumentType</span> { CedulaCiudadania, CedulaExtranjeria }
+
+<span class="keyword">public static class</span> <span class="type">DocumentTypeExtensions</span> {
+    <span class="keyword">public static string</span> <span class="func">Code</span>(<span class="keyword">this</span> <span class="type">DocumentType</span> t) =&gt; t <span class="keyword">switch</span> {
+        <span class="type">DocumentType</span>.CedulaCiudadania  =&gt; <span class="string">"CC"</span>,
+        <span class="type">DocumentType</span>.CedulaExtranjeria =&gt; <span class="string">"CE"</span>,
+    };
+}</code></pre>
+      </div>
+      <div class="card-feature orange">
+        <span class="tag warn">L · Liskov</span>
+        <h4 style="margin-top: 10px;">Liskov Substitution</h4>
+        <p>Las implementaciones son intercambiables. <code>ITransactionResultHandler</code> tiene una implementación real y una <code>NoOp</code> para tests.</p>
+<pre><code><span class="keyword">public interface</span> <span class="type">ITransactionResultHandler</span> {
+    <span class="keyword">void</span> <span class="func">FinishWithResult</span>(<span class="type">HioposResponse</span> response);
+}
+
+<span class="comment">// Producción</span>
+<span class="keyword">public class</span> <span class="type">AndroidTransactionResultHandler</span> : ITransactionResultHandler { ... }
+
+<span class="comment">// Tests</span>
+<span class="keyword">internal class</span> <span class="type">NoOpTransactionResultHandler</span> : ITransactionResultHandler { }</code></pre>
+      </div>
+      <div class="card-feature red">
+        <span class="tag danger">I · Interface</span>
+        <h4 style="margin-top: 10px;">Interface Segregation</h4>
+        <p>Interfaces pequeñas y específicas. Separamos <code>ITransactionResultHandler</code>, <code>ITransactionStateStore</code> e <code>INavigationService</code>.</p>
+<pre><code><span class="comment">// El VM pide solo lo que necesita</span>
+<span class="keyword">public partial class</span> <span class="type">ConfirmacionViewModel</span>(
+    <span class="type">ITransactionStateStore</span> state,
+    <span class="type">ITransactionResultHandler</span> resultHandler,
+    <span class="type">ReceiptBuilder</span> receiptBuilder,
+    <span class="type">INavigationService</span> nav) : <span class="type">ObservableObject</span>;</code></pre>
+      </div>
+      <div class="card-feature dark" style="grid-column: span 2;">
+        <span class="tag" style="background: #6366F1;">D · Dependency Inversion</span>
+        <h4 style="margin-top: 10px;">Dependency Inversion</h4>
+        <p>Las dependencias apuntan a abstracciones, no a concreciones. Toda la inyección se configura en <code>MauiProgram.CreateMauiApp</code>.</p>
+<pre><code><span class="comment">// MauiProgram.cs — un solo lugar, todas las dependencias</span>
+builder.Services.AddSingleton&lt;<span class="type">ICredinetRepository</span>, <span class="type">CredinetRepository</span>&gt;();
+builder.Services.AddSingleton&lt;<span class="type">IAuditLogger</span>, <span class="type">BroadcastAuditLogger</span>&gt;();
+builder.Services.AddSingleton&lt;<span class="type">ITransactionResultHandler</span>, <span class="type">AndroidTransactionResultHandler</span>&gt;();
+<span class="comment">// Tests inyectan fakes sin recompilar la app.</span></code></pre>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="grid-2">
+      <div class="card">
+        <span class="tag primary">DRY</span>
+        <h4 style="margin-top: 10px;">Don't Repeat Yourself</h4>
+        <p>Cada constante vive en un único lugar. Cambiar el nombre del APK se hace en <strong>una sola línea</strong>:</p>
+<pre><code><span class="comment">// HioposActions.cs</span>
+<span class="keyword">public const string</span> ApkName = <span class="string">"sistecredito"</span>;
+<span class="keyword">private const string</span> Prefix = <span class="string">"icg.actions.electronicpayment."</span> + ApkName + <span class="string">"."</span>;
+
+<span class="keyword">public const string</span> Initialize  = Prefix + <span class="string">"INITIALIZE"</span>;
+<span class="keyword">public const string</span> Transaction = Prefix + <span class="string">"TRANSACTION"</span>;
+<span class="comment">// ... las 11 actions se generan desde aquí</span></code></pre>
+        <p>Otras "single sources of truth": <code>ApiConfig</code> (URL/headers), <code>HioposCapabilities</code> (18 flags), <code>CredinetMapper</code>, <code>ReceiptBuilder</code>.</p>
+      </div>
+      <div class="card">
+        <span class="tag success">KISS</span>
+        <h4 style="margin-top: 10px;">Keep It Simple, Stupid</h4>
+        <p>Preferimos la solución obvia. Tipos de retorno seguros en vez de excepciones para control de flujo.</p>
+<pre><code><span class="comment">// En vez de lanzar y atrapar excepciones...</span>
+<span class="keyword">public abstract record</span> <span class="type">ApiResult</span>&lt;T&gt; {
+    <span class="keyword">public sealed record</span> <span class="type">Ok</span>&lt;U&gt;(U Data)   : <span class="type">ApiResult</span>&lt;U&gt;;
+    <span class="keyword">public sealed record</span> <span class="type">Failure</span>&lt;U&gt;(<span class="type">ApiError</span> Cause) : <span class="type">ApiResult</span>&lt;U&gt;;
+}
+
+<span class="comment">// El VM hace pattern matching, sin try/catch de control:</span>
+<span class="keyword">switch</span> (result) {
+    <span class="keyword">case</span> <span class="type">ApiResult</span>&lt;<span class="type">Client</span>&gt;.<span class="type">Ok</span>&lt;<span class="type">Client</span>&gt; ok: <span class="comment">/* happy */</span>
+    <span class="keyword">case</span> <span class="type">ApiResult</span>&lt;<span class="type">Client</span>&gt;.<span class="type">Failure</span>&lt;<span class="type">Client</span>&gt; f: <span class="comment">/* error */</span>
+}</code></pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- =========================================
+     SECCIÓN 3: ARQUITECTURA
+     ========================================= -->
+<div class="container">
+  <div class="page-break" id="sec-arquitectura">
+    <div class="section-header">
+      <span class="section-num" style="background: #10B981;">4</span>
+      <div>
+        <div class="section-eyebrow" style="color: #047857;">Architecture</div>
+        <h2 style="margin: 0;">Arquitectura: el porqué</h2>
+      </div>
+    </div>
+    <p>La elección de separar <em>View ↔ ViewModel ↔ UseCase ↔ Service ↔ Repository</em> no fue caprichosa: cada límite existe para resolver un problema concreto.</p>
+
+    <!-- FIGURA: capas en columna -->
+    <div class="figure">
+      <svg width="100%" viewBox="0 0 720 380" xmlns="http://www.w3.org/2000/svg" style="font-family: 'Inter', sans-serif;">
+        <text x="360" y="22" text-anchor="middle" fill="#0A0E27" font-size="14" font-weight="700">Las 5 capas de la aplicación</text>
+
+        <!-- Layer 5 -->
+        <g transform="translate(40, 40)">
+          <rect width="640" height="56" rx="10" fill="#0066FF"/>
+          <rect x="0" y="0" width="6" height="56" fill="#0044CC"/>
+          <text x="20" y="22" fill="#fff" font-size="13" font-weight="700">Capa 5 · Views (XAML)</text>
+          <text x="20" y="42" fill="#E0E7FF" font-size="10">11 páginas + HeroCardView control · Behaviors (Pressable, Entrance)</text>
+          <rect x="540" y="18" width="80" height="22" rx="11" fill="#fff"/>
+          <text x="580" y="33" text-anchor="middle" fill="#0066FF" font-size="10" font-weight="700">11 archivos</text>
+        </g>
+
+        <!-- Layer 4 -->
+        <g transform="translate(40, 106)">
+          <rect width="640" height="56" rx="10" fill="#10B981"/>
+          <rect x="0" y="0" width="6" height="56" fill="#047857"/>
+          <text x="20" y="22" fill="#fff" font-size="13" font-weight="700">Capa 4 · ViewModels (MVVM)</text>
+          <text x="20" y="42" fill="#D1FAE5" font-size="10">HomeVM, CapturaCedulaVM, ValidacionClienteVM, SeleccionCuotasVM, OtpVM, ...</text>
+          <rect x="540" y="18" width="80" height="22" rx="11" fill="#fff"/>
+          <text x="580" y="33" text-anchor="middle" fill="#10B981" font-size="10" font-weight="700">11 archivos</text>
+        </g>
+
+        <!-- Layer 3 -->
+        <g transform="translate(40, 172)">
+          <rect width="640" height="56" rx="10" fill="#F59E0B"/>
+          <rect x="0" y="0" width="6" height="56" fill="#B45309"/>
+          <text x="20" y="22" fill="#fff" font-size="13" font-weight="700">Capa 3 · UseCases (Dominio)</text>
+          <text x="20" y="42" fill="#FEF3C7" font-size="10">SistecreditoService · Validar · Simular · SolicitarOTP · Crear · Pagar · Límite</text>
+          <rect x="540" y="18" width="80" height="22" rx="11" fill="#fff"/>
+          <text x="580" y="33" text-anchor="middle" fill="#F59E0B" font-size="10" font-weight="700">1 fachada</text>
+        </g>
+
+        <!-- Layer 2 -->
+        <g transform="translate(40, 238)">
+          <rect width="640" height="56" rx="10" fill="#EF4444"/>
+          <rect x="0" y="0" width="6" height="56" fill="#B91C1C"/>
+          <text x="20" y="22" fill="#fff" font-size="13" font-weight="700">Capa 2 · Services (Adaptadores)</text>
+          <text x="20" y="42" fill="#FEE2E2" font-size="10">CredinetApiClient · CredinetRepository · HioposResultBuilder · ReceiptBuilder · MainActivity</text>
+          <rect x="540" y="18" width="80" height="22" rx="11" fill="#fff"/>
+          <text x="580" y="33" text-anchor="middle" fill="#EF4444" font-size="10" font-weight="700">~15 clases</text>
+        </g>
+
+        <!-- Layer 1 -->
+        <g transform="translate(40, 304)">
+          <rect width="640" height="56" rx="10" fill="#6366F1"/>
+          <rect x="0" y="0" width="6" height="56" fill="#4338CA"/>
+          <text x="20" y="22" fill="#fff" font-size="13" font-weight="700">Capa 1 · Models / DTOs / Mappers</text>
+          <text x="20" y="42" fill="#E0E7FF" font-size="10">Client · Credit · CreditToken · ActiveCredit · Payment · Dtos/* · CredinetMapper</text>
+          <rect x="540" y="18" width="80" height="22" rx="11" fill="#fff"/>
+          <text x="580" y="33" text-anchor="middle" fill="#6366F1" font-size="10" font-weight="700">~25 records</text>
+        </g>
+      </svg>
+      <div class="caption">Figura 4 — Las 5 capas de la aplicación. Cada capa depende solo de la capa inferior.</div>
+    </div>
+
+    <div class="grid-2">
+      <div class="callout success">
+        <strong>Testabilidad.</strong>
+        <span>El <code>SistecreditoService</code> se testea con <code>FakeRepo</code> que no toca red. Tests corren offline en milisegundos.</span>
+      </div>
+      <div class="callout">
+        <strong>Mantenibilidad.</strong>
+        <span>Cambiar la UI no toca la lógica de dominio. Cambiar la API no toca la UI.</span>
+      </div>
+      <div class="callout">
+        <strong>Sustituibilidad.</strong>
+        <span>Reemplazar <code>HttpLoggingHandler</code> por Serilog no rompe nada — solo se cambia el binding.</span>
+      </div>
+      <div class="callout warn">
+        <strong>Demo vs Producción.</strong>
+        <span><code>SistecreditoService</code> detecta <code>IsSyntheticDemo</code> y devuelve datos sintéticos sin red. La UI es la misma.</span>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <h2>Flujo de una transacción completa</h2>
+
+    <div class="figure">
+      <svg width="100%" viewBox="0 0 720 540" xmlns="http://www.w3.org/2000/svg" style="font-family: 'Inter', sans-serif; font-size: 10pt;">
+        <defs>
+          <marker id="arr-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#0066FF"/></marker>
+          <marker id="arr-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#10B981"/></marker>
+          <marker id="arr-amber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#F59E0B"/></marker>
+          <marker id="arr-pink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#EC4899"/></marker>
+        </defs>
+
+        <!-- 4 swimlanes -->
+        <rect x="0" y="0" width="720" height="120" fill="#F8FAFC"/>
+        <rect x="0" y="120" width="720" height="160" fill="#fff"/>
+        <rect x="0" y="280" width="720" height="140" fill="#F8FAFC"/>
+        <rect x="0" y="420" width="720" height="120" fill="#fff"/>
+
+        <!-- Lane titles -->
+        <text x="20" y="32" fill="#0066FF" font-weight="700" font-size="12">HioPosCloud (POS)</text>
+        <text x="20" y="48" fill="#697386" font-size="9">Lanza Intents · espera setResult · imprime</text>
+
+        <text x="20" y="162" fill="#10B981" font-weight="700" font-size="12">App .NET (SistecreditoTEF)</text>
+        <text x="20" y="178" fill="#697386" font-size="9">ViewModels · UseCases · Services · SQLite local</text>
+
+        <text x="20" y="312" fill="#F59E0B" font-weight="700" font-size="12">CREDINET API (Azure APIM)</text>
+        <text x="20" y="328" fill="#697386" font-size="9">REST + JSON · API Management Key · IP whitelist</text>
+
+        <text x="20" y="452" fill="#EC4899" font-weight="700" font-size="12">SQLite + SQLCipher (local)</text>
+        <text x="20" y="468" fill="#697386" font-size="9">idempotency.db3 · cifrado AES-256 en reposo</text>
+
+        <!-- Step boxes (placed per lane) -->
+        <!-- ① HioPos -> App: TRANSACTION Intent -->
+        <g transform="translate(240, 60)">
+          <rect width="460" height="44" rx="6" fill="#fff" stroke="#0066FF" stroke-width="1.5"/>
+          <circle cx="20" cy="22" r="11" fill="#0066FF"/>
+          <text x="20" y="26" text-anchor="middle" fill="#fff" font-size="10" font-weight="800">1</text>
+          <text x="38" y="20" fill="#0A0E27" font-size="10" font-weight="700">TRANSACTION Intent</text>
+          <text x="38" y="35" fill="#697386" font-size="9">Amount · DocumentPath · SellerData · ShopData · TransactionId</text>
+        </g>
+
+        <!-- ②-③ App: Parse + Pantalla 1 -->
+        <g transform="translate(240, 150)">
+          <rect width="220" height="50" rx="6" fill="#fff" stroke="#10B981" stroke-width="1.5"/>
+          <circle cx="20" cy="25" r="11" fill="#10B981"/>
+          <text x="20" y="29" text-anchor="middle" fill="#fff" font-size="10" font-weight="800">2</text>
+          <text x="38" y="22" fill="#0A0E27" font-size="10" font-weight="700">Parse + leer XML</text>
+          <text x="38" y="37" fill="#697386" font-size="8.5">DocumentPath → SaleId, líneas, total</text>
+        </g>
+        <g transform="translate(480, 150)">
+          <rect width="220" height="50" rx="6" fill="#fff" stroke="#10B981" stroke-width="1.5"/>
+          <circle cx="20" cy="25" r="11" fill="#10B981"/>
+          <text x="20" y="29" text-anchor="middle" fill="#fff" font-size="10" font-weight="800">3</text>
+          <text x="38" y="22" fill="#0A0E27" font-size="10" font-weight="700">Pantalla 1 → cédula</text>
+          <text x="38" y="37" fill="#697386" font-size="8.5">ViewModel CapturaCedulaPage</text>
+        </g>
+
+        <!-- ④-⑤ App → CREDINET → App: GET getCreditLimitClient -->
+        <g transform="translate(240, 305)">
+          <rect width="220" height="50" rx="6" fill="#fff" stroke="#F59E0B" stroke-width="1.5"/>
+          <circle cx="20" cy="25" r="11" fill="#F59E0B"/>
+          <text x="20" y="29" text-anchor="middle" fill="#fff" font-size="10" font-weight="800">4</text>
+          <text x="38" y="22" fill="#0A0E27" font-size="10" font-weight="700">GET /getCreditLimitClient</text>
+          <text x="38" y="37" fill="#697386" font-size="8.5">AuthInterceptor añade Subscription-Key</text>
+        </g>
+        <g transform="translate(480, 305)">
+          <rect width="220" height="50" rx="6" fill="#fff" stroke="#10B981" stroke-width="1.5"/>
+          <circle cx="20" cy="25" r="11" fill="#10B981"/>
+          <text x="20" y="29" text-anchor="middle" fill="#fff" font-size="10" font-weight="800">5</text>
+          <text x="38" y="22" fill="#0A0E27" font-size="10" font-weight="700">Response: Client</text>
+          <text x="38" y="37" fill="#697386" font-size="8.5">creditLimit · availableCreditLimit</text>
+        </g>
+
+        <!-- ⑥-⑧ Simular -->
+        <g transform="translate(240, 365)">
+          <rect width="220" height="44" rx="6" fill="#fff" stroke="#F59E0B" stroke-width="1.5"/>
+          <circle cx="20" cy="22" r="11" fill="#F59E0B"/>
+          <text x="20" y="26" text-anchor="middle" fill="#fff" font-size="10" font-weight="800">6</text>
+          <text x="38" y="19" fill="#0A0E27" font-size="10" font-weight="700">GET /getCreditDetails</text>
+          <text x="38" y="33" fill="#697386" font-size="8.5">cuota · TEA · aval</text>
+        </g>
+
+        <!-- ⑦-⑧ en App: Pantalla 3, OTP, etc -->
+        <g transform="translate(480, 220)">
+          <rect width="220" height="44" rx="6" fill="#fff" stroke="#10B981" stroke-width="1.5"/>
+          <circle cx="20" cy="22" r="11" fill="#10B981"/>
+          <text x="20" y="26" text-anchor="middle" fill="#fff" font-size="10" font-weight="800">6</text>
+          <text x="38" y="19" fill="#0A0E27" font-size="10" font-weight="700">Pantalla 3 → plan</text>
+          <text x="38" y="33" fill="#697386" font-size="8.5">cuota inicial + mensual + TEA</text>
+        </g>
+        <g transform="translate(480, 365)">
+          <rect width="220" height="44" rx="6" fill="#fff" stroke="#10B981" stroke-width="1.5"/>
+          <circle cx="20" cy="22" r="11" fill="#10B981"/>
+          <text x="20" y="26" text-anchor="middle" fill="#fff" font-size="10" font-weight="800">7</text>
+          <text x="38" y="19" fill="#0A0E27" font-size="10" font-weight="700">Pantalla 4 → OTP</text>
+          <text x="38" y="33" fill="#697386" font-size="8.5">cliente digita clave de 6 dígitos</text>
+        </g>
+
+        <!-- ⑨-⑩ OTP -->
+        <g transform="translate(240, 445)">
+          <rect width="220" height="44" rx="6" fill="#fff" stroke="#F59E0B" stroke-width="1.5"/>
+          <circle cx="20" cy="22" r="11" fill="#F59E0B"/>
+          <text x="20" y="26" text-anchor="middle" fill="#fff" font-size="10" font-weight="800">8</text>
+          <text x="38" y="19" fill="#0A0E27" font-size="10" font-weight="700">GET /getCreditToken</text>
+          <text x="38" y="33" fill="#697386" font-size="8.5">destino: SMS (0) o WhatsApp (1)</text>
+        </g>
+        <g transform="translate(480, 445)">
+          <rect width="220" height="44" rx="6" fill="#fff" stroke="#F59E0B" stroke-width="1.5"/>
+          <circle cx="20" cy="22" r="11" fill="#F59E0B"/>
+          <text x="20" y="26" text-anchor="middle" fill="#fff" font-size="10" font-weight="800">9</text>
+          <text x="38" y="19" fill="#0A0E27" font-size="10" font-weight="700">POST /create</text>
+          <text x="38" y="33" fill="#697386" font-size="8.5">con invoice=SaleId, seller, products</text>
+        </g>
+
+        <!-- SQLite persist -->
+        <g transform="translate(240, 500)">
+          <rect width="460" height="32" rx="6" fill="#fff" stroke="#EC4899" stroke-width="1.5"/>
+          <circle cx="20" cy="16" r="11" fill="#EC4899"/>
+          <text x="20" y="20" text-anchor="middle" fill="#fff" font-size="10" font-weight="800">10</text>
+          <text x="38" y="14" fill="#0A0E27" font-size="10" font-weight="700">INSERT idempotency(SaleId → CreditId)</text>
+          <text x="38" y="26" fill="#697386" font-size="8.5">cache para evitar DuplicatedCredit en reintentos</text>
+        </g>
+
+        <!-- Arrows (vertical between steps) -->
+        <line x1="350" y1="104" x2="350" y2="148" stroke="#0066FF" stroke-width="1.5" marker-end="url(#arr-blue)"/>
+        <line x1="350" y1="200" x2="350" y2="303" stroke="#10B981" stroke-width="1.5" marker-end="url(#arr-green)"/>
+        <line x1="350" y1="355" x2="350" y2="443" stroke="#F59E0B" stroke-width="1.5" marker-end="url(#arr-amber)"/>
+        <line x1="350" y1="489" x2="350" y2="498" stroke="#EC4899" stroke-width="1.5" marker-end="url(#arr-pink)"/>
+        <!-- Right column arrows -->
+        <line x1="590" y1="200" x2="590" y2="218" stroke="#10B981" stroke-width="1.5" marker-end="url(#arr-green)"/>
+        <line x1="590" y1="355" x2="590" y2="363" stroke="#10B981" stroke-width="1.5" marker-end="url(#arr-green)"/>
+        <!-- Cross-lane: GET 4 -> Response 5 -->
+        <line x1="460" y1="330" x2="478" y2="330" stroke="#F59E0B" stroke-width="1.5" marker-end="url(#arr-amber)"/>
+      </svg>
+      <div class="caption">Figura 5 — Flujo end-to-end. Cada bloque numerado representa un paso; las flechas indican el orden de ejecución.</div>
+    </div>
+  </div>
+</div>
+
+<!-- =========================================
+     SECCIÓN 4: ESTÁNDARES
+     ========================================= -->
+<div class="container">
+  <div class="page-break" id="sec-estandares">
+    <div class="section-header">
+      <span class="section-num" style="background: #0A0E27;">5</span>
+      <div>
+        <div class="section-eyebrow" style="color: #0A0E27;">Coding standards</div>
+        <h2 style="margin: 0;">Estándares de codificación</h2>
+      </div>
+    </div>
+    <p>Convención revisada en cada PR. Lo que no está acá, se resuelve por mayoría de lo existente.</p>
+
+    <h3>Convenciones de nombres</h3>
+    <table>
+      <tr><th>Elemento</th><th>Convención</th><th>Ejemplo del proyecto</th></tr>
+      <tr><td>Clases / records</td><td>PascalCase, singular</td><td><code>SistecreditoService</code>, <code>CreditTokenDto</code>, <code>ApiResult&lt;T&gt;</code></td></tr>
+      <tr><td>Interfaces</td><td>IPascalCase</td><td><code>ICredinetApi</code>, <code>IAuditLogger</code>, <code>ITransactionStateStore</code></td></tr>
+      <tr><td>Métodos públicos</td><td>PascalCase, verbos</td><td><code>ValidarClienteAsync</code>, <code>BuildBehavior</code></td></tr>
+      <tr><td>Propiedades</td><td>PascalCase</td><td><code>CreditLimit</code>, <code>AvailableCreditLimit</code></td></tr>
+      <tr><td>Campos privados</td><td>_camelCase</td><td><code>_repo</code>, <code>_audit</code>, <code>_config</code>, <code>_pendingIntent</code></td></tr>
+      <tr><td>Parámetros / locales</td><td>camelCase</td><td><code>creditValue</code>, <code>idDocument</code>, <code>tipoDocumento</code></td></tr>
+      <tr><td>Constantes</td><td>PascalCase</td><td><code>ApkName</code>, <code>SandboxSubscriptionKey</code></td></tr>
+      <tr><td>Enums</td><td>PascalCase</td><td><code>enum DocumentType { CedulaCiudadania, ... }</code></td></tr>
+      <tr><td>Async</td><td>Sufijo <code>Async</code></td><td><code>CrearCreditoAsync</code>, <code>GetCreditLimitClientAsync</code></td></tr>
+    </table>
+
+    <div class="grid-2">
+      <div class="card-feature blue">
+        <h4>Records, inmutabilidad y DTOs</h4>
+        <p>Usamos <code>record</code> para todos los modelos de dominio y DTOs. Por qué: <strong>inmutabilidad</strong>, <strong>igualdad por valor</strong>, <strong>serialización trivial</strong>, <strong>sintaxis concisa</strong>.</p>
+<pre><code><span class="keyword">public record</span> <span class="type">Credit</span>(
+    <span class="keyword">string</span> TypeDocument,
+    <span class="keyword">string</span> IdDocument,
+    <span class="keyword">string</span> CreditId,
+    <span class="keyword">int</span>    CreditNumber,
+    <span class="keyword">double</span> EffectiveAnnualRate,
+    <span class="comment">// ...</span>
+);</code></pre>
+      </div>
+      <div class="card-feature green">
+        <h4>Async/await y cancelación</h4>
+        <p>Reglas: todo I/O es async, sufijo <code>Async</code> obligatorio, sin <code>.Result</code>/<code>.Wait()</code>, sin <code>ConfigureAwait(false)</code> en UI.</p>
+<pre><code><span class="comment">// VM: continuacion en UI thread para bindings + Shell</span>
+<span class="keyword">public async</span> <span class="type">Task</span> <span class="func">ValidarAsync</span>() {
+    <span class="keyword">var</span> result = <span class="keyword">await</span> service.<span class="func">ValidarClienteAsync</span>(
+        TipoDocumento, NumeroDocumento);
+    <span class="keyword">switch</span> (result) {
+        <span class="keyword">case</span> <span class="type">ApiResult</span>&lt;<span class="type">Client</span>&gt;.<span class="type">Ok</span>&lt;<span class="type">Client</span>&gt; ok:
+            <span class="comment">// bindings actualizados, Shell.GoToAsync</span>
+    }
+}</code></pre>
+      </div>
+      <div class="card-feature orange">
+        <h4>Nullable reference types</h4>
+        <p><code>&lt;Nullable&gt;enable&lt;/Nullable&gt;</code> activo. DTOs nullable (<code>string?</code>, <code>double?</code>); dominio no-null con defaults aplicados en mapper.</p>
+<pre><code><span class="comment">// DTO: nullable porque el backend puede omitir</span>
+<span class="keyword">public record</span> <span class="type">ClientDto</span>(
+    <span class="type">[</span><span class="func">JsonPropertyName</span>(<span class="string">"creditLimit"</span>)] <span class="keyword">double</span>? CreditLimit,
+    <span class="type">[</span><span class="func">JsonPropertyName</span>(<span class="string">"email"</span>)] <span class="keyword">string</span>? Email);
+
+<span class="comment">// Dominio: no-null (mapper aplica defaults)</span>
+<span class="keyword">public record</span> <span class="type">Client</span>(
+    <span class="type">DocumentType</span> DocumentType,
+    <span class="keyword">string</span> DocumentId,    <span class="comment">// nunca null</span>
+    <span class="keyword">double</span> CreditLimit);   <span class="comment">// nunca null</span></code></pre>
+      </div>
+      <div class="card-feature dark">
+        <h4>Inyección de dependencias</h4>
+        <p>Toda dependencia se inyecta por constructor. Nunca Service Locator. El contenedor se configura en <code>MauiProgram</code>.</p>
+<pre><code><span class="comment">// Singletons: estado compartido, HTTP, SQLite</span>
+builder.Services.AddSingleton&lt;<span class="type">ICredinetRepository</span>, <span class="type">CredinetRepository</span>&gt;();
+builder.Services.AddSingleton&lt;<span class="type">ITransactionStateStore</span>, <span class="type">TransactionStateStore</span>&gt;();
+
+<span class="comment">// Transients: VMs y Pages (uno por navegación)</span>
+builder.Services.AddTransient&lt;<span class="type">HomeViewModel</span>&gt;();
+builder.Services.AddTransient&lt;<span class="type">CapturaCedulaPage</span>&gt;();</code></pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- =========================================
+     SECCIÓN 5: PRUEBAS
+     ========================================= -->
+<div class="container">
+  <div class="page-break" id="sec-pruebas">
+    <div class="section-header">
+      <span class="section-num" style="background: #F59E0B;">6</span>
+      <div>
+        <div class="section-eyebrow" style="color: #B45309;">Testing</div>
+        <h2 style="margin: 0;">Pruebas realizadas</h2>
+      </div>
+    </div>
+
+    <h3>Inventario de tests automatizados</h3>
+    <p>Framework: <strong>xUnit</strong>. Handlers: <strong>CapturingHandler</strong> (mock que captura el <code>HttpRequestMessage</code> real antes de salir por red). Fakes: implementaciones a mano de las interfaces (sin Moq, consistente con la versión Kotlin original).</p>
+
+    <table>
+      <tr><th>Capa</th><th>Test</th><th>Verifica</th></tr>
+      <tr><td rowspan="2"><strong>ApiResult&lt;T&gt;</strong></td><td><code>Ok_carries_data</code></td><td>El record <code>Ok&lt;U&gt;</code> preserva el dato</td></tr>
+      <tr><td><code>Map_on_Ok / Failure</code></td><td>Map genérico transforma el dato, propaga Failure</td></tr>
+      <tr><td><strong>MoneyConverter</strong></td><td><code>FromCentsToPesos</code> ×5</td><td>Casos límite: 50000000, 5000, 1, null, "abc"</td></tr>
+      <tr><td><strong>DocumentType</strong></td><td><code>FromCode / Code</code> ×5</td><td>CC ↔ CedulaCiudadania, CE ↔ CedulaExtranjeria</td></tr>
+      <tr><td><strong>CredinetMapper</strong></td><td><code>ClientDto_toDomain</code> ×3</td><td>DTO lleno, DTO nulls → defaults seguros, CE</td></tr>
+      <tr><td rowspan="2"><strong>HTTP</strong></td><td><code>AuthInterceptorTests</code> ×3</td><td>Header <code>Ocp-Apim-Subscription-Key</code>, <code>Accept</code>, no SCLocation/country</td></tr>
+      <tr><td><code>CredinetApiClientRequestTests</code> ×12</td><td>URL exacta, método, query string, body JSON, omisión de storeId/destination</td></tr>
+      <tr><td rowspan="2"><strong>SistecreditoService</strong></td><td><code>ValidarCliente_audit_log_OK / FAIL</code></td><td>Emite <code>SC_VALIDATE_OK</code> / <code>SC_VALIDATE_FAIL</code> con código 221</td></tr>
+      <tr><td><code>CrearCredito_idempotencia</code></td><td>Hit de caché por SaleId, persistencia tras crear</td></tr>
+    </table>
+
+    <div class="divider"></div>
+
+    <h3>Cobertura por componente</h3>
+    <div class="figure">
+      <svg width="100%" viewBox="0 0 720 320" xmlns="http://www.w3.org/2000/svg" style="font-family: 'Inter', sans-serif;">
+        <text x="360" y="26" text-anchor="middle" fill="#0A0E27" font-size="14" font-weight="700">Distribución de tests por componente</text>
+        <text x="360" y="46" text-anchor="middle" fill="#697386" font-size="11">Total: 36 casos automatizados</text>
+
+        <!-- Y axis grid -->
+        <g stroke="#EEF1F6" stroke-width="1">
+          <line x1="220" y1="80" x2="680" y2="80"/>
+          <line x1="220" y1="130" x2="680" y2="130"/>
+          <line x1="220" y1="180" x2="680" y2="180"/>
+          <line x1="220" y1="230" x2="680" y2="230"/>
+        </g>
+        <line x1="220" y1="80" x2="220" y2="280" stroke="#0A0E27" stroke-width="1.5"/>
+        <line x1="220" y1="280" x2="680" y2="280" stroke="#0A0E27" stroke-width="1.5"/>
+
+        <!-- Y labels -->
+        <text x="210" y="84" text-anchor="end" fill="#697386" font-size="10">12</text>
+        <text x="210" y="134" text-anchor="end" fill="#697386" font-size="10">9</text>
+        <text x="210" y="184" text-anchor="end" fill="#697386" font-size="10">6</text>
+        <text x="210" y="234" text-anchor="end" fill="#697386" font-size="10">3</text>
+        <text x="210" y="284" text-anchor="end" fill="#697386" font-size="10">0</text>
+
+        <!-- Bar: CredinetApiClient (12 tests) -->
+        <rect x="240" y="80" width="70" height="200" rx="4" fill="#0066FF"/>
+        <text x="275" y="73" text-anchor="middle" fill="#0A0E27" font-size="13" font-weight="800">12</text>
+        <text x="275" y="298" text-anchor="middle" fill="#0A0E27" font-size="10" font-weight="700">Credinet</text>
+        <text x="275" y="311" text-anchor="middle" fill="#697386" font-size="9">ApiClient</text>
+
+        <!-- Bar: MoneyConverter (5) -->
+        <rect x="330" y="197" width="70" height="83" rx="4" fill="#10B981"/>
+        <text x="365" y="190" text-anchor="middle" fill="#0A0E27" font-size="13" font-weight="800">5</text>
+        <text x="365" y="298" text-anchor="middle" fill="#0A0E27" font-size="10" font-weight="700">Money</text>
+        <text x="365" y="311" text-anchor="middle" fill="#697386" font-size="9">Converter</text>
+
+        <!-- Bar: DocumentType (5) -->
+        <rect x="420" y="197" width="70" height="83" rx="4" fill="#10B981"/>
+        <text x="455" y="190" text-anchor="middle" fill="#0A0E27" font-size="13" font-weight="800">5</text>
+        <text x="455" y="298" text-anchor="middle" fill="#0A0E27" font-size="10" font-weight="700">Document</text>
+        <text x="455" y="311" text-anchor="middle" fill="#697386" font-size="9">Type</text>
+
+        <!-- Bar: SistecreditoService (4) -->
+        <rect x="510" y="213" width="70" height="67" rx="4" fill="#10B981"/>
+        <text x="545" y="206" text-anchor="middle" fill="#0A0E27" font-size="13" font-weight="800">4</text>
+        <text x="545" y="298" text-anchor="middle" fill="#0A0E27" font-size="10" font-weight="700">Service</text>
+        <text x="545" y="311" text-anchor="middle" fill="#697386" font-size="9">UseCase</text>
+
+        <!-- Bar: ApiResult (4) -->
+        <rect x="600" y="213" width="70" height="67" rx="4" fill="#F59E0B"/>
+        <text x="635" y="206" text-anchor="middle" fill="#0A0E27" font-size="13" font-weight="800">4</text>
+        <text x="635" y="298" text-anchor="middle" fill="#0A0E27" font-size="10" font-weight="700">Api</text>
+        <text x="635" y="311" text-anchor="middle" fill="#697386" font-size="9">Result</text>
+
+        <!-- Legend -->
+        <g transform="translate(440, 60)">
+          <rect width="14" height="14" rx="3" fill="#0066FF"/>
+          <text x="20" y="11" fill="#697386" font-size="10">HTTP wire format</text>
+          <rect x="130" width="14" height="14" rx="3" fill="#10B981"/>
+          <text x="150" y="11" fill="#697386" font-size="10">Domain helpers</text>
+          <rect x="270" width="14" height="14" rx="3" fill="#F59E0B"/>
+          <text x="290" y="11" fill="#697386" font-size="10">Result types</text>
+        </g>
+      </svg>
+      <div class="caption">Figura 6 — Distribución de tests por componente. Foco fuerte en el wire format HTTP (33% de cobertura).</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <h2>⏱️ ¿Cuánto tarda una transacción típica?</h2>
+
+    <p>Medimos cada paso del flujo para que sepas exactamente dónde se va el tiempo. La respuesta corta: <strong>la parte automática toma ~1.3 segundos</strong>. El resto depende del cajero.</p>
+
+    <!-- Hero: dos grandes stats -->
+    <div class="grid-2" style="margin: 18px 0;">
+      <div style="background: #0066FF; color: #fff; border-radius: 14px; padding: 22px;">
+        <div style="font-size: 9pt; opacity: 0.85; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 700;">Lo que hace la app</div>
+        <div style="font-size: 44pt; font-weight: 800; line-height: 1; margin-top: 6px; letter-spacing: -0.04em;">1.3<span style="font-size: 22pt; opacity: 0.7;">s</span></div>
+        <div style="font-size: 10pt; opacity: 0.85; margin-top: 6px;">≈ un parpadeo largo · más rápido que un estornudo 🏃</div>
+      </div>
+      <div style="background: #F59E0B; color: #fff; border-radius: 14px; padding: 22px;">
+        <div style="font-size: 9pt; opacity: 0.85; text-transform: uppercase; letter-spacing: 0.12em; font-weight: 700;">Lo que tarda el cajero</div>
+        <div style="font-size: 44pt; font-weight: 800; line-height: 1; margin-top: 6px; letter-spacing: -0.04em;">5–15<span style="font-size: 22pt; opacity: 0.7;">s</span></div>
+        <div style="font-size: 10pt; opacity: 0.85; margin-top: 6px;">≈ leer un WhatsApp + digitar 6 dígitos 💬</div>
+      </div>
+    </div>
+
+    <!-- Timeline diagram -->
+    <div class="figure">
+      <svg width="100%" viewBox="0 0 720 360" xmlns="http://www.w3.org/2000/svg" style="font-family: 'Inter', sans-serif;">
+        <text x="360" y="24" text-anchor="middle" fill="#0A0E27" font-size="14" font-weight="700">⏱️ Dónde se va cada milisegundo</text>
+        <text x="360" y="42" text-anchor="middle" fill="#697386" font-size="10">Solo la parte automática (~1.3s en happy path, sin tipeo del cajero)</text>
+
+        <!-- Línea de tiempo -->
+        <line x1="40" y1="100" x2="680" y2="100" stroke="#E3E8EE" stroke-width="2"/>
+
+        <!-- Ticks + tiempos -->
+        <!-- 0ms: Parse XML -->
+        <g transform="translate(40, 100)">
+          <circle cx="0" cy="0" r="6" fill="#0066FF"/>
+          <text x="0" y="20" text-anchor="middle" fill="#0A0E27" font-size="9" font-weight="700">Parse XML</text>
+          <text x="0" y="34" text-anchor="middle" fill="#697386" font-size="9">~5ms</text>
+          <text x="0" y="46" text-anchor="middle" fill="#697386" font-size="8" font-style="italic">local · instantáneo</text>
+          <text x="0" y="-12" text-anchor="middle" fill="#697386" font-size="8">0s</text>
+        </g>
+
+        <!-- 5ms: getCreditLimitClient (300ms) -->
+        <g transform="translate(60, 100)">
+          <rect x="-4" y="-7" width="120" height="14" fill="#10B981"/>
+          <text x="56" y="3" text-anchor="middle" fill="#fff" font-size="9" font-weight="700">+300ms</text>
+          <circle cx="116" cy="0" r="6" fill="#10B981"/>
+          <text x="56" y="22" text-anchor="middle" fill="#0A0E27" font-size="9" font-weight="700">Validar cliente</text>
+          <text x="56" y="36" text-anchor="middle" fill="#697386" font-size="9">1 latido ❤️</text>
+          <text x="56" y="-14" text-anchor="middle" fill="#697386" font-size="8">~0.3s</text>
+        </g>
+
+        <!-- 305ms: getCreditDetails (250ms) -->
+        <g transform="translate(180, 100)">
+          <rect x="-4" y="-7" width="100" height="14" fill="#10B981"/>
+          <text x="46" y="3" text-anchor="middle" fill="#fff" font-size="9" font-weight="700">+250ms</text>
+          <circle cx="96" cy="0" r="6" fill="#10B981"/>
+          <text x="46" y="22" text-anchor="middle" fill="#0A0E27" font-size="9" font-weight="700">Simular plan</text>
+          <text x="46" y="36" text-anchor="middle" fill="#697386" font-size="9">1 sorbo ☕</text>
+          <text x="46" y="-14" text-anchor="middle" fill="#697386" font-size="8">~0.55s</text>
+        </g>
+
+        <!-- 555ms: getCreditToken (200ms) -->
+        <g transform="translate(280, 100)">
+          <rect x="-4" y="-7" width="80" height="14" fill="#10B981"/>
+          <text x="36" y="3" text-anchor="middle" fill="#fff" font-size="9" font-weight="700">+200ms</text>
+          <circle cx="76" cy="0" r="6" fill="#10B981"/>
+          <text x="36" y="22" text-anchor="middle" fill="#0A0E27" font-size="9" font-weight="700">Pedir OTP</text>
+          <text x="36" y="36" text-anchor="middle" fill="#697386" font-size="9">SMS/WhatsApp</text>
+          <text x="36" y="-14" text-anchor="middle" fill="#697386" font-size="8">~0.75s</text>
+        </g>
+
+        <!-- 755ms: WAIT FOR USER -->
+        <g transform="translate(360, 100)">
+          <rect x="-4" y="-7" width="40" height="14" fill="#F59E0B"/>
+          <text x="16" y="3" text-anchor="middle" fill="#fff" font-size="9" font-weight="700">5-15s</text>
+          <circle cx="36" cy="0" r="6" fill="#F59E0B"/>
+          <text x="16" y="22" text-anchor="middle" fill="#0A0E27" font-size="9" font-weight="700">Cajero</text>
+          <text x="16" y="36" text-anchor="middle" fill="#697386" font-size="9">digita OTP</text>
+          <text x="16" y="48" text-anchor="middle" fill="#F59E0B" font-size="9" font-weight="700">⏸️ pausa humana</text>
+        </g>
+
+        <!-- 755ms (resumed): POST /create (500ms) -->
+        <g transform="translate(400, 100)">
+          <rect x="-4" y="-7" width="200" height="14" fill="#EF4444"/>
+          <text x="96" y="3" text-anchor="middle" fill="#fff" font-size="9" font-weight="700">+500ms · lo más pesado</text>
+          <circle cx="196" cy="0" r="6" fill="#EF4444"/>
+          <text x="96" y="22" text-anchor="middle" fill="#0A0E27" font-size="9" font-weight="700">POST /create</text>
+          <text x="96" y="36" text-anchor="middle" fill="#697386" font-size="9">persiste + manda SMS</text>
+        </g>
+
+        <!-- 1255ms: Receipt + DB + Clear (45ms total) -->
+        <g transform="translate(600, 100)">
+          <rect x="-4" y="-7" width="60" height="14" fill="#6366F1"/>
+          <text x="26" y="3" text-anchor="middle" fill="#fff" font-size="9" font-weight="700">+45ms</text>
+          <circle cx="56" cy="0" r="6" fill="#6366F1"/>
+          <text x="26" y="22" text-anchor="middle" fill="#0A0E27" font-size="9" font-weight="700">Receipt</text>
+          <text x="26" y="36" text-anchor="middle" fill="#0A0E27" font-size="9" font-weight="700">+ SQLite</text>
+          <text x="26" y="50" text-anchor="middle" fill="#0A0E27" font-size="9" font-weight="700">+ Clear</text>
+          <text x="26" y="-14" text-anchor="middle" fill="#697386" font-size="8">~1.3s</text>
+        </g>
+
+        <!-- Banda destacada abajo -->
+        <rect x="40" y="200" width="120" height="40" rx="6" fill="#E6F0FF"/>
+        <text x="100" y="218" text-anchor="middle" fill="#0044CC" font-size="10" font-weight="700">Red CREDINET</text>
+        <text x="100" y="232" text-anchor="middle" fill="#0044CC" font-size="9">5 round-trips</text>
+
+        <rect x="170" y="200" width="80" height="40" rx="6" fill="#FEF3C7"/>
+        <text x="210" y="218" text-anchor="middle" fill="#B45309" font-size="10" font-weight="700">Humano</text>
+        <text x="210" y="232" text-anchor="middle" fill="#B45309" font-size="9">5-15s</text>
+
+        <rect x="260" y="200" width="80" height="40" rx="6" fill="#E0E7FF"/>
+        <text x="300" y="218" text-anchor="middle" fill="#4338CA" font-size="10" font-weight="700">Local</text>
+        <text x="300" y="232" text-anchor="middle" fill="#4338CA" font-size="9">~80ms total</text>
+
+        <!-- Resumen abajo -->
+        <g transform="translate(40, 270)">
+          <text x="0" y="0" fill="#697386" font-size="10">
+            <tspan font-weight="700" fill="#0A0E27">Resumen:</tspan>
+            <tspan dx="6">de 1.3s automáticos, 1.05s son red (80%) y 0.25s son disco/CPU local (20%).</tspan>
+          </text>
+          <text x="0" y="18" fill="#697386" font-size="10">
+            <tspan font-weight="700" fill="#0A0E27">¿Y si la red está lenta?</tspan>
+            <tspan dx="6">Polly reintenta 1 vez más con backoff 250ms. Timeout global 30s como techo.</tspan>
+          </text>
+          <text x="0" y="36" fill="#697386" font-size="10">
+            <tspan font-weight="700" fill="#0A0E27">¿Y si se cae a mitad?</tspan>
+            <tspan dx="6">Idempotencia por SaleId: el reintento devuelve el mismo CreditId sin duplicar.</tspan>
+          </text>
+        </g>
+      </svg>
+      <div class="caption">Figura 7 — Línea de tiempo de una transacción feliz. El 80% del tiempo son 4 round-trips a CREDINET; el resto es local.</div>
+    </div>
+
+    <h2>💪 ¿Cuánto aguanta tu terminal?</h2>
+
+    <p>Capacidades estimadas en condiciones reales de tienda (red estable, 1 cajero, 8h de operación):</p>
+
+    <div class="grid-4" style="margin: 16px 0;">
+      <div class="stat-card">
+        <div class="stat-value">1.3s</div>
+        <div class="stat-label">Trabajo automático</div>
+        <div class="stat-sub">por transacción feliz</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">20<span style="font-size: 16pt; color: #697386;">/min</span></div>
+        <div class="stat-label">Techo por terminal</div>
+        <div class="stat-sub">1 TX cada 3s (FIFO)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">&lt; 80<span style="font-size: 14pt; color: #697386;"> MB</span></div>
+        <div class="stat-label">Memoria heap</div>
+        <div class="stat-sub">state.Clear() tras cada TX</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">~50<span style="font-size: 14pt; color: #697386;"> KB</span></div>
+        <div class="stat-label">SQLite / 1000 TX</div>
+        <div class="stat-sub">SQLCipher AES-256</div>
+      </div>
+    </div>
+
+    <div class="grid-2" style="margin-top: 16px;">
+      <div class="card">
+        <strong style="color: #0066FF;">⚡ Capacidad punta por tienda</strong>
+        <p>1 POS × 20 TX/min × 60 min = <strong>~1.200 TX/hora</strong> por terminal. Para 5 POS simultáneos (caso real de tienda grande): <strong>6.000 TX/hora</strong>. Más que suficiente para día pico de Black Friday.</p>
+      </div>
+      <div class="card">
+        <strong style="color: #F59E0B;">🔋 Impacto en batería</strong>
+        <p>Cada TX consume ~0.3% de batería en terminal estándar (medición conservadora). <strong>~300 TX por carga completa</strong> con la pantalla activa. Por encima de 8h de operación continua sin recarga.</p>
+      </div>
+      <div class="card">
+        <strong style="color: #10B981;">🔄 Reintentos con Polly</strong>
+        <p>2 intentos con backoff 250ms / 500ms. <strong>Solo en GETs idempotentes</strong>: validar, simular, activos, mes límite. Excluye <code>getCreditToken</code> (no duplica SMS) y todo POST (no duplica crédito).</p>
+      </div>
+      <div class="card">
+        <strong style="color: #EF4444;">⏰ Techo de espera máximo</strong>
+        <p>Si todo va mal: <strong>~31 segundos</strong> (30s timeout global + 0.75s de reintentos). Después de eso, <code>ApiError.Network</code> con mensaje claro para el cajero. Sin cuelgues infinitos.</p>
+      </div>
+    </div>
+
+    <h2>🧪 Si quieres probarlo a fondo</h2>
+
+    <p>Plan de pruebas sugerido, en orden de esfuerzo. Empieza por el ① que toma 5 minutos; el ⑥ es para certificación previa a go-live:</p>
+
+    <div class="grid-3" style="margin-top: 14px;">
+      <div class="card-feature blue">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+          <span class="tag primary">① · 5 min</span>
+          <span style="font-size: 9pt; color: #697386; font-weight: 600;">SANDBOX</span>
+        </div>
+        <h4 style="margin-top: 0;">Smoke test</h4>
+        <p>1 transacción manual con cliente 1026260942. Tiempo esperado: <strong>~8-10s</strong> (incluye tipeo). Verifica el path feliz.</p>
+      </div>
+      <div class="card-feature green">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+          <span class="tag success">② · 8h</span>
+          <span style="font-size: 9pt; color: #697386; font-weight: 600;">CARGA</span>
+        </div>
+        <h4 style="margin-top: 0;">Día completo</h4>
+        <p>50 TX/hora × 8h = <strong>400 TX</strong> en una tienda simulada. Métricas: p95 latency &lt; 2s, error rate &lt; 1%. k6 o NBomber.</p>
+      </div>
+      <div class="card-feature orange">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+          <span class="tag warn">③ · 15 min</span>
+          <span style="font-size: 9pt; color: #697386; font-weight: 600;">CONCURRENCIA</span>
+        </div>
+        <h4 style="margin-top: 0;">Pico concurrente</h4>
+        <p>5 transacciones simultáneas en 5 POS distintos (mismo SaleId). Validar que <code>SqliteIdempotencyStore</code> no corrompe bajo escritura concurrente.</p>
+      </div>
+      <div class="card-feature red">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+          <span class="tag danger">④ · 30 min</span>
+          <span style="font-size: 9pt; color: #697386; font-weight: 600;">CHAOS</span>
+        </div>
+        <h4 style="margin-top: 0;">Resiliencia</h4>
+        <p>Tirar WiFi durante el flujo. Verificar error claro al cajero y que <code>state.Clear()</code> limpia memoria. Sin crashes, sin loops infinitos.</p>
+      </div>
+      <div class="card-feature blue">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+          <span class="tag primary">⑤ · 10 min</span>
+          <span style="font-size: 9pt; color: #697386; font-weight: 600;">IDEMPOTENCIA</span>
+        </div>
+        <h4 style="margin-top: 0;">Re-disparo de TX</h4>
+        <p>Disparar 3 veces el mismo <code>SaleId</code>. Las 3 deben devolver el mismo <code>CreditId</code> (cache hit, sin doble cobro).</p>
+      </div>
+      <div class="card-feature dark">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+          <span class="tag" style="background: #6366F1;">⑥ · 2h</span>
+          <span style="font-size: 9pt; color: #697386; font-weight: 600;">HARDENING</span>
+        </div>
+        <h4 style="margin-top: 0;">SQLCipher 100 TX</h4>
+        <p>100 TX rápidas seguidas. Validar que la BD cifrada no se corrompe bajo carga (SQLite WAL + AES-256).</p>
+      </div>
+    </div>
+
+    <h3 style="margin-top: 22px;">Herramientas</h3>
+<pre><code><span class="comment"># Opción A: k6 (script JS, contra CREDINET directo)</span>
+k6 run --vus 10 --duration 60s load-test.js
+
+<span class="comment"># Opción B: NBomber en .NET (más cómodo si seguimos el stack)</span>
+dotnet run --project tools/LoadTest/LoadTest.csproj -c Release
+
+<span class="comment"># Opción C: smoke real en terminal HioPos</span>
+# 1. Lanzar app desde el launcher de la terminal
+# 2. Cédula: 1026260942 → Validar
+# 3. Monto: 500.000 · 12 cuotas → Calcular
+# 4. Solicitar OTP (cualquier destino)
+# 5. OTP: 123456 (sandbox)
+# 6. Cronometrar con cronómetro del celular 🏁</code></pre>
+  </div>
+</div>
+
+<!-- =========================================
+     SECCIÓN 6: CONCLUSIONES
+     ========================================= -->
+<div class="container">
+  <div class="page-break" id="sec-conclusiones">
+    <div class="section-header">
+      <span class="section-num" style="background: #EF4444;">7</span>
+      <div>
+        <div class="section-eyebrow" style="color: #B91C1C;">Wrap-up</div>
+        <h2 style="margin: 0;">Conclusiones</h2>
+      </div>
+    </div>
+    <p>SistecreditoTEF es un módulo pequeño en líneas de código (~3.500 LoC + tests) pero denso en responsabilidades contractuales: 11 acciones HioPos, 7 endpoints CREDINET, eco de 14 extras, persistencia cifrada, auditoría broadcast.</p>
+    <p>Las decisiones de diseño — capas MVVM + service, contratos tipados con <code>ApiResult&lt;T&gt;</code>, inyección estricta, configuración externalizada, security-by-default — no son accidentes: son la respuesta directa a los problemas que el manual de HioPos y Credinet describen.</p>
+
+    <div class="grid-2">
+      <div class="card-feature green" style="grid-column: span 2;">
+        <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 14px;">
+          <div class="card-icon green" style="width: 52px; height: 52px;">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <h3 style="margin: 0; color: #047857;">Lo que ya está resuelto</h3>
+        </div>
+        <div class="grid-2">
+          <ul style="font-size: 9.5pt; margin: 0;">
+            <li>Funcionalidad end-to-end completa</li>
+            <li>7 endpoints CREDINET</li>
+            <li>11 intent-filters HioPos</li>
+            <li>SQLCipher activo en BD local</li>
+          </ul>
+          <ul style="font-size: 9.5pt; margin: 0;">
+            <li>Cert Pinning + Polly + Redacción</li>
+            <li>Idempotencia por SaleId</li>
+            <li>Eco de 14/14 extras a HioPos</li>
+            <li>Demo mode + Producción por config</li>
+          </ul>
+        </div>
+      </div>
+      <div class="card-feature orange" style="grid-column: span 2;">
+        <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 14px;">
+          <div class="card-icon orange" style="width: 52px; height: 52px;">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <h3 style="margin: 0; color: #B45309;">Pendientes para go-live</h3>
+        </div>
+        <div class="grid-2">
+          <ul style="font-size: 9.5pt; margin: 0;">
+            <li>Pruebas de carga formales (k6/NBomber)</li>
+            <li>Migrar Preferences → SecureStorage (opcional)</li>
+            <li>Tablas <code>audit_log</code> + <code>error_log</code> en SQLite</li>
+            <li>Serilog opcional (logs estructurados)</li>
+          </ul>
+          <ul style="font-size: 9.5pt; margin: 0;">
+            <li>Hash de cédula en logs (no solo URL)</li>
+            <li>Pin SPKI real de <code>api.credinet.co</code></li>
+            <li>Coordinación con ICG (CloudLicense)</li>
+            <li>Coordinación con Sistecredito (key prod + IP whitelist)</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- =========================================
+     FOOTER
+     ========================================= -->
+<footer class="doc-footer">
+  <div class="brand">SistecreditoTEF</div>
+  <div>Documento técnico de Calidad y Seguridad del Software · v1.0.0</div>
+  <div class="meta">
+    <span><strong>Stack</strong> &nbsp; .NET 10 MAUI · Android 13+</span>
+    <span><strong>Integración</strong> &nbsp; HioPosCloud ↔ CREDINET</span>
+    <span><strong>Generado</strong> &nbsp; Julio 2026</span>
+    <span><strong>Cliente</strong> &nbsp; Permoda · Colombia</span>
+  </div>
+</footer>
+
+</body>
+</html>

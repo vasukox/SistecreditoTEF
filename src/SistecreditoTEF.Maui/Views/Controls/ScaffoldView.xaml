@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    ScaffoldView — HU8-973 (rediseño mockups). Chrome unificado de cada pantalla:
+    header verde (con back + eyebrow/título/subtítulo + marca opcional), cuerpo
+    scrolleable (slot de contenido) y footer oscuro "HI-POS".
+    Uso:
+      <ctrl:ScaffoldView TitleText="..." SubtitleText="..." EyebrowText="..." ShowBack="True">
+          ...contenido...
+      </ctrl:ScaffoldView>
+-->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="SistecreditoTEF.Maui.Views.Controls.ScaffoldView">
+    <ContentView.ControlTemplate>
+        <ControlTemplate>
+            <Grid RowDefinitions="Auto,*,Auto" BackgroundColor="{StaticResource Background}">
+
+                <!-- Header verde -->
+                <Border Grid.Row="0" Background="{StaticResource HeaderBrush}" Stroke="Transparent"
+                        StrokeShape="RoundRectangle 0,0,22,22" Padding="14,18,22,24">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
+                        <Button x:Name="PART_Back" Grid.Column="0"
+                                Text="←" FontSize="26" FontAttributes="Bold"
+                                BackgroundColor="Transparent" TextColor="{StaticResource OnDark}"
+                                WidthRequest="46" HeightRequest="46" Padding="0" CornerRadius="23"
+                                VerticalOptions="Center"
+                                IsVisible="{TemplateBinding ShowBack}" />
+                        <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                            <Label Text="{TemplateBinding EyebrowText}"
+                                   IsVisible="{TemplateBinding EyebrowText, Converter={StaticResource StringNotEmptyConverter}}"
+                                   TextColor="{StaticResource OnHeroMuted}" FontSize="13" />
+                            <Label Text="{TemplateBinding TitleText}"
+                                   TextColor="{StaticResource OnDark}" FontSize="23" FontAttributes="Bold" />
+                            <Label Text="{TemplateBinding SubtitleText}"
+                                   IsVisible="{TemplateBinding SubtitleText, Converter={StaticResource StringNotEmptyConverter}}"
+                                   TextColor="{StaticResource OnHeroMuted}" FontSize="13" />
+                        </VerticalStackLayout>
+                        <Label Grid.Column="2" Text="{TemplateBinding TrailingText}"
+                               IsVisible="{TemplateBinding TrailingText, Converter={StaticResource StringNotEmptyConverter}}"
+                               TextColor="{StaticResource OnDark}" FontSize="15" FontAttributes="Bold,Italic"
+                               VerticalOptions="Start" />
+                    </Grid>
+                </Border>
+
+                <!-- Contenido -->
+                <ScrollView Grid.Row="1">
+                    <ContentPresenter />
+                </ScrollView>
+
+                <!-- Footer HI-POS -->
+                <Border Grid.Row="2" BackgroundColor="{StaticResource NavSurface}" Stroke="Transparent" Padding="0,9">
+                    <VerticalStackLayout Spacing="0" HorizontalOptions="Center">
+                        <Label Text="HI-POS" TextColor="{StaticResource OnDark}" FontSize="15" FontAttributes="Bold"
+                               CharacterSpacing="2.5" HorizontalOptions="Center" />
+                        <Label Text="PERMODA · Sistecrédito" TextColor="{StaticResource OnDarkMuted}" FontSize="10"
+                               CharacterSpacing="1" HorizontalOptions="Center" />
+                    </VerticalStackLayout>
+                </Border>
+
+            </Grid>
+        </ControlTemplate>
+    </ContentView.ControlTemplate>
+</ContentView>

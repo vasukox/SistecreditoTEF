@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        Tema nativo de Android requerido por MauiAppCompatActivity.
+        Debe heredar de Theme.AppCompat (o descendiente) porque
+        MauiAppCompatActivity extiende AppCompatActivity.
+
+        Theme.MaterialComponents NO funciona aqui (causa IllegalStateException
+        en AppCompatDelegate.createSubDecor).
+    -->
+    <style name="Theme.SistecreditoTEF" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="colorPrimary">#6F8855</item>
+        <item name="colorPrimaryDark">#2D2D2D</item>
+        <item name="colorAccent">#6F8855</item>
+        <!-- HU8-973: barra de estado oscura (matchea la barra de navegación),
+             ícono claro (texto blanco sobre oscuro). -->
+        <item name="android:statusBarColor">#2D2D2D</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <!--
+            HU8-973: atributos Material requeridos por los dialogos de MAUI
+            (MaterialAlertDialogBuilder). Sin colorSurface, abrir un Picker o
+            un DisplayAlert crashea con IllegalArgumentException. Los definimos
+            manualmente sin cambiar el parent (Theme.MaterialComponents rompe
+            MauiAppCompatActivity, ver comentario arriba).
+        -->
+        <item name="colorSurface">#FFFFFF</item>
+        <item name="colorOnSurface">#1A1A1A</item>
+        <item name="colorError">#D32F2F</item>
+    </style>
+</resources>

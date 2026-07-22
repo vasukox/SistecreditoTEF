@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:SistecreditoTEF.Maui.ViewModels"
+             xmlns:beh="clr-namespace:SistecreditoTEF.Maui.Common.Behaviors"
+             xmlns:ctrl="clr-namespace:SistecreditoTEF.Maui.Views.Controls"
+             x:Class="SistecreditoTEF.Maui.Views.HomePage"
+             x:DataType="vm:HomeViewModel"
+             Shell.NavBarIsVisible="False"
+             Title="Permoda TEF">
+
+    <ctrl:ScaffoldView TitleText="Permoda"
+                       SubtitleText="Terminal de crédito"
+                       TrailingText="Sistecrédito"
+                       ShowBack="False">
+        <VerticalStackLayout Spacing="16" Padding="20,26,20,28"
+                             MaximumWidthRequest="820" HorizontalOptions="Center">
+
+            <!-- Acción: Solicitar crédito -->
+            <Border Style="{StaticResource Card}" Padding="12" StrokeShape="RoundRectangle 40">
+                <Border.Behaviors>
+                    <beh:EntranceBehavior DelayMs="60" />
+                </Border.Behaviors>
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer Command="{Binding GoNuevoCreditoCommand}" />
+                </Border.GestureRecognizers>
+                <Grid ColumnDefinitions="52,*,Auto" ColumnSpacing="16" VerticalOptions="Center">
+                    <Border Grid.Column="0" BackgroundColor="{StaticResource SurfaceAlt}" WidthRequest="52" HeightRequest="52"
+                            StrokeShape="RoundRectangle 26" Stroke="Transparent">
+                        <Label Text="+" FontSize="26" FontAttributes="Bold" TextColor="{StaticResource TextSecondary}"
+                               HorizontalOptions="Center" VerticalOptions="Center" />
+                    </Border>
+                    <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                        <Label Text="Comprar a crédito" Style="{StaticResource CardTitle}" />
+                        <Label Text="Financia una compra en cuotas mensuales" Style="{StaticResource Caption}" />
+                    </VerticalStackLayout>
+                    <Label Grid.Column="2" Text="›" FontSize="26" TextColor="{StaticResource TextMuted}" VerticalOptions="Center" />
+                </Grid>
+            </Border>
+
+            <!-- Acción: Pagar crédito -->
+            <Border Style="{StaticResource Card}" Padding="12" StrokeShape="RoundRectangle 40">
+                <Border.Behaviors>
+                    <beh:EntranceBehavior DelayMs="120" />
+                </Border.Behaviors>
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer Command="{Binding GoPagarCreditoCommand}" />
+                </Border.GestureRecognizers>
+                <Grid ColumnDefinitions="52,*,Auto" ColumnSpacing="16" VerticalOptions="Center">
+                    <Border Grid.Column="0" BackgroundColor="{StaticResource SurfaceAlt}" WidthRequest="52" HeightRequest="52"
+                            StrokeShape="RoundRectangle 26" Stroke="Transparent">
+                        <Label Text="$" FontSize="24" FontAttributes="Bold" TextColor="{StaticResource TextSecondary}"
+                               HorizontalOptions="Center" VerticalOptions="Center" />
+                    </Border>
+                    <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                        <Label Text="Pagar crédito" Style="{StaticResource CardTitle}" />
+                        <Label Text="Recauda la cuota de un cliente" Style="{StaticResource Caption}" />
+                    </VerticalStackLayout>
+                    <Label Grid.Column="2" Text="›" FontSize="26" TextColor="{StaticResource TextMuted}" VerticalOptions="Center" />
+                </Grid>
+            </Border>
+
+        </VerticalStackLayout>
+    </ctrl:ScaffoldView>
+</ContentPage>

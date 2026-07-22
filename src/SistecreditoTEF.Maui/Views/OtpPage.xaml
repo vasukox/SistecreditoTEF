@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:SistecreditoTEF.Maui.ViewModels"
+             xmlns:beh="clr-namespace:SistecreditoTEF.Maui.Common.Behaviors"
+             xmlns:ctrl="clr-namespace:SistecreditoTEF.Maui.Views.Controls"
+             x:Class="SistecreditoTEF.Maui.Views.OtpPage"
+             x:DataType="vm:OtpViewModel"
+             Title="Verificación">
+    <ScrollView>
+        <VerticalStackLayout Spacing="20" Padding="20,28,20,28">
+
+            <ctrl:HeroCardView>
+                <ctrl:HeroCardView.Behaviors>
+                    <beh:EntranceBehavior />
+                </ctrl:HeroCardView.Behaviors>
+                <VerticalStackLayout Spacing="6" HorizontalOptions="Center">
+                    <Label Text="CLAVE ENVIADA POR WHATSAPP" TextColor="{StaticResource OnHeroMuted}" FontSize="11.5" FontAttributes="Bold" CharacterSpacing="1.2" HorizontalOptions="Center" />
+                    <Label Text="{Binding Mobile}" TextColor="{StaticResource White}" FontSize="28" FontAttributes="Bold" HorizontalOptions="Center" CharacterSpacing="-0.3" />
+                </VerticalStackLayout>
+            </ctrl:HeroCardView>
+
+            <Border Style="{StaticResource Card}">
+                <Border.Behaviors>
+                    <beh:EntranceBehavior DelayMs="90" />
+                </Border.Behaviors>
+                <VerticalStackLayout Spacing="14">
+                    <Label Text="INGRESA EL CÓDIGO DE 6 DÍGITOS" Style="{StaticResource FieldLabel}" HorizontalOptions="Center" />
+                    <Border Style="{StaticResource FieldCard}">
+                        <Entry Keyboard="Numeric" MaxLength="6" Placeholder="· · · · · ·"
+                               FontSize="30" FontAttributes="Bold" HeightRequest="60"
+                               HorizontalTextAlignment="Center" CharacterSpacing="8"
+                               Text="{Binding CodigoOtp, Mode=TwoWay}" />
+                    </Border>
+
+                    <!-- Notificacion de intento fallido (banner claro, no texto suelto) -->
+                    <Border IsVisible="{Binding HasError}"
+                            BackgroundColor="{StaticResource ErrorSoft}"
+                            Stroke="Transparent" StrokeShape="RoundRectangle 12"
+                            Padding="14,12">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                            <Label Grid.Column="0" Text="⚠" FontSize="18"
+                                   TextColor="{StaticResource Error}" VerticalOptions="Center" />
+                            <Label Grid.Column="1" Text="{Binding ErrorMessage}"
+                                   TextColor="{StaticResource Error}" FontSize="13.5"
+                                   VerticalOptions="Center" />
+                        </Grid>
+                    </Border>
+
+                    <Label Style="{StaticResource Caption}" HorizontalOptions="Center">
+                        <Label.FormattedText>
+                            <FormattedString>
+                                <Span Text="El código expira en " />
+                                <Span Text="{Binding RemainingTimeText}" FontAttributes="Bold" />
+                                <Span Text=" · Intentos restantes: " />
+                                <Span Text="{Binding AttemptsLeft}" FontAttributes="Bold" />
+                            </FormattedString>
+                        </Label.FormattedText>
+                    </Label>
+                </VerticalStackLayout>
+            </Border>
+
+            <Button Text="Verificar y crear crédito"
+                    IsEnabled="{Binding CanVerify}"
+                    Style="{StaticResource PrimaryButton}"
+                    Command="{Binding VerificarCommand}">
+                <Button.Behaviors>
+                    <beh:EntranceBehavior DelayMs="170" />
+                </Button.Behaviors>
+            </Button>
+
+            <!-- HU8-973: boton Reenviar muestra countdown y ayuda al cajero -->
+            <VerticalStackLayout Spacing="2" HorizontalOptions="Center">
+                <Button Text="{Binding ResendButtonText}"
+                        IsEnabled="{Binding CanResend}"
+                        Style="{StaticResource BorderlessButton}"
+                        Command="{Binding SolicitarCommand}" />
+                <Label Text="{Binding ResendHelpText}"
+                       IsVisible="{Binding ResendHelpText, Converter={StaticResource StringNotEmptyConverter}}"
+                       Style="{StaticResource Caption}"
+                       HorizontalTextAlignment="Center" />
+            </VerticalStackLayout>
+
+            <!-- Reinicio: aparece cuando se agotaron los reenvios permitidos.
+                 Lleva al cajero de vuelta a la captura de cedula para empezar
+                 el proceso de cero. -->
+            <Button Text="Volver a ingresar cédula"
+                    IsVisible="{Binding ReenviosAgotados}"
+                    Style="{StaticResource PrimaryButton}"
+                    Command="{Binding VolverACedulaCommand}" />
+
+            <ActivityIndicator IsVisible="{Binding IsLoading}" IsRunning="{Binding IsLoading}"
+                               Color="{StaticResource Primary}" HeightRequest="36" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

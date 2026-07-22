@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:SistecreditoTEF.Maui.ViewModels"
+             xmlns:models="clr-namespace:SistecreditoTEF.Maui.Models"
+             xmlns:beh="clr-namespace:SistecreditoTEF.Maui.Common.Behaviors"
+             xmlns:ctrl="clr-namespace:SistecreditoTEF.Maui.Views.Controls"
+             x:Class="SistecreditoTEF.Maui.Views.CreditosActivosPage"
+             x:DataType="vm:CreditosActivosViewModel"
+             Shell.NavBarIsVisible="False"
+             Title="Pagar crédito">
+
+    <ctrl:ScaffoldView TitleText="Pagar crédito"
+                       SubtitleText="Consulta los créditos pendientes del cliente"
+                       ShowBack="True">
+        <VerticalStackLayout Spacing="18" Padding="20,24,20,28"
+                             MaximumWidthRequest="760" HorizontalOptions="Center">
+
+            <!-- Búsqueda -->
+            <Border Style="{StaticResource Card}">
+                <Border.Behaviors>
+                    <beh:EntranceBehavior DelayMs="60" />
+                </Border.Behaviors>
+                <VerticalStackLayout Spacing="18">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="TIPO DE DOCUMENTO" Style="{StaticResource FieldLabel}" />
+                        <HorizontalStackLayout Spacing="24">
+                            <RadioButton Content="Cédula (CC)" TextColor="{StaticResource TextPrimary}"
+                                         IsChecked="{Binding TipoDocumento, Converter={StaticResource EnumToBoolConverter}, ConverterParameter=CedulaCiudadania}" />
+                            <RadioButton Content="Extranjería (CE)" TextColor="{StaticResource TextPrimary}"
+                                         IsChecked="{Binding TipoDocumento, Converter={StaticResource EnumToBoolConverter}, ConverterParameter=CedulaExtranjeria}" />
+                        </HorizontalStackLayout>
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="NÚMERO DE DOCUMENTO" Style="{StaticResource FieldLabel}" />
+                        <Border Style="{StaticResource FieldCard}">
+                            <Entry Keyboard="Numeric" Placeholder="Ej: 1026260942"
+                                   FontSize="20" FontAttributes="Bold" HeightRequest="50"
+                                   Text="{Binding NumeroDocumento, Mode=TwoWay}" />
+                        </Border>
+                    </VerticalStackLayout>
+                    <Button Text="Buscar créditos" Style="{StaticResource PrimaryButton}"
+                            Command="{Binding BuscarCommand}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <ActivityIndicator IsVisible="{Binding IsLoading}" IsRunning="{Binding IsLoading}"
+                               Color="{StaticResource Primary}" HeightRequest="36" />
+
+            <Border IsVisible="{Binding IsEmpty}" BackgroundColor="{StaticResource WarningSoft}"
+                    Stroke="Transparent" StrokeShape="RoundRectangle 12" Padding="16,14">
+                <Label Text="El cliente no tiene créditos activos." TextColor="{StaticResource Warning}"
+                       FontSize="13" HorizontalTextAlignment="Center" />
+            </Border>
+
+            <Border IsVisible="{Binding HasError}" BackgroundColor="{StaticResource ErrorSoft}"
+                    Stroke="Transparent" StrokeShape="RoundRectangle 12" Padding="16,14">
+                <Label Text="{Binding ErrorMessage}" TextColor="{StaticResource Error}"
+                       FontSize="13" HorizontalTextAlignment="Center" />
+            </Border>
+
+            <CollectionView ItemsSource="{Binding Creditos}" IsVisible="{Binding HasResults}"
+                            SelectionMode="None">
+                <CollectionView.ItemsLayout>
+                    <LinearItemsLayout Orientation="Vertical" ItemSpacing="14" />
+                </CollectionView.ItemsLayout>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="models:ActiveCredit">
+                        <Border Style="{StaticResource Card}">
+                            <VerticalStackLayout Spacing="10">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <Label Grid.Column="0" Text="{Binding CreditNumber, StringFormat='Crédito #{0}'}"
+                                           Style="{StaticResource CardTitle}" VerticalOptions="Center" />
+                                    <Label Grid.Column="1" Text="{Binding StoreName}" Style="{StaticResource Caption}" VerticalOptions="Center" />
+                                </Grid>
+                                <Label Text="SALDO PENDIENTE" Style="{StaticResource FieldLabel}" />
+                                <Label Text="{Binding Balance, StringFormat='$ {0:N0}'}" Style="{StaticResource MoneyLarge}" />
+                                <Grid ColumnDefinitions="*,*" RowSpacing="2">
+                                    <VerticalStackLayout Grid.Column="0" Spacing="1">
+                                        <Label Text="Cuota" Style="{StaticResource Caption}" />
+                                        <Label Text="{Binding FeeValue, StringFormat='$ {0:N0}'}" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+                                    </VerticalStackLayout>
+                                    <VerticalStackLayout Grid.Column="1" Spacing="1">
+                                        <Label Text="Próximo vencimiento" Style="{StaticResource Caption}" />
+                                        <Label Text="{Binding DueDateDisplay}" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+                                    </VerticalStackLayout>
+                                </Grid>
+                                <Button Text="Pagar este crédito"
+                                        Style="{StaticResource SuccessButton}"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:CreditosActivosViewModel}}, Path=SeleccionarCommand}"
+                                        CommandParameter="{Binding .}" />
+                            </VerticalStackLayout>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+        </VerticalStackLayout>
+    </ctrl:ScaffoldView>
+</ContentPage>

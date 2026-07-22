@@ -1,0 +1,53 @@
+# Build artifacts
+[Bb]in/
+[Oo]bj/
+[Bb]uild/
+[Ll]ogs/
+*.user
+*.suo
+
+# IDE - Visual Studio
+.vs/
+.vscode/
+.idea/
+
+# Config local de Claude Code (especifica de la maquina)
+.claude/settings.local.json
+
+# HU8-973 · Firma y secretos (NUNCA commitear)
+*.keystore
+*.jks
+permoda-release.keystore
+signing.props
+appsettings.Production.json
+
+# MAUI
+*.binlog
+*.apk
+*.aab
+*.aar
+*.dll
+
+# Test results
+TestResults/
+*.coverage
+*.trx
+
+# Secrets (NUNCA subir)
+appsettings.*.json
+!appsettings.json
+local.properties
+
+# Manuales propietarios del proveedor (Credinet/HioPos) — NO publicar en repo publico.
+# Solo aplica a los PDF de la raiz; docs/*.pdf (informes propios) si se versionan.
+/*.pdf
+# Volcado de logcat / logs sueltos y basura de comandos keytool fallidos.
+full_log.txt
+IHSa1T)Vleo -dname CN
+
+# OS
+.DS_Store
+Thumbs.db
+
+# ASUMO que C:\Proyectos NO esta en OneDrive (verificado reparse point).
+# Si lo esta, mover el repo a otra unidad antes de hacer commit.

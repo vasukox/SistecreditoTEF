@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    HeroCardView v2 — HU8-973 (UI/UX). Tarjeta destacada limpia: fondo con
+    gradiente sutil y contenido. Sin adornos; la jerarquia la da el contenido.
+    Uso:  <ctrl:HeroCardView> ...contenido... </ctrl:HeroCardView>
+-->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="SistecreditoTEF.Maui.Views.Controls.HeroCardView">
+    <ContentView.ControlTemplate>
+        <ControlTemplate>
+            <Border Style="{StaticResource HeroCard}">
+                <ContentPresenter />
+            </Border>
+        </ControlTemplate>
+    </ContentView.ControlTemplate>
+</ContentView>

@@ -1,0 +1,161 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Target frameworks: net10.0-Android + net10.0-ios + net10.0-maccatalyst.
+    Para build de Windows se puede agregar net10.0-windows10.x.x; para MVP
+    solo Android es requerido (HioPosCloud corre en terminal POS Android).
+
+    Define el apk_name de HioPosCloud como constante de MSBuild.
+    El app_id queda derivado del namespace (csproj <RootNamespace>).
+  -->
+  <PropertyGroup>
+    <!--
+      TFM unico: Android. HioPosCloud corre en POS Android, por lo que
+      iOS/macCatalyst/Windows son ruido y solo agregan warnings.
+      Si en el futuro Permoda pide iOS (improbable para POS de Colombia),
+      agregamos las TFMs de vuelta.
+    -->
+    <TargetFramework>net10.0-android</TargetFramework>
+
+    <OutputType>Exe</OutputType>
+    <RootNamespace>SistecreditoTEF.Maui</RootNamespace>
+    <UseMaui>true</UseMaui>
+    <SingleProject>true</SingleProject>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+
+    <ApplicationTitle>Sistecredito</ApplicationTitle>
+    <!--
+      Package Name para el alta en HioPosCloud (ICG). HioPos lanza el modulo
+      por este package. Debe coincidir con lo registrado en ICG.
+    -->
+    <ApplicationId>com.permoda.sistecreditotef</ApplicationId>
+    <ApplicationIdGuidTree>com.permoda.sistecreditotef</ApplicationIdGuidTree>
+
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>1.0.0</ApplicationDisplayVersion>
+
+    <!--
+      Fast Deployment es una optimizacion de Mono para Xamarin / .NET for Android:
+      el APK apunta a una carpeta __override__ donde se despliegan los assemblies
+      por separado (mas rapido de iterar). Pero rompe cuando uno hace adb install
+      manual del APK (sin dotnet build -t:Run), porque la carpeta no existe.
+      Solucion: desactivar Fast Deployment para que los assemblies queden embebidos
+      en el APK (un solo .apk autocontenido).
+    -->
+    <FastDeployment>false</FastDeployment>
+    <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
+    <!--
+      Soporte para ARM64 (POS reales: Sunmi, PAX, etc.) y x86_64 (emulador
+      de desarrollo). Sin arm64-v8a, el APK no instala en terminales
+      HI-POS Cloud que son ARM, o crashea al cargar las .so nativas de
+      SQLCipher / Mono.
+    -->
+    <AndroidSupportedAbis>arm64-v8a;x86_64</AndroidSupportedAbis>
+
+    <!--
+      AOT (Ahead-Of-Time) viene ACTIVADO por defecto en .NET MAUI 10 Release.
+      Con AndroidEnableProfiledAot=true hace instrumentacion + recompilacion
+      guiada por perfil, lo que tarda 5-15 min en cold cache y se vuelve a
+      ejecutar cada vez que se invalida el manifest (ej: cambio de
+      ApplicationId). Para una app POS contra backend, el APK con Mono JIT/
+      interprete arranca igual de rapido, asi que desactivamos AOT para
+      iteracion y produccion. Si en el futuro se quiere AOT, se habilita
+      solo en publish final con -p:AndroidEnableAot=true.
+    -->
+    <AndroidEnableAot>false</AndroidEnableAot>
+    <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
+    <PublishAot>false</PublishAot>
+
+    <AndroidPackageFormat>apk</AndroidPackageFormat>
+    <SupportedOSPlatformVersion>24.0</SupportedOSPlatformVersion>
+
+    <!--
+      Warnings suprimidas (cosmetic, no afectan build):
+      - CA1822: marker miembros como static (no merece refactor todavia).
+      - XA0101: test platform XAML build actions (cosmetic en Tests project).
+    -->
+    <NoWarn>$(NoWarn);CA1822;XA0101</NoWarn>
+  </PropertyGroup>
+
+  <!--
+    ============================================================================
+    HU8-973 · FIRMA DE RELEASE (producción)
+    ============================================================================
+    Solo aplica a builds Release (Debug sigue usando la firma de depuración).
+
+    Las CONTRASEÑAS nunca van en el repo: se leen de variables de entorno
+    (PERMODA_KEYSTORE_PASS y PERMODA_KEY_PASS). El KEYSTORE tampoco se commitea.
+
+    PASOS (una sola vez, en la máquina/pipeline de build):
+      1) Crear el keystore:
+           keytool -genkeypair -v -keystore permoda-release.keystore \
+             -alias sistecredito -keyalg RSA -keysize 2048 -validity 10000
+         → guardarlo en la raíz del proyecto (junto a este .csproj) o dar la ruta
+           completa en la variable PERMODA_KEYSTORE.
+      2) Definir las variables de entorno con las contraseñas elegidas:
+           setx PERMODA_KEYSTORE_PASS "＜clave-store＞"
+           setx PERMODA_KEY_PASS      "＜clave-alias＞"
+      3) Compilar firmado:
+           dotnet publish -c Release -f net10.0-android
+         (o forzar la ruta:  -p:PermodaKeystore=C:\ruta\permoda-release.keystore )
+
+    Para sacar SHA-1 / SHA-256 (para ICG):
+           keytool -list -v -keystore permoda-release.keystore -alias sistecredito
+  -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <!-- Ruta del keystore: por defecto en la raíz del proyecto; se puede overridear. -->
+    <PermodaKeystore Condition="'$(PermodaKeystore)' == ''">$(MSBuildProjectDirectory)\permoda-release.keystore</PermodaKeystore>
+
+    <!-- La firma se activa SOLO si el keystore existe (así un Release sin keystore
+         no rompe el build de quien no tenga el archivo todavía). -->
+    <AndroidKeyStore Condition="Exists('$(PermodaKeystore)')">true</AndroidKeyStore>
+    <AndroidSigningKeyStore Condition="Exists('$(PermodaKeystore)')">$(PermodaKeystore)</AndroidSigningKeyStore>
+    <AndroidSigningKeyAlias Condition="Exists('$(PermodaKeystore)')">sistecredito</AndroidSigningKeyAlias>
+    <AndroidSigningStorePass Condition="Exists('$(PermodaKeystore)')">$(PERMODA_KEYSTORE_PASS)</AndroidSigningStorePass>
+    <AndroidSigningKeyPass Condition="Exists('$(PermodaKeystore)')">$(PERMODA_KEY_PASS)</AndroidSigningKeyPass>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <MauiAsset Include="Resources\**" Exclude="Resources\AppIcon\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
+
+    <!-- Ícono de la app (launcher) = logo KOAJ. Fondo blanco para el relleno
+         del adaptive icon de Android. -->
+    <MauiIcon Include="Resources\AppIcon\koaj_logo.png" Color="#FFFFFF" />
+    <MauiXaml Update="**\*.xaml" />
+    <!--
+      appsettings.json: lo empaquetamos como EmbeddedResource (no MauiAsset)
+      porque en el bootstrap de MAUI (MauiProgram.CreateMauiApp), el IFileSystem
+      y el AssetManager de Android no estan disponibles todavia, y ambos
+      fallan con "Specified method is not supported".
+      EmbeddedResource se lee con Assembly.GetManifestResourceStream, que
+      SI funciona en cualquier momento (incluso antes de MAUI inicialice).
+    -->
+    <EmbeddedResource Include="appsettings.json" />
+    <MauiAsset Include="appsettings.json" LogicalName="appsettings.json" />
+  </ItemGroup>
+
+  <!--
+    Paquetes NuGet.
+    - Microsoft.Maui.Controls: obligatorio explicito desde .NET 8 (warning MA002).
+    - CommunityToolkit.Mvvm: [ObservableProperty], [RelayCommand].
+    - Microsoft.Extensions.Http: HttpClientFactory + DelegatingHandler.
+    - Microsoft.Extensions.Configuration.Json: leer appsettings.json.
+    - Microsoft.Extensions.Configuration.UserSecrets: dev secrets fuera de repo.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Maui.Controls" Version="10.0.20" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Http.Polly" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
+    <PackageReference Include="sqlite-net-pcl" Version="1.9.172" />
+    <!-- HU8-973: bundle con SQLCipher para cifrar la BD local (cédulas/creditId). -->
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlcipher" Version="2.1.10" />
+  </ItemGroup>
+
+</Project>

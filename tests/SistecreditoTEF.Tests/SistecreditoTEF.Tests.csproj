@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-android</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>SistecreditoTEF.Tests</RootNamespace>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      xUnit + Moq son el estandar de facto para .NET.
+      Para el MVP usamos fakes a mano (sin Moq) en mappers y use cases,
+      consistente con la version Kotlin que decidimos no usar Mockito.
+    -->
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <!--
+      Arch.Core para InstantTaskExecutorRule (si lo necesitamos para
+      LiveData equivalente; en MAUI usamos ObservableProperty que no
+      requiere este rule). Lo dejo listo por si lo migramos.
+    -->
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\SistecreditoTEF.Maui\SistecreditoTEF.Maui.csproj" />
+  </ItemGroup>
+
+</Project>

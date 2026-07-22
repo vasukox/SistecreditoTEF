@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Sistema de color v3 — HU8-973 · design system POS (android-pos-frontend).
+    Marca verde salvia + barra superior oscura + superficies claras.
+    Tokens 1:1 con references/palette.md. Se conservan las claves usadas por
+    las vistas (Primary, Background, etc.) mapeadas a los nuevos valores.
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+
+    <!-- ===== Marca (brand) ===== -->
+    <Color x:Key="Primary">#6F8855</Color>
+    <Color x:Key="PrimaryDark">#5E7748</Color>
+    <Color x:Key="PrimaryLight">#8AA06F</Color>
+    <Color x:Key="PrimaryVivid">#7E9A63</Color>
+    <Color x:Key="PrimaryTint">#E8EFE0</Color>
+    <Color x:Key="Accent">#C77700</Color>
+    <Color x:Key="AccentLight">#E0A24A</Color>
+
+    <!-- ===== Superficies ===== -->
+    <Color x:Key="White">#FFFFFFFF</Color>
+    <Color x:Key="Black">#FF000000</Color>
+    <Color x:Key="Background">#F4F2E9</Color>
+    <Color x:Key="Surface">#FFFFFF</Color>
+    <Color x:Key="SurfaceAlt">#F1EFE6</Color>
+    <Color x:Key="NavSurface">#2D2D2D</Color>
+    <Color x:Key="NavSurfaceAlt">#3A3A3A</Color>
+    <Color x:Key="Divider">#E5E5E4</Color>
+    <Color x:Key="Border">#E5E5E4</Color>
+    <Color x:Key="ShadowColor">#1A1A1A</Color>
+
+    <!-- ===== Texto ===== -->
+    <Color x:Key="TextPrimary">#1A1A1A</Color>
+    <Color x:Key="TextSecondary">#6B6B6B</Color>
+    <Color x:Key="TextMuted">#9A9A9A</Color>
+    <Color x:Key="OnDark">#FFFFFF</Color>
+    <Color x:Key="OnDarkMuted">#A8A8A8</Color>
+
+    <!-- Texto sobre la hero verde -->
+    <Color x:Key="OnHero">#FFFFFF</Color>
+    <Color x:Key="OnHeroMuted">#EAF1E0</Color>
+
+    <!-- ===== Estado ===== -->
+    <Color x:Key="Success">#3F7D4E</Color>
+    <Color x:Key="SuccessDark">#356B42</Color>
+    <Color x:Key="SuccessSoft">#E6F1E9</Color>
+    <Color x:Key="Error">#B23A2A</Color>
+    <Color x:Key="ErrorSoft">#F7E7E4</Color>
+    <Color x:Key="Warning">#C77700</Color>
+    <Color x:Key="WarningSoft">#FBF0DE</Color>
+    <Color x:Key="Info">#3B6BAA</Color>
+
+    <!-- Tinte de selección (chips / filas) = primaryContainer -->
+    <Color x:Key="SelectTint">#E8EFE0</Color>
+
+    <!-- ===== Brushes ===== -->
+    <!-- Hero: verde con gradiente muy sutil (dos tonos cercanos). -->
+    <LinearGradientBrush x:Key="PrimaryBrush" StartPoint="0,0" EndPoint="1,1">
+        <GradientStop Color="#77925C" Offset="0.0" />
+        <GradientStop Color="#6F8855" Offset="0.5" />
+        <GradientStop Color="#5E7748" Offset="1.0" />
+    </LinearGradientBrush>
+
+    <!-- Header del scaffold: verde oliva, más oscuro hacia arriba-derecha. -->
+    <LinearGradientBrush x:Key="HeaderBrush" StartPoint="0,1" EndPoint="1,0">
+        <GradientStop Color="#7C8E56" Offset="0.0" />
+        <GradientStop Color="#6C7E49" Offset="0.55" />
+        <GradientStop Color="#505E33" Offset="1.0" />
+    </LinearGradientBrush>
+
+    <SolidColorBrush x:Key="PrimarySolidBrush" Color="{StaticResource Primary}" />
+    <SolidColorBrush x:Key="SuccessBrush" Color="{StaticResource Success}" />
+    <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource Accent}" />
+    <SolidColorBrush x:Key="ScreenBackgroundBrush" Color="{StaticResource Background}" />
+
+</ResourceDictionary>

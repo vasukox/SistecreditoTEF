@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:SistecreditoTEF.Maui.ViewModels"
+             xmlns:beh="clr-namespace:SistecreditoTEF.Maui.Common.Behaviors"
+             xmlns:ctrl="clr-namespace:SistecreditoTEF.Maui.Views.Controls"
+             x:Class="SistecreditoTEF.Maui.Views.PagoPage"
+             x:DataType="vm:PagoViewModel"
+             Title="Realizar pago">
+    <ScrollView>
+        <VerticalStackLayout Spacing="20" Padding="20,24,20,28">
+
+            <!-- Hero saldo -->
+            <ctrl:HeroCardView>
+                <ctrl:HeroCardView.Behaviors>
+                    <beh:EntranceBehavior />
+                </ctrl:HeroCardView.Behaviors>
+                <VerticalStackLayout Spacing="4">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Grid.Column="0" Text="{Binding Titulo}" TextColor="{StaticResource White}" FontSize="18" FontAttributes="Bold" VerticalOptions="Center" />
+                        <Label Grid.Column="1" Text="sistecrédito" TextColor="#99FFFFFF" FontSize="12" FontAttributes="Bold,Italic" />
+                    </Grid>
+                    <Label Text="{Binding Subtitulo}" TextColor="{StaticResource OnHeroMuted}" FontSize="12" />
+                    <Label Text="SALDO PENDIENTE" TextColor="{StaticResource OnHeroMuted}" FontSize="11" CharacterSpacing="1.5" Margin="0,10,0,0" />
+                    <Label Text="{Binding SaldoTexto}" TextColor="{StaticResource White}" FontSize="32" FontAttributes="Bold" />
+                    <Label TextColor="{StaticResource OnHeroMuted}" FontSize="12">
+                        <Label.FormattedText>
+                            <FormattedString>
+                                <Span Text="Pago mínimo: " />
+                                <Span Text="{Binding MinimoTexto}" FontAttributes="Bold" />
+                            </FormattedString>
+                        </Label.FormattedText>
+                    </Label>
+                </VerticalStackLayout>
+            </ctrl:HeroCardView>
+
+            <!-- Monto a pagar -->
+            <Border Style="{StaticResource Card}">
+                <Border.Behaviors>
+                    <beh:EntranceBehavior DelayMs="90" />
+                </Border.Behaviors>
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="MONTO A PAGAR" Style="{StaticResource FieldLabel}" />
+                        <Border Style="{StaticResource FieldCard}">
+                            <Grid ColumnDefinitions="Auto,*">
+                                <Label Grid.Column="0" Text="$" FontSize="24" FontAttributes="Bold" TextColor="{StaticResource TextMuted}" VerticalOptions="Center" />
+                                <Entry Grid.Column="1" Keyboard="Numeric" Placeholder="0"
+                                       FontSize="24" FontAttributes="Bold" HeightRequest="52"
+                                       Text="{Binding Monto, Mode=TwoWay}" />
+                            </Grid>
+                        </Border>
+                        <Label Text="{Binding MontoHint}" Style="{StaticResource Caption}" TextColor="{StaticResource TextMuted}" />
+                    </VerticalStackLayout>
+            </Border>
+
+            <Button Text="Pagar"
+                    Style="{StaticResource SuccessButton}"
+                    Command="{Binding PagarCommand}">
+                <Button.Behaviors>
+                    <beh:EntranceBehavior DelayMs="170" />
+                </Button.Behaviors>
+            </Button>
+
+            <ActivityIndicator IsVisible="{Binding IsLoading}" IsRunning="{Binding IsLoading}"
+                               Color="{StaticResource Primary}" HeightRequest="36" />
+
+            <Border IsVisible="{Binding HasError}"
+                    BackgroundColor="{StaticResource ErrorSoft}"
+                    Stroke="Transparent" StrokeShape="RoundRectangle 12" Padding="14,12">
+                <Label Text="{Binding ErrorMessage}" TextColor="{StaticResource Error}" FontSize="13" HorizontalTextAlignment="Center" />
+            </Border>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:SistecreditoTEF.Maui.ViewModels"
+             xmlns:beh="clr-namespace:SistecreditoTEF.Maui.Common.Behaviors"
+             xmlns:ctrl="clr-namespace:SistecreditoTEF.Maui.Views.Controls"
+             xmlns:sys="clr-namespace:System;assembly=netstandard"
+             x:Class="SistecreditoTEF.Maui.Views.SeleccionCuotasPage"
+             x:DataType="vm:SeleccionCuotasViewModel"
+             Title="Simular crédito">
+    <ScrollView x:Name="PageScroll">
+        <VerticalStackLayout Spacing="20" Padding="20,24,20,28">
+
+            <!-- Hero cupo -->
+            <ctrl:HeroCardView>
+                <ctrl:HeroCardView.Behaviors>
+                    <beh:EntranceBehavior />
+                </ctrl:HeroCardView.Behaviors>
+                <VerticalStackLayout Spacing="4">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Grid.Column="0" Text="{Binding ClienteNombre}" TextColor="{StaticResource White}" FontSize="18" FontAttributes="Bold" VerticalOptions="Center" />
+                        <Label Grid.Column="1" Text="sistecrédito" TextColor="#99FFFFFF" FontSize="12" FontAttributes="Bold,Italic" />
+                    </Grid>
+                    <Label Text="CUPO DISPONIBLE" TextColor="{StaticResource OnHeroMuted}" FontSize="11" CharacterSpacing="1.5" Margin="0,8,0,0" />
+                    <Label Text="{Binding CupoDisponible}" TextColor="{StaticResource White}" FontSize="32" FontAttributes="Bold" />
+                    <Label TextColor="{StaticResource OnHeroMuted}" FontSize="12">
+                        <Label.FormattedText>
+                            <FormattedString>
+                                <Span Text="de " />
+                                <Span Text="{Binding CupoTotal}" FontAttributes="Bold" />
+                            </FormattedString>
+                        </Label.FormattedText>
+                    </Label>
+                </VerticalStackLayout>
+            </ctrl:HeroCardView>
+
+            <!-- Monto + plazos -->
+            <Border Style="{StaticResource Card}">
+                <Border.Behaviors>
+                    <beh:EntranceBehavior DelayMs="90" />
+                </Border.Behaviors>
+                <VerticalStackLayout Spacing="18">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="MONTO A SOLICITAR" Style="{StaticResource FieldLabel}" />
+                        <Border Style="{StaticResource FieldCard}">
+                            <Grid ColumnDefinitions="Auto,*">
+                                <Label Grid.Column="0" Text="$" FontSize="24" FontAttributes="Bold" TextColor="{StaticResource TextMuted}" VerticalOptions="Center" />
+                                <Entry Grid.Column="1" Keyboard="Numeric" Placeholder="500.000"
+                                       FontSize="24" FontAttributes="Bold" HeightRequest="52"
+                                       Text="{Binding Monto, Mode=TwoWay}" />
+                            </Grid>
+                        </Border>
+                        <Label Text="Entre $10.000 y $3.000.000" Style="{StaticResource Caption}" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="PLAZO — CUOTAS MENSUALES" Style="{StaticResource FieldLabel}" />
+                        <Label Text="El cliente paga una cuota cada mes." Style="{StaticResource Caption}" />
+                        <CollectionView ItemsSource="{Binding PlazosDisponibles}"
+                                        SelectionMode="Single"
+                                        SelectedItem="{Binding MesesSeleccionados, Mode=TwoWay}"
+                                        HorizontalScrollBarVisibility="Never"
+                                        HeightRequest="52">
+                            <CollectionView.ItemsLayout>
+                                <LinearItemsLayout Orientation="Horizontal" ItemSpacing="10" />
+                            </CollectionView.ItemsLayout>
+                            <CollectionView.EmptyView>
+                                <Label Text="Ingresa un monto para ver los plazos" Style="{StaticResource Caption}" VerticalOptions="Center" />
+                            </CollectionView.EmptyView>
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="sys:Int32">
+                                    <Border StrokeShape="RoundRectangle 12"
+                                            Stroke="{StaticResource Divider}"
+                                            StrokeThickness="1.5"
+                                            BackgroundColor="{StaticResource SurfaceAlt}"
+                                            Padding="20,8" MinimumWidthRequest="58">
+                                        <VisualStateManager.VisualStateGroups>
+                                            <VisualStateGroup x:Name="CommonStates">
+                                                <VisualState x:Name="Normal">
+                                                    <VisualState.Setters>
+                                                        <Setter Property="Stroke" Value="{StaticResource Divider}" />
+                                                        <Setter Property="BackgroundColor" Value="{StaticResource SurfaceAlt}" />
+                                                    </VisualState.Setters>
+                                                </VisualState>
+                                                <VisualState x:Name="Selected">
+                                                    <VisualState.Setters>
+                                                        <Setter Property="Stroke" Value="{StaticResource Primary}" />
+                                                        <Setter Property="BackgroundColor" Value="{StaticResource SelectTint}" />
+                                                    </VisualState.Setters>
+                                                </VisualState>
+                                            </VisualStateGroup>
+                                        </VisualStateManager.VisualStateGroups>
+                                        <Label Text="{Binding .}" TextColor="{StaticResource Primary}"
+                                               FontAttributes="Bold" FontSize="18"
+                                               HorizontalOptions="Center" VerticalOptions="Center" />
+                                    </Border>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+
+            <Button Text="Calcular y simular"
+                    Style="{StaticResource PrimaryButton}"
+                    Command="{Binding CalcularCommand}">
+                <Button.Behaviors>
+                    <beh:EntranceBehavior DelayMs="170" />
+                </Button.Behaviors>
+            </Button>
+
+            <ActivityIndicator IsVisible="{Binding IsLoading}" IsRunning="{Binding IsLoading}"
+                               Color="{StaticResource Primary}" HeightRequest="36" />
+
+            <Border IsVisible="{Binding HasError}"
+                    BackgroundColor="{StaticResource ErrorSoft}"
+                    Stroke="Transparent" StrokeShape="RoundRectangle 12" Padding="14,12">
+                <Label Text="{Binding ErrorMessage}" TextColor="{StaticResource Error}" FontSize="13" />
+            </Border>
+
+            <!-- Resultado -->
+            <Border x:Name="ResultadoCard" IsVisible="{Binding HasResults}" Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="6">
+                    <Label Text="CUOTA MENSUAL" Style="{StaticResource FieldLabel}" />
+                    <Label Text="{Binding CuotaMensual}" Style="{StaticResource MoneyLarge}" TextColor="{StaticResource Success}" />
+                    <BoxView HeightRequest="1" Color="{StaticResource Divider}" Margin="0,10" />
+                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="10">
+                        <Label Grid.Row="0" Grid.Column="0" Text="Total a pagar" Style="{StaticResource Caption}" />
+                        <Label Grid.Row="0" Grid.Column="1" Text="{Binding TotalPagar}" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+                        <Label Grid.Row="1" Grid.Column="0" Text="Intereses" Style="{StaticResource Caption}" />
+                        <Label Grid.Row="1" Grid.Column="1" Text="{Binding Intereses}" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+                        <Label Grid.Row="2" Grid.Column="0" Text="Aval" Style="{StaticResource Caption}" />
+                        <Label Grid.Row="2" Grid.Column="1" Text="{Binding Aval}" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+                        <Label Grid.Row="3" Grid.Column="0" Text="Cuota inicial" Style="{StaticResource Caption}" />
+                        <Label Grid.Row="3" Grid.Column="1" Text="{Binding CuotaInicial}" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <Button Text="Confirmar crédito"
+                    IsVisible="{Binding HasResults}"
+                    Style="{StaticResource SuccessButton}"
+                    Command="{Binding ContinuarCommand}" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

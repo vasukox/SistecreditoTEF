@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Sistema de estilos v3 — HU8-973 · design system POS (android-pos-frontend).
+    Barra superior oscura, botones verdes de esquina recta (radio 4dp), targets
+    de 64dp, tarjetas hairline, tipografía con etiquetas en mayúscula (tracking).
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+
+    <SolidColorBrush x:Key="ShadowBrush" Color="{StaticResource ShadowColor}" />
+
+    <!-- ============ SHELL (barra oscura) ============ -->
+    <Style x:Key="DefaultShellStyle" TargetType="Shell" ApplyToDerivedTypes="True">
+        <Setter Property="Shell.BackgroundColor" Value="{StaticResource NavSurface}" />
+        <Setter Property="Shell.ForegroundColor" Value="{StaticResource OnDark}" />
+        <Setter Property="Shell.TitleColor" Value="{StaticResource OnDark}" />
+        <Setter Property="Shell.DisabledColor" Value="{StaticResource OnDarkMuted}" />
+        <Setter Property="Shell.UnselectedColor" Value="{StaticResource OnDarkMuted}" />
+        <Setter Property="Shell.TabBarBackgroundColor" Value="{StaticResource NavSurface}" />
+        <Setter Property="Shell.TabBarForegroundColor" Value="{StaticResource Primary}" />
+        <Setter Property="Shell.TabBarTitleColor" Value="{StaticResource OnDark}" />
+        <Setter Property="Shell.TabBarUnselectedColor" Value="{StaticResource OnDarkMuted}" />
+    </Style>
+
+    <!-- ============ PAGE ============ -->
+    <Style TargetType="ContentPage" ApplyToDerivedTypes="True">
+        <Setter Property="BackgroundColor" Value="{StaticResource Background}" />
+    </Style>
+
+    <!-- ============ TIPOGRAFIA ============ -->
+    <Style TargetType="Label" x:Key="Display">
+        <Setter Property="FontSize" Value="34" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="TextColor" Value="{StaticResource TextPrimary}" />
+        <Setter Property="CharacterSpacing" Value="-0.5" />
+    </Style>
+
+    <Style TargetType="Label" x:Key="MoneyLarge">
+        <Setter Property="FontSize" Value="30" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="TextColor" Value="{StaticResource TextPrimary}" />
+        <Setter Property="CharacterSpacing" Value="-0.5" />
+    </Style>
+
+    <Style TargetType="Label" x:Key="ScreenTitle">
+        <Setter Property="FontSize" Value="23" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="TextColor" Value="{StaticResource TextPrimary}" />
+        <Setter Property="CharacterSpacing" Value="-0.2" />
+    </Style>
+
+    <Style TargetType="Label" x:Key="ScreenSubtitle">
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="TextColor" Value="{StaticResource TextSecondary}" />
+    </Style>
+
+    <Style TargetType="Label" x:Key="CardTitle">
+        <Setter Property="FontSize" Value="17" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="TextColor" Value="{StaticResource TextPrimary}" />
+    </Style>
+
+    <!-- label.caps: mayúscula, tracking amplio, muted -->
+    <Style TargetType="Label" x:Key="FieldLabel">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="TextColor" Value="{StaticResource TextSecondary}" />
+        <Setter Property="CharacterSpacing" Value="1.3" />
+    </Style>
+
+    <Style TargetType="Label" x:Key="Caption">
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="TextColor" Value="{StaticResource TextSecondary}" />
+    </Style>
+
+    <Style TargetType="Label" x:Key="Body">
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="TextColor" Value="{StaticResource TextPrimary}" />
+    </Style>
+
+    <Style TargetType="Label" x:Key="SuccessBigLabel">
+        <Setter Property="FontSize" Value="22" />
+        <Setter Property="TextColor" Value="{StaticResource Success}" />
+        <Setter Property="FontAttributes" Value="Bold" />
+    </Style>
+
+    <!-- ============ TARJETAS ============ -->
+    <Style TargetType="Border" x:Key="Card">
+        <Setter Property="BackgroundColor" Value="{StaticResource Surface}" />
+        <Setter Property="Stroke" Value="{StaticResource Border}" />
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="Padding" Value="20" />
+        <Setter Property="StrokeShape" Value="RoundRectangle 16" />
+        <Setter Property="Shadow">
+            <Shadow Brush="{StaticResource ShadowBrush}" Offset="0,2" Radius="12" Opacity="0.06" />
+        </Setter>
+    </Style>
+
+    <Style TargetType="Border" x:Key="HeroCard">
+        <Setter Property="Background" Value="{StaticResource PrimaryBrush}" />
+        <Setter Property="Stroke" Value="Transparent" />
+        <Setter Property="StrokeThickness" Value="0" />
+        <Setter Property="Padding" Value="24" />
+        <Setter Property="StrokeShape" Value="RoundRectangle 10" />
+        <Setter Property="Shadow">
+            <Shadow Brush="{StaticResource ShadowBrush}" Offset="0,6" Radius="18" Opacity="0.18" />
+        </Setter>
+    </Style>
+
+    <Style TargetType="Border" x:Key="FieldCard">
+        <Setter Property="BackgroundColor" Value="{StaticResource Surface}" />
+        <Setter Property="Stroke" Value="{StaticResource Border}" />
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="Padding" Value="20,4" />
+        <Setter Property="StrokeShape" Value="RoundRectangle 26" />
+    </Style>
+
+    <!-- ============ BOTONES (esquina recta 4dp, target 60dp) ============ -->
+    <Style TargetType="Button" x:Key="PrimaryButton">
+        <Setter Property="BackgroundColor" Value="{StaticResource Primary}" />
+        <Setter Property="TextColor" Value="{StaticResource OnDark}" />
+        <Setter Property="CornerRadius" Value="28" />
+        <Setter Property="HeightRequest" Value="56" />
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="Shadow">
+            <Shadow Brush="{StaticResource ShadowBrush}" Offset="0,3" Radius="10" Opacity="0.16" />
+        </Setter>
+        <Setter Property="VisualStateManager.VisualStateGroups">
+            <VisualStateGroupList>
+                <VisualStateGroup x:Name="CommonStates">
+                    <VisualState x:Name="Normal">
+                        <VisualState.Setters>
+                            <Setter Property="Scale" Value="1" />
+                            <Setter Property="Opacity" Value="1" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="Pressed">
+                        <VisualState.Setters>
+                            <Setter Property="Scale" Value="0.98" />
+                            <Setter Property="BackgroundColor" Value="{StaticResource PrimaryDark}" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="Disabled">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="{StaticResource TextMuted}" />
+                            <Setter Property="Opacity" Value="0.5" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateGroupList>
+        </Setter>
+    </Style>
+
+    <Style TargetType="Button" x:Key="SuccessButton" BasedOn="{StaticResource PrimaryButton}">
+        <Setter Property="BackgroundColor" Value="{StaticResource Success}" />
+    </Style>
+
+    <Style TargetType="Button" x:Key="AccentButton" BasedOn="{StaticResource PrimaryButton}">
+        <Setter Property="BackgroundColor" Value="{StaticResource Accent}" />
+    </Style>
+
+    <Style TargetType="Button" x:Key="BorderlessButton">
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="TextColor" Value="{StaticResource Primary}" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="FontSize" Value="14" />
+    </Style>
+
+    <!-- ============ ENTRY ============ -->
+    <Style TargetType="Entry">
+        <Setter Property="TextColor" Value="{StaticResource TextPrimary}" />
+        <Setter Property="PlaceholderColor" Value="{StaticResource TextMuted}" />
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="FontSize" Value="16" />
+    </Style>
+
+</ResourceDictionary>

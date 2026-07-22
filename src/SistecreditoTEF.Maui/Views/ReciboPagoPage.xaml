@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:SistecreditoTEF.Maui.ViewModels"
+             xmlns:beh="clr-namespace:SistecreditoTEF.Maui.Common.Behaviors"
+             x:Class="SistecreditoTEF.Maui.Views.ReciboPagoPage"
+             x:DataType="vm:ReciboPagoViewModel"
+             Title="Recibo de pago">
+    <ScrollView>
+        <VerticalStackLayout Spacing="18" Padding="24,32,24,28">
+
+            <Border WidthRequest="88" HeightRequest="88" BackgroundColor="{StaticResource Success}"
+                    Stroke="Transparent" StrokeShape="RoundRectangle 44" HorizontalOptions="Center">
+                <Border.Shadow>
+                    <Shadow Brush="{StaticResource SuccessBrush}" Offset="0,6" Radius="16" Opacity="0.35" />
+                </Border.Shadow>
+                <Border.Behaviors>
+                    <beh:PopInBehavior DelayMs="120" />
+                </Border.Behaviors>
+                <Label Text="✓" FontSize="46" FontAttributes="Bold" TextColor="{StaticResource White}"
+                       HorizontalOptions="Center" VerticalOptions="Center" />
+            </Border>
+
+            <VerticalStackLayout Spacing="4" HorizontalOptions="Center">
+                <VerticalStackLayout.Behaviors>
+                    <beh:EntranceBehavior DelayMs="220" />
+                </VerticalStackLayout.Behaviors>
+                <Label Text="¡Pago realizado!" Style="{StaticResource ScreenTitle}" HorizontalOptions="Center" />
+                <Label Text="{Binding NumeroPago, StringFormat='Abono {0}'}" Style="{StaticResource ScreenSubtitle}" HorizontalOptions="Center" />
+            </VerticalStackLayout>
+
+            <!-- Monto pagado destacado -->
+            <Border Style="{StaticResource Card}">
+                <Border.Behaviors>
+                    <beh:EntranceBehavior DelayMs="300" />
+                </Border.Behaviors>
+                <VerticalStackLayout Spacing="6">
+                    <Label Text="ABONO A CAPITAL" Style="{StaticResource FieldLabel}" />
+                    <Label Text="{Binding CapitalPagado}" Style="{StaticResource MoneyLarge}" TextColor="{StaticResource Success}" />
+                    <BoxView HeightRequest="1" Color="{StaticResource Divider}" Margin="0,10" />
+                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" RowSpacing="12">
+                        <Label Grid.Row="0" Grid.Column="0" Text="Saldo restante" Style="{StaticResource Caption}" />
+                        <Label Grid.Row="0" Grid.Column="1" Text="{Binding SaldoRestante}" FontAttributes="Bold" TextColor="{StaticResource Primary}" />
+                        <Label Grid.Row="1" Grid.Column="0" Text="Próximo pago" Style="{StaticResource Caption}" />
+                        <Label Grid.Row="1" Grid.Column="1" Text="{Binding ProximoPago}" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+                        <Label Grid.Row="2" Grid.Column="0" Text="Próximo mínimo" Style="{StaticResource Caption}" />
+                        <Label Grid.Row="2" Grid.Column="1" Text="{Binding ProximoMinimo}" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <Button Text="Finalizar"
+                    Style="{StaticResource SuccessButton}"
+                    Command="{Binding FinalizarCommand}">
+                <Button.Behaviors>
+                    <beh:EntranceBehavior DelayMs="380" />
+                </Button.Behaviors>
+            </Button>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>
