@@ -104,6 +104,40 @@ public class MainActivity : MauiAppCompatActivity
         {
             var pending = _pendingIntent;
             _pendingIntent = null;
+
+            // HU8-973: guard contra colision de modos. Si hay una transaccion
+            // activa (HI-POS o standalone) y llega un intent de la OTRA fuente,
+            // descartamos el nuevo para no pisar el flujo en curso.
+            //
+            // SingleTask hace que LAUNCHER + HI-POS compartan la misma
+            // Activity: si el cajero esta en flujo HI-POS y toca el icono
+            // del launcher, este intent llega via OnNewIntent. Sin este
+            // guard, navegar a CreditosActivos rompe la venta HI-POS.
+            var state = IPlatformApplication.Current.Services
+                .GetService(typeof(ITransactionStateStore)) as ITransactionStateStore;
+            var standalone = IPlatformApplication.Current.Services
+                .GetService(typeof(IStandaloneModeTracker)) as IStandaloneModeTracker;
+
+            if (state is not null && IsTransactionInProgress(state, standalone, pending.Action))
+            {
+                Log.Warn("MainActivity",
+                    $"Intent descartado: hay transaccion en curso (mode=" +
+                    $"{(standalone?.IsStandalone == true ? "standalone" : "hiopos")}, " +
+                    $"action entrante={pending.Action}).");
+                return;
+            }
+
+            // Si llega un intent de HI-POS y estabamos en modo standalone,
+            // limpiamos el flag para que el flujo HI-POS corra limpio.
+            if (standalone is not null
+                && standalone.IsStandalone
+                && pending.Action != "android.intent.action.MAIN")
+            {
+                Log.Info("MainActivity", "Cambio de modo: standalone -> hiopos. Limpiando state.");
+                standalone.Reset();
+                state?.Clear();
+            }
+
             Log.Info("MainActivity", $"HandleIntent starting for action={pending.Action}");
             HandleIntent(pending, isNewIntent: false);
             Log.Info("MainActivity", "HandleIntent completed");
@@ -112,6 +146,29 @@ public class MainActivity : MauiAppCompatActivity
         {
             Log.Warn("MainActivity", $"OnResume skipped: _pendingIntent={_pendingIntent?.Action ?? "null"}, Services null={IPlatformApplication.Current?.Services == null}");
         }
+    }
+
+    /// <summary>
+    /// HU8-973: true si hay un flujo en curso (HI-POS o standalone) que no
+    /// debemos interrumpir. Usado para descartar intents "intruso" que
+    /// colisionan con el flujo activo.
+    /// </summary>
+    private static bool IsTransactionInProgress(
+        ITransactionStateStore state,
+        IStandaloneModeTracker? standalone,
+        string incomingAction)
+    {
+        // Si hay ActiveTransaction seteada por HI-POS, cualquier otro
+        // intent (incluido LAUNCHER) es un intruso.
+        if (state.ActiveTransaction is not null) return true;
+        // Si hay CreatedCredit o LastPayment, estamos en medio de un pago.
+        if (state.CreatedCredit is not null) return true;
+        if (state.LastPayment is not null) return true;
+        // Si estamos en modo standalone, LAUNCHER (re-entrar) tambien cuenta
+        // como en curso.
+        if (standalone?.IsStandalone == true && incomingAction == "android.intent.action.MAIN")
+            return true;
+        return false;
     }
 
     /// <summary>
@@ -135,12 +192,23 @@ public class MainActivity : MauiAppCompatActivity
         var action = intent.Action ?? string.Empty;
         Log.Info("MainActivity", $"Processing action={action}");
 
-        // LAUNCHER: el usuario abrio la app desde el icono del launcher.
-        // NO procesamos como intent de HioPosCloud (no cerramos la app,
-        // dejamos que MAUI muestre la UI normal - HomePage).
+        // LAUNCHER: el usuario abrio la app desde el icono del launcher
+        // (modo standalone, SIN venta abierta en HI-POS). Navegamos directo
+        // al flujo de pagos de creditos (abonos) para que el cajero no
+        // tenga que hacer una factura nueva solo para entrar a la opcion.
         if (action == "android.intent.action.MAIN")
         {
-            Log.Info("MainActivity", "LAUNCHER action: app abierta desde icono. No se procesa como intent HioPos.");
+            Log.Info("MainActivity", "LAUNCHER action: app abierta desde icono (standalone).");
+            var serviceProvider = IPlatformApplication.Current?.Services;
+            if (serviceProvider is not null)
+            {
+                serviceProvider.GetRequiredService<IStandaloneModeTracker>().IsStandalone = true;
+                MainThread.BeginInvokeOnMainThread(async () =>
+                {
+                    if (Shell.Current is not null)
+                        await Shell.Current.GoToAsync(AppRoutes.CreditosActivos);
+                });
+            }
             return;
         }
 

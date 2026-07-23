@@ -30,8 +30,8 @@
       Package Name para el alta en HioPosCloud (ICG). HioPos lanza el modulo
       por este package. Debe coincidir con lo registrado en ICG.
     -->
-    <ApplicationId>com.permoda.sistecreditotef</ApplicationId>
-    <ApplicationIdGuidTree>com.permoda.sistecreditotef</ApplicationIdGuidTree>
+    <ApplicationId>com.pos2pay</ApplicationId>
+    <ApplicationIdGuidTree>com.pos2pay</ApplicationIdGuidTree>
 
     <ApplicationVersion>1</ApplicationVersion>
     <ApplicationDisplayVersion>1.0.0</ApplicationDisplayVersion>

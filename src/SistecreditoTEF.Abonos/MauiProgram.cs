@@ -5,33 +5,30 @@ using SistecreditoTEF.Maui.Common;
 using SistecreditoTEF.Maui.Services.Hiopos;
 using SistecreditoTEF.Maui.Services.Platform;
 
-#pragma warning disable SA1633 // File should have header
-
 namespace SistecreditoTEF.Maui;
 
 /// <summary>
-/// Bootstrap del APK TEF (<c>com.pos2pay</c>): integra con HI-POS Cloud y,
-/// abierto desde el launcher, también hace abonos standalone.
+/// Bootstrap del APK ABONOS (<c>com.permoda.sistecreditotef.abonos</c>):
+/// launcher standalone, NUNCA responde a HI-POS.
 ///
 /// El registro de dependencias COMÚN a las dos apps vive en
 /// <see cref="AppServicesRegistration"/> (DRY). Aquí solo queda lo específico
-/// del TEF: los handlers que responden a HI-POS.
+/// de Abonos: handlers no-op (no hay POS que reciba el resultado) y el modo
+/// standalone forzado a <c>true</c>.
 /// </summary>
 public static class MauiProgram
 {
     public static MauiApp CreateMauiApp()
     {
-        Android.Util.Log.Info("MauiProgram", "CreateMauiApp START (TEF)");
+        Android.Util.Log.Info("MauiProgram", "CreateMauiApp START (Abonos)");
 
-        // HU8-973: inicializa el proveedor SQLCipher (bundle_e_sqlcipher) antes
-        // de cualquier uso de SQLite, para que la BD local vaya cifrada.
+        // HU8-973: inicializa SQLCipher antes de cualquier uso de SQLite.
         SQLitePCL.Batteries_V2.Init();
 
         var builder = MauiApp.CreateBuilder();
 
 #if ANDROID
-        // HU8-973 (UI/UX): quitar el subrayado nativo del Entry en Android para
-        // el look "filled" limpio (los Entry van dentro de un Border estilizado).
+        // HU8-973 (UI/UX): quitar el subrayado nativo del Entry en Android.
         Microsoft.Maui.Handlers.EntryHandler.Mapper.AppendToMapping("NoUnderlineHU8973", (handler, view) =>
         {
             handler.PlatformView.BackgroundTintList =
@@ -50,40 +47,26 @@ public static class MauiProgram
         builder.Logging.AddDebug();
 #endif
 
-        // ---- Servicios COMPARTIDOS con la app de Abonos (DRY) ----
-        // Pipeline HTTP, stores, dominio, ViewModels y Pages viven en
-        // AppServicesRegistration para no duplicar ni desincronizar con el otro APK.
+        // ---- Servicios COMPARTIDOS con el APK TEF (DRY) ----
         builder.Services.AddSistecreditoSharedServices();
 
-        // ---- Específico del TEF (com.pos2pay): SÍ responde a HI-POS ----
-#if ANDROID
-        builder.Services.AddSingleton<ITransactionResultHandler, Platforms.Android.AndroidTransactionResultHandler>();
-        builder.Services.AddSingleton<IAuditLogger, Platforms.Android.BroadcastAuditLogger>();
-#else
+        // ---- Específico de ABONOS: standalone SIEMPRE, NUNCA HI-POS ----
+        // Sin AndroidTransactionResultHandler ni BroadcastAuditLogger: este APK
+        // no le devuelve resultado a ningún POS. Finalizar() cierra la Activity.
         builder.Services.AddSingleton<ITransactionResultHandler, NoOpTransactionResultHandler>();
         builder.Services.AddSingleton<IAuditLogger, NoOpAuditLogger>();
-#endif
-        // Standalone arranca en false; MainActivity lo pone true si el cajero
-        // abre por el ícono del launcher (abonos sin venta HI-POS abierta).
-        builder.Services.AddSingleton<IStandaloneModeTracker, StandaloneModeTracker>();
+        builder.Services.AddSingleton<IStandaloneModeTracker>(_ =>
+            new StandaloneModeTracker { IsStandalone = true });
 
         var app = builder.Build();
-        Android.Util.Log.Info("MauiProgram", $"Build SUCCESS. App null={app == null}");
-
         AppLogger.Init(app.Services.GetRequiredService<ILogger<SistecreditoApp>>());
         return app;
     }
 }
 
-/// <summary>
-/// Marker type para ILogger&lt;T&gt;. No se usa para nada mas que
-/// como categoria del logger estatica.
-/// </summary>
+/// <summary>Marker type para ILogger&lt;T&gt; (categoría del logger estático).</summary>
 public sealed class SistecreditoApp;
 
-/// <summary>
-/// Fallback para plataformas no-Android (tests, iOS si se agrega).
-/// </summary>
 internal sealed class NoOpTransactionResultHandler : ITransactionResultHandler
 {
     public void FinishWithResult(HioposResponse response) { /* no-op */ }

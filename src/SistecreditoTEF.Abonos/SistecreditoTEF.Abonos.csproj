@@ -1,0 +1,85 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    APK 2: ABONOS Sistecredito (standalone launcher).
+
+    Comparte codigo con el TEF via <Compile Include="..\TEF\..."> con
+    <Link> explicito (todos los archivos a la raiz del proyecto, sin
+    subcarpetas). El compilador respeta los namespaces declarados en
+    cada archivo, evitando colisiones.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-android</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>SistecreditoTEF.Maui</RootNamespace>
+    <UseMaui>true</UseMaui>
+    <SingleProject>true</SingleProject>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+
+    <ApplicationTitle>Sistecredito Abonos</ApplicationTitle>
+    <ApplicationId>com.permoda.sistecreditotef.abonos</ApplicationId>
+    <ApplicationIdGuidTree>com.permoda.sistecreditotef.abonos</ApplicationIdGuidTree>
+
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>1.0.0</ApplicationDisplayVersion>
+
+    <FastDeployment>false</FastDeployment>
+    <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
+    <AndroidSupportedAbis>arm64-v8a;x86_64</AndroidSupportedAbis>
+
+    <AndroidEnableAot>false</AndroidEnableAot>
+    <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
+    <PublishAot>false</PublishAot>
+
+    <AndroidPackageFormat>apk</AndroidPackageFormat>
+    <SupportedOSPlatformVersion>24.0</SupportedOSPlatformVersion>
+
+    <NoWarn>$(NoWarn);CA1822;XA0101</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <PermodaKeystore Condition="'$(PermodaKeystore)' == ''">$(MSBuildProjectDirectory)\permoda-release.keystore</PermodaKeystore>
+    <AndroidKeyStore Condition="Exists('$(PermodaKeystore)')">true</AndroidKeyStore>
+    <AndroidSigningKeyStore Condition="Exists('$(PermodaKeystore)')">$(PermodaKeystore)</AndroidSigningKeyStore>
+    <AndroidSigningKeyAlias Condition="Exists('$(PermodaKeystore)')">sistecredito</AndroidSigningKeyAlias>
+    <AndroidSigningStorePass Condition="Exists('$(PermodaKeystore)')">$(PERMODA_KEYSTORE_PASS)</AndroidSigningStorePass>
+    <AndroidSigningKeyPass Condition="Exists('$(PermodaKeystore)')">$(PERMODA_KEY_PASS)</AndroidSigningKeyPass>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Maui.Controls" Version="10.0.20" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Http.Polly" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
+    <PackageReference Include="sqlite-net-pcl" Version="1.9.172" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlcipher" Version="2.1.10" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      Codigo fuente compartido del TEF. Excluimos los entry-points y
+      servicios de HI-POS (los reimplementamos en este proyecto).
+    -->
+    <Compile Include="..\SistecreditoTEF.Maui\**\*.cs"
+             Exclude="..\SistecreditoTEF.Maui\obj\**;..\SistecreditoTEF.Maui\bin\**;..\SistecreditoTEF.Maui\MauiProgram.cs;..\SistecreditoTEF.Maui\App.xaml.cs;..\SistecreditoTEF.Maui\App.xaml;..\SistecreditoTEF.Maui\AppShell.xaml;..\SistecreditoTEF.Maui\AppShell.xaml.cs;..\SistecreditoTEF.Maui\Platforms\Android\MainActivity.cs;..\SistecreditoTEF.Maui\Platforms\Android\AndroidTransactionResultHandler.cs;..\SistecreditoTEF.Maui\Platforms\Android\BroadcastAuditLogger.cs;..\SistecreditoTEF.Maui\Platforms\Android\MainApplication.cs;..\SistecreditoTEF.Maui\Platforms\Android\AndroidManifest.xml">
+      <Link>%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </Compile>
+
+    <MauiAsset Include="Resources\**" Exclude="Resources\AppIcon\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
+    <!-- XAML linked con Include (no Update) para que se genere InitializeComponent. -->
+    <MauiXaml Include="..\SistecreditoTEF.Maui\**\*.xaml"
+               Exclude="..\SistecreditoTEF.Maui\App.xaml;..\SistecreditoTEF.Maui\AppShell.xaml">
+      <Link>%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </MauiXaml>
+    <MauiIcon Include="Resources\AppIcon\koaj_logo.png" Color="#FFFFFF" />
+    <EmbeddedResource Include="..\SistecreditoTEF.Maui\appsettings.json" Link="appsettings.json" />
+    <MauiAsset Include="..\SistecreditoTEF.Maui\appsettings.json" LogicalName="appsettings.json" />
+  </ItemGroup>
+
+</Project>

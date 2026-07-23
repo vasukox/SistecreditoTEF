@@ -18,7 +18,9 @@ public partial class ConfirmacionViewModel(
     ITransactionStateStore state,
     ITransactionResultHandler resultHandler,
     ReceiptBuilder receiptBuilder,
-    ModifyDocumentResultBuilder modifyDocBuilder) : ObservableObject
+    ModifyDocumentResultBuilder modifyDocBuilder,
+    INavigationService nav,
+    IStandaloneModeTracker standalone) : ObservableObject
 {
     [ObservableProperty]
     private Credit? credito;
@@ -54,11 +56,36 @@ public partial class ConfirmacionViewModel(
     {
         if (Credito is null) return;
 
+        // HU8-973 standalone: si la app se abrio del launcher (no de HI-POS),
+        // no hay nadie que reciba el SetResult. Cerramos la app.
+        if (standalone.IsStandalone)
+        {
+            state.Clear();
+            standalone.Reset();
+            CloseActivity();
+            return;
+        }
+
         var response = BuildResponse();
 
         // Entregamos el Intent via SetResult y cerramos la Activity.
         state.Clear();
         resultHandler.FinishWithResult(response);
+    }
+
+    private void CloseActivity()
+    {
+        try
+        {
+            var activity = Microsoft.Maui.ApplicationModel.Platform.CurrentActivity;
+            if (activity is not null)
+                activity.FinishAffinity();
+        }
+        catch (Exception ex)
+        {
+            AppLogger.E("ConfirmacionViewModel",
+                "Error cerrando activity en modo standalone", ex);
+        }
     }
 
     private HioposResponse BuildResponse()

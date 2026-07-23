@@ -16,7 +16,9 @@ public partial class ReciboPagoViewModel(
     ITransactionStateStore state,
     ITransactionResultHandler resultHandler,
     ReceiptBuilder receiptBuilder,
-    ModifyDocumentResultBuilder modifyDocBuilder) : ObservableObject
+    ModifyDocumentResultBuilder modifyDocBuilder,
+    IStandaloneModeTracker standalone,
+    IReceiptPrinter printer) : ObservableObject
 {
     [ObservableProperty]
     private Payment? pago;
@@ -45,6 +47,27 @@ public partial class ReciboPagoViewModel(
     [RelayCommand]
     private void Finalizar()
     {
+        // HU8-973 standalone: si la app se abrio directo del launcher (sin
+        // venta abierta en HI-POS), no hay HI-POS que imprima el comprobante.
+        // Lo hacemos nosotros via IReceiptPrinter (Sunmi si esta disponible,
+        // sino PDF + share intent).
+        if (standalone.IsStandalone)
+        {
+            try
+            {
+                _ = PrintStandaloneAsync(Pago);
+            }
+            catch (Exception ex)
+            {
+                AppLogger.E("ReciboPagoViewModel",
+                    "Error imprimiendo comprobante standalone", ex);
+            }
+            state.Clear();
+            standalone.Reset();
+            CloseActivity();
+            return;
+        }
+
         if (Pago is null)
         {
             resultHandler.FinishWithResult(
@@ -160,6 +183,35 @@ public partial class ReciboPagoViewModel(
     private static string ToCents(double pesos) =>
         ((long)Math.Round(pesos * 100)).ToString(System.Globalization.CultureInfo.InvariantCulture);
 
+    /// <summary>
+    /// HU8-973 standalone: imprime el comprobante via IReceiptPrinter
+    /// (Sunmi si esta disponible, sino PDF + share intent).
+    /// Si el pago es null (caso raro), no imprime nada.
+    /// </summary>
+    private async Task PrintStandaloneAsync(Models.Payment? pago)
+    {
+        if (pago is null) return;
+
+        var receipt = new StandaloneReceipt(
+            Tienda: "Permoda",
+            Fecha: DateTime.Now,
+            Cajero: "Cajero Permoda",
+            PaymentNumber: pago.PaymentNumber.ToString(),
+            CreditNumber: state.SelectedCredit?.CreditNumber.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? pago.CreditId,
+            Cliente: state.ValidatedClient?.FullName ?? string.Empty,
+            ClienteDocumento: state.ValidatedClient?.DocumentId ?? string.Empty,
+            CapitalPagado: (decimal)pago.CreditValuePaid,
+            SaldoRestante: (decimal)pago.Balance,
+            ProximoPago: DateTime.TryParse(pago.NextDueDate, out var d) ? d : DateTime.Now.AddMonths(1),
+            ProximoMinimo: (decimal)pago.NextMinimumPayment);
+
+        AppLogger.I("ReciboPagoViewModel",
+            $"Imprimiendo comprobante standalone via {printer.Name}...");
+        var ok = await printer.PrintAsync(receipt);
+        AppLogger.I("ReciboPagoViewModel",
+            $"Comprobante standalone: {(ok ? "OK" : "FALLO")} via {printer.Name}");
+    }
+
     // HU-DIAN: mismo sanitizer que ConfirmacionViewModel. Quita guiones y
     // espacios, trunca a 40 chars, fallback a paymentNumber padded si vacio.
     private const int AuthorizationIdMaxLength = 40;
@@ -173,5 +225,27 @@ public partial class ReciboPagoViewModel(
         if (s.Length == 0)
             return paymentNumber.ToString("D6", System.Globalization.CultureInfo.InvariantCulture);
         return s.Length > AuthorizationIdMaxLength ? s[..AuthorizationIdMaxLength] : s;
+    }
+
+    /// <summary>
+    /// HU8-973 standalone: cierra la Activity y vuelve al launcher (no a
+    /// HI-POS). Usamos [Platform.CurrentActivity] + FinishAffinity para que
+    /// el sistema limpie el back stack y la app se vaya del recents.
+    /// </summary>
+    private void CloseActivity()
+    {
+        try
+        {
+            var activity = Microsoft.Maui.ApplicationModel.Platform.CurrentActivity;
+            if (activity is not null)
+            {
+                activity.FinishAffinity();
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLogger.E("ReciboPagoViewModel",
+                "Error cerrando activity en modo standalone", ex);
+        }
     }
 }
