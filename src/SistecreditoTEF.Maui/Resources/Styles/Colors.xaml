@@ -103,6 +103,25 @@
     <Color x:Key="SelectTint">#E4E7F4</Color>
 
     <!-- ═══════════════════════════════════════════════════════════════════════
+         SEMANTICOS SOBRE EL HERO AZUL
+         ═══════════════════════════════════════════════════════════════════════
+         [Warning] (#B26A00) y [Error] (#B23A2A) estan pensados para fondo claro:
+         sobre el azul de marca quedan en ~1.6:1 y se leen como manchas marrones.
+         Estos dos son los mismos significados aclarados hasta pasar AA sobre
+         #4554A1, y se usan en la cuenta regresiva del codigo de replicacion, que
+         vive dentro del hero.
+
+         No reemplazan a los otros: fuera del hero se sigue usando Warning/Error. -->
+    <Color x:Key="OnHeroWarning">#FFC368</Color>
+    <Color x:Key="OnHeroDanger">#FF9A8A</Color>
+
+    <!-- Superficies translucidas para casillas y chips DENTRO del hero. Un color
+         opaco ahi obliga a elegir un azul exacto y se desincroniza en cuanto el
+         gradiente cambia; el blanco al 12% acompaña siempre. -->
+    <Color x:Key="OnHeroTile">#1FFFFFFF</Color>
+    <Color x:Key="OnHeroTileBorder">#4DFFFFFF</Color>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════
          BRUSHES
          ═══════════════════════════════════════════════════════════════════════
          No son opcionales: [Styles.xaml] los referencia en HeroCard y en las

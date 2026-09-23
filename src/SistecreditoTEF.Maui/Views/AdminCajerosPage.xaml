@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:SistecreditoTEF.Maui.ViewModels"
              xmlns:auth="clr-namespace:SistecreditoTEF.Maui.Services.Auth"
+             xmlns:beh="clr-namespace:SistecreditoTEF.Maui.Common.Behaviors"
              x:Class="SistecreditoTEF.Maui.Views.AdminCajerosPage"
              x:DataType="vm:AdminCajerosViewModel"
              Shell.FlyoutBehavior="Flyout"
@@ -176,10 +177,16 @@
                     <VerticalStackLayout Spacing="10">
                         <Label Text="OTRAS CAJAS DE ESTA TIENDA" Style="{StaticResource FieldLabel}" />
                         <Label Style="{StaticResource Caption}"
-                               Text="Copia el PIN y los cajeros desde otra caja ya configurada, o compártelos a una caja nueva." />
-                        <Button Text="Copiar o compartir configuración"
+                               Text="Esta caja ya está configurada: puede pasarle el PIN y los cajeros a las demás con un código de 6 dígitos, sin volver a teclear nada." />
+                        <Button Text="Compartir con otra caja"
                                 Command="{Binding ReplicarCommand}"
-                                HeightRequest="46" />
+                                HeightRequest="46"
+                                BackgroundColor="{StaticResource PrimaryTint}"
+                                TextColor="{StaticResource PrimaryDark}">
+                            <Button.Behaviors>
+                                <beh:PressableBehavior />
+                            </Button.Behaviors>
+                        </Button>
                     </VerticalStackLayout>
                 </Border>
             </VerticalStackLayout>

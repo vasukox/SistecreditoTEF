@@ -331,9 +331,29 @@
     Esto viaja DENTRO del APK, se lee en [BuildInfo], se registra en cada arranque
     y acompaña a cada fallo guardado. No toca la version que ve HioPos.
   -->
+  <PropertyGroup>
+    <!--
+      UN SOLO SELLO POR COMPILACION.
+
+      Estaba escrito dos veces —una para el sello de adentro del APK y otra para el
+      nombre del archivo archivado— y cada una evaluaba su propio DateTime.Now. Eso
+      NO da la misma hora: la de adentro se fija al EVALUAR el proyecto y la del
+      nombre se calculaba al terminar de firmar, seis o siete minutos despues en un
+      Release de Android.
+
+      El resultado era el peor posible para algo que existe justamente para
+      identificar un APK: el sandbox archivado como "1313" se presentaba en pantalla
+      como "1306", que ademas era el nombre del archivo de PRODUCCION compilado justo
+      antes. Dos APK distintos con el mismo sello a la vista.
+
+      Evaluado una vez aca, el sello de adentro y el del nombre son el mismo, y son
+      la hora en que ARRANCO la compilacion.
+    -->
+    <PermodaSelloDeBuild>$([System.DateTime]::Now.ToString('yyyyMMdd-HHmm'))</PermodaSelloDeBuild>
+  </PropertyGroup>
+
   <ItemGroup>
-    <AssemblyMetadata Include="BuildStamp"
-                      Value="$([System.DateTime]::Now.ToString('yyyyMMdd-HHmm'))" />
+    <AssemblyMetadata Include="BuildStamp" Value="$(PermodaSelloDeBuild)" />
     <AssemblyMetadata Include="BuildAmbiente" Value="$(PermodaAmbienteEsperado)" />
   </ItemGroup>
 
@@ -377,11 +397,11 @@
       <PermodaApkParaArchivar Include="$(OutputPath)*-Signed.apk" />
     </ItemGroup>
     <Copy SourceFiles="@(PermodaApkParaArchivar)"
-          DestinationFiles="$(MSBuildThisFileDirectory)..\..\artefactos\sistecreditotef-$(PermodaAmbienteEsperado)-$([System.DateTime]::Now.ToString('yyyyMMdd-HHmm')).apk"
+          DestinationFiles="$(MSBuildThisFileDirectory)..\..\artefactos\sistecreditotef-$(PermodaAmbienteEsperado)-$(PermodaSelloDeBuild).apk"
           Condition="'@(PermodaApkParaArchivar)' != ''" />
     <Message Importance="high"
              Condition="'@(PermodaApkParaArchivar)' != ''"
-             Text="[AMBIENTE] Copia archivada en artefactos\sistecreditotef-$(PermodaAmbienteEsperado)-*.apk" />
+             Text="[AMBIENTE] Copia archivada en artefactos\sistecreditotef-$(PermodaAmbienteEsperado)-$(PermodaSelloDeBuild).apk (el mismo sello que muestra la app)." />
   </Target>
 
   <ItemGroup>

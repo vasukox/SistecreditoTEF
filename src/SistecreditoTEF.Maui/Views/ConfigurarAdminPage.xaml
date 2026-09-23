@@ -34,13 +34,20 @@
                 que inventar un PIN para llegar a la pantalla que viene a copiarlo.
             -->
             <Border Style="{StaticResource Card}">
+                <Border.Behaviors>
+                    <beh:EntranceBehavior DelayMs="80" />
+                </Border.Behaviors>
                 <VerticalStackLayout Spacing="10">
                     <Label Text="¿YA HAY OTRA CAJA CONFIGURADA?" Style="{StaticResource FieldLabel}" />
                     <Label Style="{StaticResource Caption}"
-                           Text="Copia el PIN y los cajeros desde ella y esta caja queda lista, sin crear nada." />
+                           Text="Copia el PIN y los cajeros desde ella con un código de 6 dígitos y esta caja queda lista, sin crear nada." />
                     <Button Text="Copiar configuración de otra caja"
                             Style="{StaticResource PrimaryButton}"
-                            Command="{Binding CopiarDeOtraCajaCommand}" />
+                            Command="{Binding CopiarDeOtraCajaCommand}">
+                        <Button.Behaviors>
+                            <beh:PressableBehavior />
+                        </Button.Behaviors>
+                    </Button>
                 </VerticalStackLayout>
             </Border>
 

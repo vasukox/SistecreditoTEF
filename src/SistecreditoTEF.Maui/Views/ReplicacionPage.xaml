@@ -1,134 +1,429 @@
-﻿<?xml version="1.0" encoding="utf-8" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:SistecreditoTEF.Maui.ViewModels"
              xmlns:pair="clr-namespace:SistecreditoTEF.Maui.Services.Pairing"
+             xmlns:beh="clr-namespace:SistecreditoTEF.Maui.Common.Behaviors"
+             xmlns:ctrl="clr-namespace:SistecreditoTEF.Maui.Views.Controls"
              x:Class="SistecreditoTEF.Maui.Views.ReplicacionPage"
              x:DataType="vm:ReplicacionViewModel"
              Title="Copiar configuración">
     <ScrollView>
-        <VerticalStackLayout Spacing="18" Padding="20,24,20,28">
-
-            <Label Style="{StaticResource Caption}"
-                   Text="Copia el PIN de administrador y el padrón de cajeros entre las cajas de esta tienda. Las credenciales de Sistecrédito no se copian: bajan solas desde HioPosCloud." />
+        <VerticalStackLayout Spacing="16" Padding="20,20,20,28">
 
             <!-- ==================================================================
-                 RECEPTOR · arriba del todo
+                 QUÉ VIENE A HACER QUIEN ESTÁ PARADO ACÁ
                  ==================================================================
-                 Va primero porque es lo que necesita quien está montando una caja
-                 nueva, que es el caso en el que alguien entra a esta pantalla.
+                 Dos personas distintas entran a esta pantalla: la que monta una caja
+                 nueva y la que está frente a la que ya funciona. Antes veían las dos
+                 mitades una debajo de la otra y tenían que leer los dos formularios
+                 para darse cuenta de cuál les tocaba.
             -->
-            <Border Style="{StaticResource Card}">
-                <VerticalStackLayout Spacing="14">
-                    <Label Text="COPIAR DE OTRA CAJA" Style="{StaticResource FieldLabel}" />
+            <Border Style="{StaticResource Card}" Padding="6">
+                <Border.Behaviors>
+                    <beh:EntranceBehavior />
+                </Border.Behaviors>
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="6">
+                    <Button Grid.Column="0" Text="Traer a esta caja"
+                            FontSize="13.5" HeightRequest="46" CornerRadius="10"
+                            BackgroundColor="Transparent"
+                            TextColor="{StaticResource TextMuted}"
+                            Command="{Binding VerRecibirCommand}">
+                        <Button.Behaviors>
+                            <beh:PressableBehavior />
+                        </Button.Behaviors>
+                        <Button.Triggers>
+                            <DataTrigger TargetType="Button" Binding="{Binding ModoRecibir}" Value="True">
+                                <Setter Property="BackgroundColor" Value="{StaticResource Primary}" />
+                                <Setter Property="TextColor" Value="{StaticResource White}" />
+                            </DataTrigger>
+                        </Button.Triggers>
+                    </Button>
 
-                    <!-- ===== PASO 1 ===== -->
-                    <Label Text="1 · Encuentra la otra caja" Style="{StaticResource Caption}"
-                           FontAttributes="Bold" />
+                    <Button Grid.Column="1" Text="Compartir desde aquí"
+                            FontSize="13.5" HeightRequest="46" CornerRadius="10"
+                            BackgroundColor="Transparent"
+                            TextColor="{StaticResource TextMuted}"
+                            Command="{Binding VerCompartirCommand}">
+                        <Button.Behaviors>
+                            <beh:PressableBehavior />
+                        </Button.Behaviors>
+                        <Button.Triggers>
+                            <DataTrigger TargetType="Button" Binding="{Binding ModoCompartir}" Value="True">
+                                <Setter Property="BackgroundColor" Value="{StaticResource Primary}" />
+                                <Setter Property="TextColor" Value="{StaticResource White}" />
+                            </DataTrigger>
+                        </Button.Triggers>
+                    </Button>
+                </Grid>
+            </Border>
 
-                    <Button Text="Escanear red"
-                            Command="{Binding BuscarCommand}"
-                            IsEnabled="{Binding Escaneando, Converter={StaticResource InvertedBoolConverter}}" />
+            <Label Style="{StaticResource Caption}"
+                   Text="Se copia el PIN de administrador y el padrón de cajeros. Las credenciales de Sistecrédito no: bajan solas desde HioPosCloud." />
 
-                    <ActivityIndicator IsRunning="{Binding Escaneando}"
-                                       IsVisible="{Binding Escaneando}" />
+            <!-- ==================================================================
+                 ════════════════  RECIBIR  ════════════════
+                 ================================================================== -->
+            <VerticalStackLayout Spacing="16" IsVisible="{Binding ModoRecibir}">
 
-                    <!-- Solo aparece si hay más de una: con una sola ya quedó elegida. -->
-                    <CollectionView ItemsSource="{Binding CajasEncontradas}"
-                                    SelectionMode="Single"
-                                    SelectedItem="{Binding CajaSeleccionada, Mode=TwoWay}"
-                                    HeightRequest="120">
-                        <CollectionView.ItemTemplate>
-                            <DataTemplate x:DataType="pair:CajaEncontrada">
-                                <Border Style="{StaticResource FieldCard}" Padding="12,10" Margin="0,3">
-                                    <VerticalStackLayout Spacing="2">
-                                        <Label Text="{Binding Address}" FontAttributes="Bold" />
-                                        <Label Text="{Binding Tienda}" Style="{StaticResource Caption}" />
-                                    </VerticalStackLayout>
-                                </Border>
-                            </DataTemplate>
-                        </CollectionView.ItemTemplate>
-                    </CollectionView>
+                <!-- ===== PASO 1 ===== -->
+                <Border Style="{StaticResource Card}">
+                    <VerticalStackLayout Spacing="12">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                            <Border Grid.Column="0" WidthRequest="26" HeightRequest="26"
+                                    BackgroundColor="{StaticResource PrimaryTint}"
+                                    Stroke="Transparent" StrokeShape="RoundRectangle 13"
+                                    Padding="0" VerticalOptions="Center">
+                                <Label Text="1" FontSize="13" FontAttributes="Bold"
+                                       TextColor="{StaticResource PrimaryDark}"
+                                       HorizontalOptions="Center" VerticalOptions="Center" />
+                            </Border>
+                            <Label Grid.Column="1" Text="Encuentra la otra caja"
+                                   Style="{StaticResource CardTitle}" VerticalOptions="Center" />
+                        </Grid>
 
-                    <Border Style="{StaticResource FieldCard}">
-                        <Entry Placeholder="…o escribe la dirección (ej. 192.168.1.20)"
-                               Keyboard="Numeric" HeightRequest="48"
-                               IsTextPredictionEnabled="False"
-                               IsSpellCheckEnabled="False"
-                               Text="{Binding DireccionOrigen, Mode=TwoWay}" />
-                    </Border>
+                        <Label Style="{StaticResource Caption}"
+                               Text="La otra caja tiene que estar en «Compartir desde aquí», con el código en pantalla." />
 
-                    <!-- ===== PASO 2 ===== -->
-                    <Label Text="2 · Escribe el código que muestra esa caja"
-                           Style="{StaticResource Caption}" FontAttributes="Bold" />
+                        <Button Text="Escanear la red"
+                                Style="{StaticResource PrimaryButton}"
+                                IsEnabled="{Binding Escaneando, Converter={StaticResource InvertedBoolConverter}}"
+                                Command="{Binding BuscarCommand}">
+                            <Button.Behaviors>
+                                <beh:PressableBehavior />
+                            </Button.Behaviors>
+                        </Button>
 
-                    <Border Style="{StaticResource FieldCard}">
-                        <Entry Placeholder="000000"
-                               Keyboard="Numeric" MaxLength="6"
-                               FontSize="26" HeightRequest="56"
-                               HorizontalTextAlignment="Center"
-                               Text="{Binding CodigoIngresado, Mode=TwoWay}" />
-                    </Border>
+                        <!-- Esqueleto en vez de spinner suelto: ocupa el lugar donde
+                             va a aparecer la lista, así el que mira sabe dónde mirar. -->
+                        <VerticalStackLayout Spacing="8" IsVisible="{Binding Escaneando}">
+                            <BoxView HeightRequest="14" CornerRadius="7"
+                                     Color="{StaticResource SurfaceAlt}">
+                                <BoxView.Behaviors>
+                                    <beh:ShimmerBehavior />
+                                </BoxView.Behaviors>
+                            </BoxView>
+                            <BoxView HeightRequest="14" CornerRadius="7" WidthRequest="180"
+                                     HorizontalOptions="Start"
+                                     Color="{StaticResource SurfaceAlt}">
+                                <BoxView.Behaviors>
+                                    <beh:ShimmerBehavior DelayMs="220" />
+                                </BoxView.Behaviors>
+                            </BoxView>
+                        </VerticalStackLayout>
 
-                    <Button Text="Traer configuración"
-                            Style="{StaticResource PrimaryButton}"
-                            IsEnabled="{Binding Copiando, Converter={StaticResource InvertedBoolConverter}}"
-                            Command="{Binding TraerCommand}" />
+                        <CollectionView ItemsSource="{Binding CajasEncontradas}"
+                                        SelectionMode="Single"
+                                        IsVisible="{Binding HayCajasEncontradas}"
+                                        SelectedItem="{Binding CajaSeleccionada, Mode=TwoWay}"
+                                        HeightRequest="130">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="pair:CajaEncontrada">
+                                    <Border Style="{StaticResource FieldCard}" Padding="12,10" Margin="0,3">
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                            <VerticalStackLayout Grid.Column="0" Spacing="2">
+                                                <Label Text="{Binding Tienda}" FontAttributes="Bold"
+                                                       TextColor="{StaticResource TextPrimary}" />
+                                                <Label Text="{Binding Address}"
+                                                       Style="{StaticResource Caption}"
+                                                       TextColor="{StaticResource TextMuted}" />
+                                            </VerticalStackLayout>
+                                            <Label Grid.Column="1" Text="›" FontSize="22"
+                                                   TextColor="{StaticResource TextMuted}"
+                                                   VerticalOptions="Center" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
 
-                    <ActivityIndicator IsRunning="{Binding Copiando}"
-                                       IsVisible="{Binding Copiando}" />
+                        <!--
+                            LA DIRECCIÓN A MANO VA PLEGADA
+                            Es la salida para cuando la difusión está bloqueada, no el
+                            camino normal. Mostrarla siempre convertía este paso en dos
+                            formularios, y hubo quien tecleó una IP teniendo el botón de
+                            escanear al lado. Se abre sola si el escaneo no encuentra nada.
+                        -->
+                        <Button Text="Escribir la dirección a mano"
+                                Style="{StaticResource BorderlessButton}"
+                                FontSize="12.5"
+                                Command="{Binding AlternarDireccionAManoCommand}" />
 
-                    <Label Style="{StaticResource Caption}"
-                           Text="{Binding EstadoReceptor}"
-                           IsVisible="{Binding EstadoReceptor, Converter={StaticResource StringNotEmptyConverter}}" />
+                        <Border Style="{StaticResource FieldCard}"
+                                IsVisible="{Binding DireccionAMano}">
+                            <Entry Placeholder="192.168.1.20"
+                                   Keyboard="Numeric" HeightRequest="48"
+                                   IsTextPredictionEnabled="False"
+                                   IsSpellCheckEnabled="False"
+                                   Text="{Binding DireccionOrigen, Mode=TwoWay}" />
+                        </Border>
+                    </VerticalStackLayout>
+                </Border>
 
-                    <!-- ===== PASO 3 =====
-                        DOS PASOS, NO UNO. Primero se trae y se muestra QUÉ va a
-                        quedar; recién después se guarda. Guardar sin confirmar deja
-                        una caja operando con el padrón de otra tienda, y eso no se
-                        nota hasta que alguien no puede ingresar.
-                    -->
-                    <VerticalStackLayout Spacing="10" IsVisible="{Binding HayAlgoPorConfirmar}">
-                        <Label Text="3 · Revisa y acepta" Style="{StaticResource Caption}"
-                               FontAttributes="Bold" />
+                <!-- ===== PASO 2 ===== -->
+                <Border Style="{StaticResource Card}">
+                    <VerticalStackLayout Spacing="12">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                            <Border Grid.Column="0" WidthRequest="26" HeightRequest="26"
+                                    BackgroundColor="{StaticResource PrimaryTint}"
+                                    Stroke="Transparent" StrokeShape="RoundRectangle 13"
+                                    Padding="0" VerticalOptions="Center">
+                                <Label Text="2" FontSize="13" FontAttributes="Bold"
+                                       TextColor="{StaticResource PrimaryDark}"
+                                       HorizontalOptions="Center" VerticalOptions="Center" />
+                            </Border>
+                            <Label Grid.Column="1" Text="Escribe el código que muestra"
+                                   Style="{StaticResource CardTitle}" VerticalOptions="Center" />
+                        </Grid>
+
+                        <Border Style="{StaticResource FieldCard}">
+                            <Entry Placeholder="· · · · · ·"
+                                   Keyboard="Numeric" MaxLength="6"
+                                   FontSize="30" FontAttributes="Bold" HeightRequest="60"
+                                   HorizontalTextAlignment="Center" CharacterSpacing="8"
+                                   Text="{Binding CodigoIngresado, Mode=TwoWay}" />
+                        </Border>
+
+                        <Button Text="Traer configuración"
+                                Style="{StaticResource PrimaryButton}"
+                                IsEnabled="{Binding PuedeTraer}"
+                                Command="{Binding TraerCommand}">
+                            <Button.Behaviors>
+                                <beh:PressableBehavior />
+                            </Button.Behaviors>
+                        </Button>
+
+                        <!-- Un botón gris sin explicación deja al instalador sin saber
+                             qué falta. Misma lección que en la pantalla de primer uso. -->
+                        <Label Text="{Binding MotivoTraer}" Style="{StaticResource Caption}"
+                               TextColor="{StaticResource TextMuted}"
+                               IsVisible="{Binding MotivoTraer, Converter={StaticResource StringNotEmptyConverter}}"
+                               HorizontalTextAlignment="Center" />
+
+                        <ActivityIndicator IsRunning="{Binding Copiando}"
+                                           IsVisible="{Binding Copiando}"
+                                           Color="{StaticResource Primary}" HeightRequest="30" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- Estado del receptor: aviso o dato, pintados distinto. -->
+                <Border IsVisible="{Binding EstadoReceptor, Converter={StaticResource StringNotEmptyConverter}}"
+                        BackgroundColor="{StaticResource PrimaryTint}"
+                        Stroke="Transparent" StrokeShape="RoundRectangle 12" Padding="14,12">
+                    <Border.Triggers>
+                        <DataTrigger TargetType="Border" Binding="{Binding ReceptorEnFalla}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{StaticResource WarningSoft}" />
+                        </DataTrigger>
+                    </Border.Triggers>
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                        <Label Grid.Column="0" Text="ⓘ" FontSize="18"
+                               TextColor="{StaticResource PrimaryDark}" VerticalOptions="Center">
+                            <Label.Triggers>
+                                <DataTrigger TargetType="Label" Binding="{Binding ReceptorEnFalla}" Value="True">
+                                    <Setter Property="Text" Value="⚠" />
+                                    <Setter Property="TextColor" Value="{StaticResource Warning}" />
+                                </DataTrigger>
+                            </Label.Triggers>
+                        </Label>
+                        <Label Grid.Column="1" Text="{Binding EstadoReceptor}"
+                               TextColor="{StaticResource PrimaryDark}" FontSize="13"
+                               VerticalOptions="Center">
+                            <Label.Triggers>
+                                <DataTrigger TargetType="Label" Binding="{Binding ReceptorEnFalla}" Value="True">
+                                    <Setter Property="TextColor" Value="{StaticResource Warning}" />
+                                </DataTrigger>
+                            </Label.Triggers>
+                        </Label>
+                    </Grid>
+                </Border>
+
+                <!-- ===== PASO 3 =====
+                    DOS PASOS, NO UNO. Primero se trae y se muestra QUÉ va a quedar;
+                    recién después se guarda. Guardar sin confirmar deja una caja
+                    operando con el padrón de otra tienda, y eso no se nota hasta que
+                    alguien no puede ingresar.
+                -->
+                <Border x:Name="TarjetaConfirmacion"
+                        Style="{StaticResource Card}"
+                        IsVisible="{Binding HayAlgoPorConfirmar}">
+                    <VerticalStackLayout Spacing="12">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                            <Border Grid.Column="0" WidthRequest="26" HeightRequest="26"
+                                    BackgroundColor="{StaticResource PrimaryTint}"
+                                    Stroke="Transparent" StrokeShape="RoundRectangle 13"
+                                    Padding="0" VerticalOptions="Center">
+                                <Label Text="3" FontSize="13" FontAttributes="Bold"
+                                       TextColor="{StaticResource PrimaryDark}"
+                                       HorizontalOptions="Center" VerticalOptions="Center" />
+                            </Border>
+                            <Label Grid.Column="1" Text="Revisa y acepta"
+                                   Style="{StaticResource CardTitle}" VerticalOptions="Center" />
+                        </Grid>
 
                         <Border BackgroundColor="{StaticResource PrimaryTint}"
                                 Stroke="Transparent" StrokeShape="RoundRectangle 12" Padding="14,12">
-                            <Label Text="{Binding ResumenRecibido}"
-                                   TextColor="{StaticResource PrimaryDark}" FontSize="13" />
+                            <VerticalStackLayout Spacing="6">
+                                <Label Text="VIENE DE" Style="{StaticResource FieldLabel}"
+                                       TextColor="{StaticResource PrimaryDark}" />
+                                <Label Text="{Binding TiendaRecibida}"
+                                       TextColor="{StaticResource PrimaryDark}"
+                                       FontSize="17" FontAttributes="Bold" />
+                                <Label Text="{Binding ResumenRecibido}"
+                                       TextColor="{StaticResource PrimaryDark}" FontSize="13" />
+                            </VerticalStackLayout>
                         </Border>
 
-                        <Button Text="Aceptar"
-                                Style="{StaticResource PrimaryButton}"
-                                Command="{Binding ConfirmarCommand}" />
-                    </VerticalStackLayout>
+                        <Border BackgroundColor="{StaticResource WarningSoft}"
+                                Stroke="Transparent" StrokeShape="RoundRectangle 12" Padding="14,12">
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                                <Label Grid.Column="0" Text="⚠" FontSize="18"
+                                       TextColor="{StaticResource Warning}" VerticalOptions="Center" />
+                                <Label Grid.Column="1"
+                                       Text="Al aceptar, esto REEMPLAZA el PIN y los cajeros de esta caja."
+                                       TextColor="{StaticResource Warning}" FontSize="13"
+                                       VerticalOptions="Center" />
+                            </Grid>
+                        </Border>
 
-                    <!-- El aviso que faltaba: sin esto el instalador no sabía si pasó algo. -->
-                    <Border IsVisible="{Binding TieneMensajeExito}"
-                            BackgroundColor="{StaticResource PrimaryTint}"
-                            Stroke="Transparent" StrokeShape="RoundRectangle 12" Padding="14,12">
+                        <Button Text="Aceptar y guardar"
+                                Style="{StaticResource PrimaryButton}"
+                                Command="{Binding ConfirmarCommand}">
+                            <Button.Behaviors>
+                                <beh:PressableBehavior />
+                            </Button.Behaviors>
+                        </Button>
+
+                        <!-- La confirmación tiene que tener las dos salidas: si el
+                             resumen muestra una tienda que no es, el único camino no
+                             puede ser aceptar. -->
+                        <Button Text="Descartar"
+                                Style="{StaticResource BorderlessButton}"
+                                FontSize="12.5"
+                                Command="{Binding DescartarRecibidoCommand}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- El aviso que faltaba: sin esto el instalador no sabía si pasó algo. -->
+                <Border IsVisible="{Binding TieneMensajeExito}"
+                        BackgroundColor="{StaticResource SuccessSoft}"
+                        Stroke="Transparent" StrokeShape="RoundRectangle 14" Padding="18,20">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="✓" FontSize="40" FontAttributes="Bold"
+                               TextColor="{StaticResource Success}"
+                               HorizontalOptions="Center">
+                            <Label.Behaviors>
+                                <beh:PopInBehavior />
+                            </Label.Behaviors>
+                        </Label>
                         <Label Text="{Binding MensajeExito}"
-                               TextColor="{StaticResource PrimaryDark}"
+                               TextColor="{StaticResource SuccessDark}"
                                FontSize="14" FontAttributes="Bold"
                                HorizontalTextAlignment="Center" />
-                    </Border>
-                </VerticalStackLayout>
-            </Border>
+                        <Label Text="Llevando al ingreso…" Style="{StaticResource Caption}"
+                               TextColor="{StaticResource Success}"
+                               HorizontalTextAlignment="Center" />
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
 
             <!-- ==================================================================
-                 EMISOR
+                 ════════════════  COMPARTIR  ════════════════
                  ================================================================== -->
-            <Border Style="{StaticResource Card}">
-                <VerticalStackLayout Spacing="12">
-                    <Label Text="COMPARTIR A OTRA CAJA" Style="{StaticResource FieldLabel}" />
+            <VerticalStackLayout Spacing="16" IsVisible="{Binding ModoCompartir}">
 
-                    <Button Text="Generar código"
-                            Command="{Binding AbrirVentanaCommand}" />
+                <!-- Antes de generar -->
+                <Border Style="{StaticResource Card}"
+                        IsVisible="{Binding VentanaAbierta, Converter={StaticResource InvertedBoolConverter}}">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="COMPARTIR A OTRA CAJA" Style="{StaticResource FieldLabel}" />
+                        <Label Style="{StaticResource Caption}"
+                               Text="Se genera un código de 6 dígitos que dura 10 minutos. Sirve para todas las cajas que alcances a configurar dentro de ese rato." />
+                        <Button Text="Generar código"
+                                Style="{StaticResource PrimaryButton}"
+                                Command="{Binding AbrirVentanaCommand}">
+                            <Button.Behaviors>
+                                <beh:PressableBehavior />
+                            </Button.Behaviors>
+                        </Button>
+                    </VerticalStackLayout>
+                </Border>
 
-                    <VerticalStackLayout Spacing="6" IsVisible="{Binding TieneCodigo}">
-                        <Label Text="{Binding Codigo}"
-                               FontSize="40" FontAttributes="Bold"
-                               HorizontalOptions="Center" CharacterSpacing="6" />
+                <!--
+                    ══════════════════════════════════════════════════════════════
+                    EL CÓDIGO, CON SU TIEMPO A LA VISTA
+                    ══════════════════════════════════════════════════════════════
+                    La ventana dura 10 minutos y antes eso se sabía leyendo un
+                    renglón de texto. Acá la barra se vacía sola, pasa a ámbar bajo
+                    los 3 minutos y a rojo bajo el último, donde además el código
+                    late una vez por segundo: quien está del otro lado de la tienda
+                    ve desde lejos que se le acaba el tiempo.
+
+                    El pulso y el vaciado los mueve [ReplicacionPage], que ya tenía
+                    el temporizador de la cuenta regresiva.
+                -->
+                <ctrl:HeroCardView x:Name="TarjetaCodigo" IsVisible="{Binding VentanaAbierta}">
+                    <VerticalStackLayout Spacing="14">
+                        <Label Text="CÓDIGO PARA LA OTRA CAJA"
+                               TextColor="{StaticResource OnHeroMuted}"
+                               FontSize="11.5" FontAttributes="Bold" CharacterSpacing="1.2"
+                               HorizontalOptions="Center" />
+
+                        <!-- Seis casillas, no seis cifras pegadas: el código se dicta
+                             en voz alta de una caja a otra y así se canta de a una. -->
+                        <HorizontalStackLayout Spacing="7" HorizontalOptions="Center"
+                                               BindableLayout.ItemsSource="{Binding CodigoDigitos}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="x:String">
+                                    <Border BackgroundColor="{StaticResource OnHeroTile}"
+                                            Stroke="{StaticResource OnHeroTileBorder}"
+                                            StrokeThickness="1"
+                                            StrokeShape="RoundRectangle 10"
+                                            Padding="0" WidthRequest="44" HeightRequest="58">
+                                        <Label Text="{Binding .}"
+                                               TextColor="{StaticResource White}"
+                                               FontSize="28" FontAttributes="Bold"
+                                               HorizontalOptions="Center" VerticalOptions="Center" />
+                                    </Border>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </HorizontalStackLayout>
+
+                        <!-- La cuenta regresiva -->
+                        <VerticalStackLayout Spacing="6">
+                            <ProgressBar x:Name="BarraVentana"
+                                         HeightRequest="6"
+                                         Progress="{Binding FraccionRestante}"
+                                         BackgroundColor="{StaticResource OnHeroTile}"
+                                         ProgressColor="{StaticResource Accent}">
+                                <ProgressBar.Triggers>
+                                    <DataTrigger TargetType="ProgressBar"
+                                                 Binding="{Binding Apurando}" Value="True">
+                                        <Setter Property="ProgressColor" Value="{StaticResource OnHeroWarning}" />
+                                    </DataTrigger>
+                                    <DataTrigger TargetType="ProgressBar"
+                                                 Binding="{Binding PorVencer}" Value="True">
+                                        <Setter Property="ProgressColor" Value="{StaticResource OnHeroDanger}" />
+                                    </DataTrigger>
+                                </ProgressBar.Triggers>
+                            </ProgressBar>
+
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label Grid.Column="0" TextColor="{StaticResource OnHeroMuted}" FontSize="12">
+                                    <Label.FormattedText>
+                                        <FormattedString>
+                                            <Span Text="Se cierra en " />
+                                            <Span Text="{Binding TiempoRestante}"
+                                                  FontAttributes="Bold" />
+                                        </FormattedString>
+                                    </Label.FormattedText>
+                                </Label>
+                                <Label Grid.Column="1" Text="{Binding CajasCopiadas}"
+                                       TextColor="{StaticResource Accent}"
+                                       FontSize="12" FontAttributes="Bold" />
+                            </Grid>
+                        </VerticalStackLayout>
+
+                        <BoxView HeightRequest="1" Color="{StaticResource OnHeroTileBorder}" />
 
                         <!--
                             La IP se muestra SIEMPRE, no solo cuando el descubrimiento
@@ -136,15 +431,68 @@
                             se vean entre sí, y un atajo que falla en silencio deja al
                             que instala sin salida.
                         -->
-                        <Label Style="{StaticResource Caption}" HorizontalOptions="Center"
-                               Text="{Binding DireccionPropia, StringFormat='Dirección de esta caja: {0}'}" />
-                    </VerticalStackLayout>
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                            <VerticalStackLayout Grid.Column="0" Spacing="1">
+                                <Label Text="DIRECCIÓN DE ESTA CAJA"
+                                       TextColor="{StaticResource OnHeroMuted}"
+                                       FontSize="10" FontAttributes="Bold" CharacterSpacing="1" />
+                                <Label Text="{Binding DireccionPropia}"
+                                       TextColor="{StaticResource White}"
+                                       FontSize="15" FontAttributes="Bold" />
+                            </VerticalStackLayout>
+                            <Label Grid.Column="1" VerticalOptions="Center"
+                                   TextColor="{StaticResource OnHeroMuted}" FontSize="11">
+                                <Label.FormattedText>
+                                    <FormattedString>
+                                        <Span Text="{Binding IntentosRestantes}" FontAttributes="Bold" />
+                                        <Span Text=" intentos" />
+                                    </FormattedString>
+                                </Label.FormattedText>
+                            </Label>
+                        </Grid>
 
-                    <Label Style="{StaticResource Caption}"
-                           Text="{Binding EstadoEmisor}"
-                           IsVisible="{Binding EstadoEmisor, Converter={StaticResource StringNotEmptyConverter}}" />
-                </VerticalStackLayout>
-            </Border>
+                        <Button Text="Cerrar ahora"
+                                BackgroundColor="Transparent"
+                                TextColor="{StaticResource OnHeroMuted}"
+                                FontSize="12.5" HeightRequest="38"
+                                Command="{Binding CerrarVentanaCommand}" />
+                    </VerticalStackLayout>
+                </ctrl:HeroCardView>
+
+                <Border IsVisible="{Binding EstadoEmisor, Converter={StaticResource StringNotEmptyConverter}}"
+                        BackgroundColor="{StaticResource PrimaryTint}"
+                        Stroke="Transparent" StrokeShape="RoundRectangle 12" Padding="14,12">
+                    <Border.Triggers>
+                        <DataTrigger TargetType="Border" Binding="{Binding EmisorEnFalla}" Value="True">
+                            <Setter Property="BackgroundColor" Value="{StaticResource WarningSoft}" />
+                        </DataTrigger>
+                    </Border.Triggers>
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                        <Label Grid.Column="0" Text="ⓘ" FontSize="18"
+                               TextColor="{StaticResource PrimaryDark}" VerticalOptions="Center">
+                            <Label.Triggers>
+                                <DataTrigger TargetType="Label" Binding="{Binding EmisorEnFalla}" Value="True">
+                                    <Setter Property="Text" Value="⚠" />
+                                    <Setter Property="TextColor" Value="{StaticResource Warning}" />
+                                </DataTrigger>
+                            </Label.Triggers>
+                        </Label>
+                        <Label Grid.Column="1" Text="{Binding EstadoEmisor}"
+                               TextColor="{StaticResource PrimaryDark}" FontSize="13"
+                               VerticalOptions="Center">
+                            <Label.Triggers>
+                                <DataTrigger TargetType="Label" Binding="{Binding EmisorEnFalla}" Value="True">
+                                    <Setter Property="TextColor" Value="{StaticResource Warning}" />
+                                </DataTrigger>
+                            </Label.Triggers>
+                        </Label>
+                    </Grid>
+                </Border>
+
+                <Label Style="{StaticResource Caption}"
+                       TextColor="{StaticResource TextMuted}"
+                       Text="En la otra caja: abre esta misma pantalla, deja «Traer a esta caja», escanea la red y escribe el código." />
+            </VerticalStackLayout>
 
         </VerticalStackLayout>
     </ScrollView>
