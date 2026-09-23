@@ -407,9 +407,27 @@
   <ItemGroup>
     <MauiAsset Include="Resources\**" Exclude="Resources\AppIcon\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
 
-    <!-- Icono de la app (launcher) = logo KOAJ. Fondo blanco para el relleno
-         del adaptive icon de Android. -->
-    <MauiIcon Include="Resources\AppIcon\koaj_logo.png" Color="#FFFFFF" />
+    <!--
+      Icono de la app (launcher) = marca Sistecredito. Fondo blanco para el relleno
+      del adaptive icon de Android.
+
+      ────────────────────────────────────────────────────────────────────────────
+      POR QUE LA MARCA NO OCUPA TODO EL LIENZO
+      ────────────────────────────────────────────────────────────────────────────
+      Android RECORTA el icono adaptativo a una forma que elige el fabricante
+      —circulo, squircle, lo que sea— y solo garantiza la zona segura: el circulo
+      interior de ~66% del lienzo. Esta marca es denominativa y muy ancha (la obra
+      original mide 342x56), asi que pegada al borde perderia las puntas y en el
+      cajon de aplicaciones se leeria "istecredit".
+
+      Por eso [sistecredito_icon.png] trae la marca escalada al 63% y centrada sobre
+      blanco, en 1024x1024. Se ve mas chica, pero entera.
+
+      El archivo que llego para esto se llamaba .png y por dentro era WebP (RIFF).
+      Ver [IconoDeLaAppTests]: hay una prueba que lo verifica, porque el sintoma de
+      ese error no aparece hasta que alguien mira el icono en una caja.
+    -->
+    <MauiIcon Include="Resources\AppIcon\sistecredito_icon.png" Color="#FFFFFF" />
 
     <!--
       EL MISMO PNG, tambien embebido, para el logo que HioPos muestra junto al medio

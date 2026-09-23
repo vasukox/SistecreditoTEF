@@ -5,17 +5,22 @@ namespace SistecreditoTEF.Maui.Tests.Resources;
 
 /// <summary>
 /// El logo que el modulo le entrega a HioPos en <c>GET_CUSTOM_PARAMS</c> tiene que ser
-/// EL MISMO archivo que el icono del launcher.
+/// EL MISMO archivo que <c>Resources\AppIcon\koaj_logo.png</c>.
 ///
 /// ─────────────────────────────────────────────────────────────────────────────────
 /// LA DERIVA QUE ESTO ATRAPA
 /// ─────────────────────────────────────────────────────────────────────────────────
-/// El logo vivia como una cadena base64 dentro del codigo: una segunda copia de
-/// <c>Resources\AppIcon\koaj_logo.png</c>. Eran identicos, pero nada lo garantizaba.
-/// Reemplazar el PNG del icono dejaba a HioPos mostrando el logo viejo, sin error ni
-/// aviso, y solo se descubria mirando la pantalla de medios de pago del POS.
+/// El logo vivia como una cadena base64 dentro del codigo: una segunda copia de ese
+/// PNG. Eran identicos, pero nada lo garantizaba. Reemplazar el PNG dejaba a HioPos
+/// mostrando el logo viejo, sin error ni aviso, y solo se descubria mirando la
+/// pantalla de medios de pago del POS.
 ///
 /// Ahora hay una sola fuente y este test verifica que sigue habiendo una sola.
+///
+/// OJO: este logo YA NO es el icono del launcher. Lo fue hasta el 23/09/2026, cuando
+/// el icono del APK paso a ser la marca Sistecredito ([IconoDeLaAppTests]). Son dos
+/// archivos con dos destinos distintos: este lo muestra el POS junto al medio de
+/// pago; el otro lo muestra Android en el cajon de aplicaciones.
 /// </summary>
 public class SistecreditoLogoTests
 {

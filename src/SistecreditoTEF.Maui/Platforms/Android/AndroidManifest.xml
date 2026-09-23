@@ -72,24 +72,35 @@
     <!--
       android:icon / android:roundIcon — SIN ESTO NO SE VE EL LOGO.
 
-      El <MauiIcon Include="Resources\AppIcon\koaj_logo.png"> del csproj genera los
-      mipmap en todas las densidades (mdpi a xxxhdpi, mas el adaptive icon de
-      anydpi-v26), y se verifico que quedan DENTRO del APK. Pero como este bloque
+      El <MauiIcon Include="Resources\AppIcon\sistecredito_icon.png"> del csproj
+      genera los mipmap en todas las densidades (mdpi a xxxhdpi, mas el adaptive icon
+      de anydpi-v26), y se verifico que quedan DENTRO del APK. Pero como este bloque
       <application> se declara a mano, MAUI no inyecta el atributo, y sin el nada
       apunta a esos recursos: Android usa el icono por defecto.
 
       El sintoma es enganoso: revisar el contenido del APK muestra
-      res/mipmap-*/koaj_logo.png presentes y parece que esta bien. Lo que hay que
-      mirar es el atributo:
+      res/mipmap-*/sistecredito_icon.png presentes y parece que esta bien. Lo que hay
+      que mirar es el atributo:
 
           aapt2 dump badging <apk>  ->  application: label='Sistecredito' icon=''
                                                                           ^^^^^^^^
       Con icon='' el logo esta empaquetado y muerto.
+
+      ─────────────────────────────────────────────────────────────────────────────
+      ESTOS DOS NOMBRES SALEN DEL NOMBRE DEL ARCHIVO
+      ─────────────────────────────────────────────────────────────────────────────
+      El mipmap se llama como el PNG del MauiIcon. Renombrar ese archivo sin tocar
+      estas dos lineas rompe la compilacion con:
+
+          error APT2260: resource mipmap/<nombre>_round not found
+
+      Es de los errores buenos: ruidoso, inmediato y con el nombre adentro. Paso al
+      cambiar el icono de KOAJ a la marca Sistecredito (23/09/2026).
     -->
     <application
         android:label="Sistecredito"
-        android:icon="@mipmap/koaj_logo"
-        android:roundIcon="@mipmap/koaj_logo_round"
+        android:icon="@mipmap/sistecredito_icon"
+        android:roundIcon="@mipmap/sistecredito_icon_round"
         android:allowBackup="false"
         android:supportsRtl="true"
         android:theme="@style/Theme.SistecreditoTEF">
