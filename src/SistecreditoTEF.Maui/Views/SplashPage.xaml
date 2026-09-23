@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    ════════════════════════════════════════════════════════════════════════════
+    PANTALLA RAIZ — decide a donde va la app antes de mostrar cualquier modulo
+    ════════════════════════════════════════════════════════════════════════════
+    Antes la raiz del Shell era HomePage, con el menu de dos opciones. Al abrir
+    desde el icono se veia Home un instante y DESPUES la app navegaba al modulo
+    real: el destello del modulo equivocado.
+
+    La causa es que el Shell hace su propia navegacion inicial a la raiz antes de
+    que nadie pueda decidir nada, asi que la raiz tiene que ser algo NEUTRO. Esta
+    pantalla es de marca —no es un modulo— y desde aca se resuelve el destino:
+
+        sin PIN de administrador  ->  configuracion inicial
+        sin cajero identificado   ->  ingreso
+        con sesion abierta        ->  creditos activos
+        accion de HioPos          ->  no se toca: MainActivity ya navega
+
+    El resultado es que nunca se ve un modulo que no corresponde. Lo unico que se
+    ve antes es la marca, que es lo que se espera de un arranque.
+-->
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:SistecreditoTEF.Maui.ViewModels"
+             x:Class="SistecreditoTEF.Maui.Views.SplashPage"
+             x:DataType="vm:SplashViewModel"
+             Shell.NavBarIsVisible="False"
+             Shell.FlyoutBehavior="Disabled"
+             BackgroundColor="{StaticResource NavSurface}">
+
+    <!--
+        ────────────────────────────────────────────────────────────────────────
+        SIN ANIMACION DE MARCA, A PROPOSITO
+        ────────────────────────────────────────────────────────────────────────
+        Aca habia una secuencia de marca "sistecredito": halo con gradiente,
+        la palabra entrando con fade+escala, un subrayado que se desplegaba y un
+        subtitulo. Se quito por pedido explicito, y con razon: el arranque
+        esperaba al MAXIMO entre la decision y la animacion, asi que ese ~1 s de
+        marca retrasaba la entrada incluso cuando la decision ya estaba resuelta
+        en 50 ms. En una caja con fila, eso es tiempo perdido en cada apertura.
+
+        La pantalla SIGUE EXISTIENDO porque cumple una funcion que no es
+        decorativa: es la raiz neutra del Shell donde se resuelve el destino. Sin
+        ella se volveria a ver el destello del modulo equivocado (ver el
+        comentario de arriba).
+
+        Queda entonces solo el fondo de marca y, si la decision falla, el aviso
+        con el boton de reintento: nunca una pantalla en blanco sin salida.
+    -->
+    <Grid>
+        <!-- Mensaje de error si la decision falla: nunca se queda en blanco. -->
+        <VerticalStackLayout VerticalOptions="End" Padding="24,0,24,40" Spacing="12"
+                             IsVisible="{Binding TieneError}">
+            <Label Text="{Binding ErrorMessage}"
+                   TextColor="{StaticResource AccentLight}"
+                   FontSize="13"
+                   HorizontalTextAlignment="Center" />
+            <Button Text="Reintentar"
+                    Style="{StaticResource AccentButton}"
+                    Command="{Binding ReintentarCommand}" />
+        </VerticalStackLayout>
+    </Grid>
+</ContentPage>

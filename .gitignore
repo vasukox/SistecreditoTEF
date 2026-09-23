@@ -45,6 +45,29 @@ local.properties
 full_log.txt
 IHSa1T)Vleo -dname CN
 
+# -----------------------------------------------------------------------------
+# CREDENCIALES Y MATERIAL DE PROVEEDOR QUE EL FILTRO DE PDF NO ATRAPABA
+# -----------------------------------------------------------------------------
+# Detectado el 23/09/2026 al preparar el primer commit en dos meses: un `git add -A`
+# habria subido estos tres a un repositorio de GitHub.
+#
+#   - El Excel de credenciales y parametros por tienda.
+#   - El manual HPCL.025 de ICG: se salva de la regla /*.pdf porque el archivo NO
+#     TIENE EXTENSION. Un filtro por extension no cubre lo que no la tiene.
+#   - Las notas de integracion de Ogloba: traen una CONTRASENA EN TEXTO PLANO
+#     (linea 1354). Si eso ya estuvo publicado alguna vez, esa clave hay que
+#     rotarla: quitarla del repositorio no la saca del historial.
+#
+# Los tres se quedan en el disco de quien trabaja; ninguno hace falta para compilar.
+/*.xlsx
+/*.xls
+/HPCL.025*
+/INTEGRACION_OGLOBA_HIPOS_KOAJ.md
+
+# Copias de APK que archiva el build con el ambiente en el nombre (ver el target
+# ArchivarApkConAmbiente). Son 27 MB cada una y se regeneran compilando.
+/artefactos/
+
 # OS
 .DS_Store
 Thumbs.db

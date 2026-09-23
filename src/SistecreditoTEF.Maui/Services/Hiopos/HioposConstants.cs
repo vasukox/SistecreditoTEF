@@ -5,15 +5,19 @@ namespace SistecreditoTEF.Maui.Services.Hiopos;
 ///
 /// CONVENCION: action = "icg.actions.electronicpayment.{apk_name}.XXX".
 ///
-/// {apk_name} = "sistecredito" = "APK Name (namespace)" registrado en ICG.
-/// DEBE ser identico al namespace del alta en HioPosCloud: HioPos enruta los
-/// intents con ese nombre; si no coincide, el modulo nunca recibe la accion
-/// ("error modulo externo"). Si ICG asigna otro nombre, cambiar SOLO esta
-/// constante y rebuildear; el AndroidManifest, MainActivity y este archivo se
+/// {apk_name} = "permoda" = "APK Name" registrado en ICG CloudLicense
+/// (confirmado por Permoda el 2026-07-23). DEBE ser identico al apk_name
+/// del alta en HioPosCloud: HioPos enruta los intents con ese nombre;
+/// si no coincide, el modulo NUNCA recibe la accion, HI-POS hace
+/// timeout, y se "saca la factura sin hacer nada" porque interpreta
+/// que el modulo TEF no respondio.
+///
+/// Si ICG reasigna el apk_name, cambiar SOLO esta constante y
+/// rebuildear; el AndroidManifest, MainActivity y este archivo se
 /// generan desde aqui.
 ///
 /// Convencion para evitar drift: NO escribir literales como
-/// "icg.actions.electronicpayment.sistecredito.TRANSACTION" en otros
+/// "icg.actions.electronicpayment.permoda.TRANSACTION" en otros
 /// archivos. Siempre usar HioposActions.Transaction.
 ///
 /// Ademas se incluye el nombre del Broadcast de auditoria, que NO usa
@@ -21,16 +25,92 @@ namespace SistecreditoTEF.Maui.Services.Hiopos;
 /// </summary>
 public static class HioposActions
 {
-    public const string ApkName = "sistecredito";
+    /// <summary>
+    /// apk_name registrado en ICG CloudLicense. Es la LLAVE DE ENRUTAMIENTO: HioPos
+    /// despacha los intents con este nombre embebido en la accion.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────────
+    ///
+    /// ─────────────────────────────────────────────────────────────────────────
+    /// Otro modulo del mismo cliente, <c>com.permoda.tefogloba</c>, declara las
+    /// MISMAS acciones <c>icg.actions.electronicpayment.permoda.*</c>. Verificado en
+    /// el terminal: los intents de HioPos resolvian a uno u otro de forma
+    /// impredecible segun cual se hubiera instalado ultimo, porque Android tiene dos
+    /// candidatos para el mismo intent implicito.
+    ///
+    /// Con un apk_name propio cada modulo tiene su espacio de acciones y pueden
+    /// convivir en la misma terminal.
+    ///
+    /// REQUISITO: ICG tiene que registrar este apk_name en HioPosCloud. Si no
+    /// coincide con el alta, el intent NUNCA llega, HioPos hace timeout y la venta
+    /// sale sin cobrar.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────────
+    /// POR QUE HOY DICE "permoda" Y NO "sistecredito"
+    /// ─────────────────────────────────────────────────────────────────────────
+    /// Se cambio a "sistecredito" y el modulo dejo de levantarse. Verificado en el
+    /// terminal:
+    ///
+    ///   icg.actions.electronicpayment.permoda.TRANSACTION       -> nadie
+    ///   icg.actions.electronicpayment.sistecredito.TRANSACTION  -> este modulo
+    ///
+    /// HioPos sigue despachando a "permoda" porque es lo que tiene registrado en
+    /// HioPosCloud, asi que disparaba al vacio y hacia timeout.
+    ///
+    /// Se vuelve a "permoda" para poder seguir validando en terminal. CAMBIAR A
+    /// "sistecredito" RECIEN CUANDO ICG CONFIRME EL ALTA: es un cambio de una
+    /// linea y las 11 acciones se recalculan solas.
+    ///
+    /// OJO mientras siga en "permoda": com.permoda.tefogloba declara las MISMAS
+    /// acciones. Con los dos instalados, cual atiende lo decide Android de forma
+    /// impredecible. En la terminal de pruebas tiene que estar solo uno.
+    /// </summary>
+    public const string ApkName = "permoda";
 
     /// <summary>
     /// Version del modulo que se reporta en GET_VERSION.
-    /// DEBE ser identica a [ApplicationDisplayVersion] del .csproj (versionName).
-    /// Se usa como fallback determinista: si HioPos ve un string distinto entre
-    /// arranques, cree que el modulo cambio y propone "actualizar". Mantener fija
-    /// y solo subirla en un release real (junto con ApplicationVersion=versionCode).
+    ///
+    /// ─────────────────────────────────────────────────────────────────────────
+    /// ES UN VALOR DE CONTRATO, NO LA VERSION DEL BUILD
+    /// ─────────────────────────────────────────────────────────────────────────
+    /// HioPos guarda la version del modulo y, cuando GET_VERSION le devuelve algo
+    /// distinto de lo que tiene registrado, ofrece "actualizar el modulo" al
+    /// arrancar. Y lo pide en CADA arranque, porque el desajuste no se puede
+    /// resolver: el modulo es side-loaded, HioPos no tiene de donde bajar un APK,
+    /// asi que aceptar el dialogo no cambia lo que tiene anotado.
+    ///
+    /// Antes esta constante era solo un fallback: HandleGetVersion prefería
+    /// IAppInfo.VersionString, o sea el versionName del APK. Como el versionName
+    /// sube en cada release, la version que HioPos veia cambiaba en cada release y
+    /// el dialogo de actualizacion aparecia para siempre. Se observo en terminal al
+    /// pasar de versionName 1.0.8 a 1.0.
+    ///
+    /// Por eso ahora es la UNICA fuente y no se deriva del build: el versionName y
+    /// el versionCode pueden moverse libremente sin molestar a HioPos.
+    ///
+    /// Para cambiarla hay que coordinar con ICG: tiene que coincidir con la version
+    /// registrada para el modulo "permoda" en HioPosCloud.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────────
+    /// POR QUE ES UN int Y NO UN string
+    /// ─────────────────────────────────────────────────────────────────────────
+    /// Porque HioPos lo lee con getIntExtra. Mientras se envio como cadena, HioPos
+    /// se quedaba con el valor por defecto y creia que el modulo estaba en la
+    /// version -1. Capturado en logcat del terminal:
+    ///
+    ///   W/Bundle: Key Version expected Integer but value was a java.lang.String.
+    ///             The default value -1 was returned.
+    ///
+    /// Ese era el verdadero motivo del dialogo de "actualizar el modulo" en cada
+    /// arranque, y explica por que cambiar el CONTENIDO no servia de nada: se
+    /// probo "1.0.0", "1.0" y "1", y las tres fallaban igual porque el problema
+    /// era el TIPO.
+    ///
+    /// El valor 1 es el que ICG tiene registrado para el modulo "permoda" en
+    /// HioPosCloud. El versionCode del APK sigue subiendo aparte; es interno de
+    /// Android y HioPos no lo compara contra el registro.
     /// </summary>
-    public const string ModuleVersion = "1.0.0";
+    public const int ModuleVersion = 1;
 
     private const string Prefix = "icg.actions.electronicpayment." + ApkName + ".";
 
@@ -46,7 +126,56 @@ public static class HioposActions
     public const string ChargeCard      = Prefix + "CHARGE_CARD";
     public const string GetCardData     = Prefix + "GET_CARD_DATA";
 
+    /// <summary>
+    /// LA OTRA PUERTA POR LA QUE SE CUELAN LOS ABONOS.
+    ///
+    /// Con <c>ExecuteVoidWhenAvailable = true</c> en GET_BEHAVIOR, HioPos manda los
+    /// abonos como VOID_TRANSACTION en lugar de REFUND — y el rechazo, que vive en el
+    /// caso REFUND, deja de correr. Ya paso: se colaron cuatro abonos por ahi y se
+    /// respondieron ACCEPTED en silencio.
+    ///
+    /// Nuestra bandera esta en false, pero mientras quede una sola puerta abierta
+    /// basta un cambio de configuracion del POS para que todo se cuele. Asi que se
+    /// declara la accion y se RECHAZA SIEMPRE, sin depender de la bandera.
+    /// </summary>
+    public const string VoidTransaction = Prefix + "VOID_TRANSACTION";
+
     public const string ExternalAudit = "icg.actions.externalApi.AUDIT";
+}
+
+/// <summary>
+/// Valores del extra <c>TransactionType</c> que el modulo DEVUELVE.
+///
+/// ─────────────────────────────────────────────────────────────────────────────
+/// CASH_IN NO ESTA EN EL MANUAL. SALIO DEL APK DE HIOPOS.
+/// ─────────────────────────────────────────────────────────────────────────────
+/// El manual de Cobro Electronico 4.0 lista siete tipos (SALE, NEGATIVE_SALE,
+/// REFUND, ADJUST_TIPS, VOID_TRANSACTION, QUERY_TRANSACTION, BATCH_CLOSE) y
+/// ninguno sirve para que una ENTRADA DE CAJA quede con el importe abonado.
+///
+/// Desensamblando el APK instalado en el terminal (icg.android.start 15.9.0.0,
+/// classes6.dex) aparece el que si sirve, en
+/// <c>icg.android.cashTransaction.CashTransactionActivity.onExternalModuleResult()</c>:
+///
+///     paymentMean.setAmount(response.getAmount());          // siempre
+///     if (type.equals("CASH_IN") || type.equals("CASH_OUT"))
+///     {
+///         paymentMean.setNetAmount(response.getAmount());   // el importe REAL
+///         controller.sendDocumentChange();                  // refresca la pantalla
+///     }
+///
+/// Con SALE —que es lo que el POS pregunta y lo que se le contestaba— solo corre
+/// el primer setAmount, que es el importe ENTREGADO. De ahi salia la pantalla que
+/// el cajero veia: importe $1, entregado $99.900 y un vuelto de $99.899 que el
+/// arqueo esperaba del cajon.
+///
+/// El guard de arriba del mismo metodo acepta explicitamente CASH_IN, asi que no
+/// es un valor que se cuele: es el que ese flujo espera.
+/// </summary>
+public static class HioposTransactionTypes
+{
+    public const string Sale   = "SALE";
+    public const string CashIn = "CASH_IN";
 }
 
 /// <summary>
@@ -99,6 +228,35 @@ public static class HioposExtras
     public const string CanPrint                   = "CanPrint";
     public const string ReadCardFromApi            = "ReadCardFromApi";
     public const string OnlyUseDocumentPath        = "OnlyUseDocumentPath";
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // CAPACIDADES QUE HIOPOS RECONOCE Y EL MODULO NO DECLARABA
+    // ══════════════════════════════════════════════════════════════════════════
+    // Estas cuatro NO estan en el manual de Cobro Electronico 4.0 que tenemos,
+    // pero SI estan en el propio HioPos: se leyeron del APK instalado en el
+    // terminal (icg.android.start), en el mismo bloque de cadenas donde viven las
+    // 17 que ya declarabamos:
+    //
+    //   SupportsBatchClose      SupportsCashTransaction   SupportsCredit
+    //   SupportsDebit           SupportsEBTFoodstamp      SupportsNegativeSales
+    //   SupportsPartialRefund   SupportsSale              SupportsTipAdjustment
+    //   SupportsTransactionQuery SupportsTransactionVoid  SupportsVoid
+    //
+    // Se agregan porque [SupportsCashTransaction] es la unica pista concreta que
+    // encontramos para el flujo de ENTRADA DE CAJA: HioPos tiene un subsistema
+    // completo icg.android.cashTransaction (Activity, Controller, Editor,
+    // DefaultValuesLoader, Generator) y esta bandera es la que le dice que el
+    // modulo sabe atender transacciones de caja. Sin declararla, el modulo se
+    // comporta como un medio de pago comun y el POS no le ofrece nada distinto.
+    //
+    // ES UN EXPERIMENTO, y por eso queda anotado: si HioPos no cambia de
+    // comportamiento, estas cuatro no molestan (una capacidad declarada que el POS
+    // no usa es inerte). Si empieza a mandar una accion nueva, el 'default' de
+    // [MainActivity] la responde Canceled en vez de colgarse.
+    public const string SupportsCashTransaction    = "SupportsCashTransaction";
+    public const string SupportsSale               = "SupportsSale";
+    public const string SupportsVoid               = "SupportsVoid";
+    public const string SupportOverPayment         = "SupportOverPayment";
 
     // ---- Output extras (GET_VERSION) ----
     public const string Version = "Version";

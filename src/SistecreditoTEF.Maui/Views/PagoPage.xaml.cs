@@ -5,7 +5,7 @@ using SistecreditoTEF.Maui.ViewModels;
 namespace SistecreditoTEF.Maui.Views;
 
 [QueryProperty(nameof(SelectedCredit), AppRoutes.Params.Payment)]
-public partial class PagoPage : ContentPage
+public partial class PagoPage : HioposFlowPage
 {
     private readonly PagoViewModel _vm;
 

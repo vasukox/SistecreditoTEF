@@ -21,4 +21,10 @@ public interface INavigationService
     Task GoToReciboPagoAsync(Payment payment);
     Task GoToCreditosActivosAsync();
     Task GoToHomeAsync();
+
+    // ---- Ingreso de cajeros (solo abonos) ----
+    Task GoToConfigurarAdminAsync();
+    Task GoToIngresoCajeroAsync();
+    Task GoToAdminCajerosAsync();
+    Task GoToReplicacionAsync();
 }

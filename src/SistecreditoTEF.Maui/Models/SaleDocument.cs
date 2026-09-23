@@ -33,8 +33,18 @@ public sealed class SaleDocument
     /// Cliente asignado a la venta en HioPos (doc §21). Se usa para
     /// autocompletar la cedula en la captura. Poblado por [XmlDocumentReader].
     /// null si la venta no tiene cliente asignado (venta anonima).
+    ///
+    /// Es el cliente ELEGIDO entre <see cref="Customers"/>: se prefiere el que
+    /// tenga un documento real por sobre el cliente generico del POS.
     /// </summary>
     public DocumentCustomer? Customer { get; set; }
+
+    /// <summary>
+    /// TODOS los elementos <c>Customer</c> del documento. HioPos puede incluir el
+    /// cliente generico (222222222222) ademas del asignado a la venta; se
+    /// conservan todos para diagnostico y para poder refinar la eleccion.
+    /// </summary>
+    public List<DocumentCustomer> Customers { get; set; } = new();
 
     public string? SaleId           => Header?.Fields.GetValue("SaleId");
     public string? DocumentTypeId   => Header?.Fields.GetValue("DocumentTypeId");
@@ -120,10 +130,14 @@ public static class DocumentFieldCollectionExtensions
         fields.FirstOrDefault(f =>
             string.Equals(f.Key, key, StringComparison.OrdinalIgnoreCase))?.Value;
 
-    public static decimal? GetDecimal(this IEnumerable<DocumentField> fields, string key)
-    {
-        var raw = fields.GetValue(key);
-        return decimal.TryParse(raw, System.Globalization.NumberStyles.Any,
-            System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : null;
-    }
+    /// <summary>
+    /// Lee un importe del documento de HioPos.
+    ///
+    /// Delega en [HioposNumber.ParseDecimal]: HioPos emite los montos con COMA
+    /// decimal y sin separador de miles ("57415,0000"), y el parseo con
+    /// InvariantCulture + NumberStyles.Any interpretaba esa coma como agrupación,
+    /// devolviendo un valor 10.000 veces mayor SIN reportar error.
+    /// </summary>
+    public static decimal? GetDecimal(this IEnumerable<DocumentField> fields, string key) =>
+        SistecreditoTEF.Maui.Common.HioposNumber.ParseDecimal(fields.GetValue(key));
 }

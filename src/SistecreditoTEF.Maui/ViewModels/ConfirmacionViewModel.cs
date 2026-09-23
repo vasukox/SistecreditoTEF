@@ -1,42 +1,72 @@
+using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using SistecreditoTEF.Maui.Common;
 using SistecreditoTEF.Maui.Models;
+using SistecreditoTEF.Maui.Services.Credinet;
 using SistecreditoTEF.Maui.Services.Hiopos;
 using SistecreditoTEF.Maui.Services.Hiopos.Models;
 using SistecreditoTEF.Maui.Services.Platform;
+using SistecreditoTEF.Maui.UseCases;
 
 namespace SistecreditoTEF.Maui.ViewModels;
 
 /// <summary>
-/// Pantalla 5: confirmacion del credito creado + devolucion al POS.
-///
-/// Finalizar entrega el [HioposResponse] al POS via
-/// [ITransactionResultHandler] (B1) y cierra la Activity.
+/// Pantalla 5: confirmacion del credito creado + devolucion del resultado al POS.
 /// </summary>
 public partial class ConfirmacionViewModel(
     ITransactionStateStore state,
     ITransactionResultHandler resultHandler,
     ReceiptBuilder receiptBuilder,
     ModifyDocumentResultBuilder modifyDocBuilder,
-    INavigationService nav,
-    IStandaloneModeTracker standalone) : ObservableObject
+    IStandaloneModeTracker standalone,
+    IAuditLogger audit,
+    ApiConfig config) : ObservableObject
 {
+    // PaymentMeanId del medio "Tarjeta", sobre el que se consolida Sistecredito en
+    // una venta. NO se lee del documento porque al iniciar la transaccion
+    // PaymentMeans viene vacio (el medio se agrega DESPUES de que respondemos); un
+    // Id vacio hacia que el modulo fiscal reportara "error en consulta de folios".
+    //
+    // Ahora sale de [ApiConfig.PaymentMeanIdVenta] y ya no es una constante
+    // repetida en dos ViewModels: se corrige por HioPosCloud sin recompilar. El
+    // comentario anterior afirmaba que eso ya estaba hecho, y no lo estaba.
+
+    /// <summary>
+    /// Tolerancia al comparar el monto financiado con el que pidio HioPos.
+    /// Un peso cubre diferencias de redondeo legitimas.
+    /// </summary>
+    private const long AmountToleranceCents = 100;
+
     [ObservableProperty]
     private Credit? credito;
 
     public string CreditId => Credito?.CreditId ?? string.Empty;
-    public string CreditNumber => Credito?.CreditNumber.ToString() ?? "0";
+    public string CreditNumber => Credito?.CreditNumber.ToString(CultureInfo.InvariantCulture) ?? "0";
     public string MontoAprobado => Credito?.CreditValue.ToColombianCurrency() ?? "$ 0";
-    public string Meses => $"{state.Months} cuotas mensuales";
+    public string Meses => $"{PlazoCuotas} cuotas mensuales";
     public string PrimeraFechaPago => DateHelper.CalcularPrimeraFechaEstimadaPago();
-    public string Tienda => "Permoda";
-    public string Cajero => state.ActiveTransaction is null
-        ? "Cajero Permoda"
-        : ExtractSellerName(state.ActiveTransaction.SellerData);
+
+    /// <summary>QA M-7: nombre real de la tienda, no "Permoda" hardcodeado.</summary>
+    public string Tienda => config.StoreName;
+
+    public string Cajero =>
+        SistecreditoService.ExtractSellerName(state.ActiveTransaction?.SellerData)
+        ?? "Cajero Permoda";
+
     public string Cliente => state.ValidatedClient?.FullName ?? string.Empty;
 
     public bool IsSuccess => Credito is not null;
+
+    /// <summary>
+    /// Plazo autoritativo: el que devolvio la API (<c>Credit.Fees</c>), con
+    /// fallback al que eligio el cajero.
+    ///
+    /// QA M-5: antes el voucher usaba <c>state.Months</c> y el
+    /// ModifyDocumentResult usaba <c>Credito.Fees</c>. Dos fuentes para el mismo
+    /// dato, que discrepan si la API ajusta el plazo.
+    /// </summary>
+    private int PlazoCuotas => Credito is { Fees: > 0 } c ? c.Fees : state.Months;
 
     partial void OnCreditoChanged(Credit? value)
     {
@@ -44,6 +74,7 @@ public partial class ConfirmacionViewModel(
         OnPropertyChanged(nameof(CreditNumber));
         OnPropertyChanged(nameof(MontoAprobado));
         OnPropertyChanged(nameof(IsSuccess));
+        OnPropertyChanged(nameof(Meses));
     }
 
     public void Inicializar()
@@ -54,10 +85,7 @@ public partial class ConfirmacionViewModel(
     [RelayCommand]
     private void Finalizar()
     {
-        if (Credito is null) return;
-
-        // HU8-973 standalone: si la app se abrio del launcher (no de HI-POS),
-        // no hay nadie que reciba el SetResult. Cerramos la app.
+        // Modo standalone: no hay HioPos esperando un setResult, se cierra la app.
         if (standalone.IsStandalone)
         {
             state.Clear();
@@ -66,9 +94,31 @@ public partial class ConfirmacionViewModel(
             return;
         }
 
-        var response = BuildResponse();
+        // QA A-7: ANTES habia aqui un `if (Credito is null) return;` que dejaba a
+        // HioPos esperando para siempre: el POS espera un setResult, hacia
+        // timeout y —segun el propio comentario de HioposConstants— "saca la
+        // factura sin hacer nada". La rama Failed de BuildResponse existia pero
+        // era codigo muerto, inalcanzable por ese early-return.
+        //
+        // Ahora SIEMPRE se responde, y todo va envuelto en try/catch como en
+        // [ReciboPagoViewModel] (que si lo hacia bien): si armar la respuesta
+        // falla, se devuelve Failed explicito en vez de colgar el POS.
+        HioposResponse response;
+        try
+        {
+            response = BuildResponse();
+        }
+        catch (Exception ex)
+        {
+            AppLogger.E("ConfirmacionViewModel",
+                "Excepcion armando la respuesta del credito; se devuelve Failed al POS.", ex);
+            response = BuildFailed(
+                "No se pudo armar el comprobante del credito. " +
+                (Credito is null
+                    ? "Reintenta la venta."
+                    : $"El credito {Credito.CreditNumber} SI fue creado: verificalo en Sistecredito."));
+        }
 
-        // Entregamos el Intent via SetResult y cerramos la Activity.
         state.Clear();
         resultHandler.FinishWithResult(response);
     }
@@ -77,9 +127,7 @@ public partial class ConfirmacionViewModel(
     {
         try
         {
-            var activity = Microsoft.Maui.ApplicationModel.Platform.CurrentActivity;
-            if (activity is not null)
-                activity.FinishAffinity();
+            Microsoft.Maui.ApplicationModel.Platform.CurrentActivity?.FinishAffinity();
         }
         catch (Exception ex)
         {
@@ -88,103 +136,75 @@ public partial class ConfirmacionViewModel(
         }
     }
 
+    private HioposResponse BuildFailed(string message) =>
+        new(HioposActions.Transaction,
+            new Dictionary<string, string?>
+            {
+                [HioposExtras.TransactionResult] = TransactionResult.Failed.ToWire(),
+                [HioposExtras.ErrorMessage] = message,
+                [HioposExtras.ErrorMessageTitle] = "No se pudo completar el cobro"
+            },
+            ResultCode: Hiopos.Result.OkValue);
+
     private HioposResponse BuildResponse()
     {
         if (Credito is null)
-        {
-            return new HioposResponse(HioposActions.Transaction,
-                new Dictionary<string, string?>
-                {
-                    [HioposExtras.TransactionResult] = TransactionResult.Failed.ToWire(),
-                    [HioposExtras.ErrorMessage] = "No hay credito creado para devolver al POS."
-                },
-                ResultCode: Hiopos.Result.OkValue);
-        }
+            return BuildFailed("No hay credito creado para devolver al POS.");
 
-        // HU-134: el comprobante es un VOUCHER de credito (no una factura).
-        // La cedula va COMPLETA en el voucher impreso; el enmascarado se usa
-        // solo para el campo CardNum que viaja al POS.
+        // La cedula va COMPLETA en el voucher impreso (el cliente firma su
+        // credito); el enmascarado se usa para el campo CardNum que viaja al POS.
         var documento = state.ValidatedClient?.DocumentId ?? string.Empty;
-
-        // Log del valor CRUDO de la TEA: la API la envia como fraccion
-        // (ej. 0.2832) y el ReceiptBuilder la normaliza a "28.32%". Si un dia
-        // la API cambiara a porcentaje, este log lo delataria.
-        AppLogger.I("ConfirmacionViewModel",
-            $"TEA cruda de la API = {Credito.EffectiveAnnualRate} -> se normaliza al imprimir.");
 
         var merchantReceipt = receiptBuilder.BuildMerchantReceipt(
             fecha: DateTime.Now,
-            creditNumber: Credito.CreditNumber.ToString(),
+            creditNumber: CreditNumber,
             cliente: Cliente,
             documento: documento,
             valorFinanciado: Credito.CreditValue.ToColombianCurrency(),
             cuotaInicial: Credito.TotalDownPayment.ToColombianCurrency(),
             cuotaMensual: Credito.TotalFeeValue.ToColombianCurrency(),
-            plazoCuotas: state.Months,
+            plazoCuotas: PlazoCuotas,
             tasaEfectivaAnual: Credito.EffectiveAnnualRate,
             primeraFechaPago: PrimeraFechaPago,
-            tienda: Tienda);
+            tienda: Tienda,
+            otpDestination: config.OtpDestination);
 
-        var customerReceipt = receiptBuilder.BuildCustomerReceipt(
-            fecha: DateTime.Now,
-            creditNumber: Credito.CreditNumber.ToString(),
-            cliente: Cliente,
-            documento: documento,
-            valorFinanciado: Credito.CreditValue.ToColombianCurrency(),
-            cuotaInicial: Credito.TotalDownPayment.ToColombianCurrency(),
-            cuotaMensual: Credito.TotalFeeValue.ToColombianCurrency(),
-            plazoCuotas: state.Months,
-            tasaEfectivaAnual: Credito.EffectiveAnnualRate,
-            primeraFechaPago: PrimeraFechaPago,
-            tienda: Tienda);
+        // El voucher del cliente es identico al del comercio (ambos cortos, sin
+        // datos fiscales) — se reutiliza en vez de reconstruirlo.
+        var customerReceipt = merchantReceipt;
 
-        // HU-DIAN: el modulo fiscal de ICG (icg.hioposapifiscal) rechaza el
-        // "numero de referencia del pago" si HioPosCloud le pasa un
-        // TransactionData >200 chars (su cap interno, mas estricto que el
-        // limite oficial de 250 de HioPos). Causa actual: con 3 campos
-        // (creditId GUID + creditNumber + saleId UUID) el JSON serializado
-        // media ~250 chars -> rechazado.
-        // FIX: usar solo los IDs abreviados ("c" = creditId, "n" =
-        // creditNumber), ~70 chars. HioPosCloud acepta cualquier JSON valido;
-        // el POS hace la conciliacion por AuthorizationId + CardType + el
-        // ModifyDocumentResult de abajo (que SI viaja con todos los campos
-        // enriquecidos para el modulo fiscal).
         var tx = state.ActiveTransaction;
-        var saleId = state.ActiveDocument?.SaleId ?? tx?.TransactionId ?? string.Empty;
-        var sanitizedAuthId = SanitizeForDian(Credito.CreditId, Credito.CreditNumber);
+        var authorizationId = DianFieldSanitizer.AuthorizationId(
+            Credito.CreditId, Credito.CreditNumber);
 
-        // ModifyDocumentResult (HU-DIAN): enriquece el medio de pago de la
-        // factura con los datos del credito para la DIAN. Solo PaymentMeans,
-        // SIN lineas de producto ni totales (si parece otro documento, el
-        // fiscal lo reenvia a DIAN).
-        //
-        // PaymentMeanId HARDCODEADO a "2" = medio "Tarjeta" del CloudLicense:
-        // Sistecredito se consolida sobre ese medio. NO se lee del documento
-        // porque al iniciar la transaccion PaymentMeans viene vacio (el medio
-        // se agrega despues de que respondemos); un Id vacio hacia que el
-        // modulo fiscal reportara "error en consulta de folios".
-        // TODO: mover a CloudConfigStore si ICG asigna un Id propio a Sistecredito.
-        const string paymentMeanId = "2";
+        var amountCents = Money.ToCents(Credito.CreditValue);
+        ValidateAmountAgainstIntent(amountCents, tx);
+
+        // Sale de configuracion: ver [ICloudConfig.PaymentMeanIdVenta]. Antes era
+        // una constante "2" repetida en dos ViewModels.
+        var paymentMeanId = config.PaymentMeanIdVenta;
 
         var modifyResult = modifyDocBuilder.Build(
             paymentMeanId:    paymentMeanId,
             type:             "0",
             lineNumber:       "1",
-            amount:           ToCents(Credito.CreditValue),
-            authorizationId:  sanitizedAuthId,
+            amount:           amountCents.ToString(CultureInfo.InvariantCulture),
+            authorizationId:  authorizationId,
             transactionId:    null,
-            customFields: new (string, string)[] {
+            customFields:
+            [
                 ("CreditId",      Credito.CreditId),
-                ("CreditNumber",  Credito.CreditNumber.ToString(System.Globalization.CultureInfo.InvariantCulture)),
-                ("TEA",           Credito.EffectiveAnnualRate.ToString("N4", System.Globalization.CultureInfo.InvariantCulture)),
-                // "F0" (no "N0"): sin separador de miles. La factura fiscal no
-                // acepta separadores en campos numericos (ej. "34022", no "34,022").
-                ("TotalFeeValue", Credito.TotalFeeValue.ToString("F0", System.Globalization.CultureInfo.InvariantCulture)),
-                ("Fees",          Credito.Fees.ToString(System.Globalization.CultureInfo.InvariantCulture)),
-                ("Frequency",     state.Months.ToString(System.Globalization.CultureInfo.InvariantCulture))
-            });
-        AppLogger.I("ConfirmacionViewModel",
-            $"ModifyDocumentResult incluido (PaymentMeanId={paymentMeanId}).");
+                ("CreditNumber",  Credito.CreditNumber.ToString(CultureInfo.InvariantCulture)),
+                ("TEA",           Credito.EffectiveAnnualRate.ToString("N4", CultureInfo.InvariantCulture)),
+                // "F0": sin separador de miles. La factura fiscal no acepta
+                // separadores en campos numericos (ej. "34022", no "34,022").
+                ("TotalFeeValue", Money.ToFiscalAmount(Credito.TotalFeeValue)),
+                ("Fees",          PlazoCuotas.ToString(CultureInfo.InvariantCulture)),
+                // QA M-5: "Frequency" es la PERIODICIDAD en dias (30), no el
+                // numero de cuotas. Antes se enviaba state.Months bajo esta
+                // etiqueta, o sea un dato con el significado equivocado.
+                ("Frequency",     config.Frequency.ToString(CultureInfo.InvariantCulture))
+            ]);
 
         return new HioposResponse(
             Action: HioposActions.Transaction,
@@ -192,70 +212,52 @@ public partial class ConfirmacionViewModel(
             {
                 [HioposExtras.TransactionResult] = TransactionResult.Accepted.ToWire(),
                 [HioposExtras.TransactionType]   = tx?.TransactionType ?? "SALE",
-                // Auditoria dinero (A1): reportar el valor REALMENTE financiado
-                // (coherente con el ModifyDocumentResult), no el Amount del
-                // Intent. Si coinciden (monto no editado) da lo mismo; si el
-                // cajero edito el monto, evita que POS y DIAN difieran.
-                [HioposExtras.Amount]            = ToCents(Credito.CreditValue),
+                [HioposExtras.Amount]            = amountCents.ToString(CultureInfo.InvariantCulture),
                 [HioposExtras.TipAmount]         = tx?.TipAmountCents ?? "0",
                 [HioposExtras.TaxAmount]         = tx?.TaxAmountCents ?? "0",
                 [HioposExtras.SurchargeAmount]   = tx?.SurchargeCents ?? "0",
-                // HU-DIAN: clave minimal (<=200 chars para que el fiscal
-                // la acepte como numReferencia). Llaves abreviadas.
-                [HioposExtras.TransactionData]   = "{\"c\":\"" + sanitizedAuthId + "\",\"n\":" +
-                    Credito.CreditNumber.ToString(System.Globalization.CultureInfo.InvariantCulture) + "}",
-                // HU-134: NO imprimimos voucher de credito adicional.
-                // HU-DIAN: AuthorizationId sanitizado (sin guiones, <=200
-                // chars, fallback a creditNumber padded si vacio).
-                [HioposExtras.AuthorizationId]   = sanitizedAuthId,
-                // HU-DIAN: enriquecimiento del PaymentMean para el modulo
-                // fiscal (DIAN) sin agregar lineas de producto.
+                // Clave minimal (<=200 chars) para que el modulo fiscal la acepte
+                // como numReferencia: con 3 campos el JSON llegaba a ~250 chars.
+                [HioposExtras.TransactionData]   =
+                    $"{{\"c\":\"{authorizationId}\",\"n\":{Credito.CreditNumber.ToString(CultureInfo.InvariantCulture)}}}",
+                [HioposExtras.AuthorizationId]   = authorizationId,
                 [HioposExtras.ModifyDocumentResult] = modifyResult,
                 [HioposExtras.CardType]          = "Sistecredito",
                 [HioposExtras.CardHolder]        = Cliente,
-                [HioposExtras.CardNum]           = MaskDocumentId(state.ValidatedClient?.DocumentId)
+                [HioposExtras.CardNum]           = PiiMask.Document(state.ValidatedClient?.DocumentId)
             },
             ResultCode: Hiopos.Result.OkValue);
     }
 
     /// <summary>
-    /// HU-DIAN: el modulo fiscal (icg.hioposapifiscal) usa este campo como
-    /// "numero de referencia del pago" y lo mapea a AuthorizationId, que el
-    /// manual HioPos define como <b>varchar(40)</b>; ademas la API SIAT/DIAN
-    /// rechaza guiones, espacios o vacios. Devuelve el creditId alfanumerico
-    /// sin guiones (un GUID sin guiones = 32 chars), truncado a 40, o el
-    /// creditNumber padded a 6 digitos si viene vacio.
+    /// QA A-9: compara el monto que devolvemos al POS con el que HioPos pidio.
+    ///
+    /// El modulo reporta el valor REALMENTE financiado (coherente con el
+    /// ModifyDocumentResult y con lo que ve la DIAN), no el Amount del Intent.
+    /// Esa decision es deliberada, pero antes NO se verificaba que ambos
+    /// coincidieran: si diferian, HioPos asentaba un pago por un monto distinto
+    /// al de la venta y la factura quedaba descuadrada, en silencio.
+    ///
+    /// Ahora la discrepancia se registra en el log y en la auditoria para que sea
+    /// rastreable y conciliable. No se aborta la venta: el credito ya existe en
+    /// Credinet y cancelar dejaria al cliente con una deuda sin factura.
     /// </summary>
-    private const int AuthorizationIdMaxLength = 40;
-
-    private static string SanitizeForDian(string? creditId, int creditNumber)
+    private void ValidateAmountAgainstIntent(long amountCents, HioposTransaction? tx)
     {
-        if (string.IsNullOrWhiteSpace(creditId))
-            return creditNumber.ToString("D6", System.Globalization.CultureInfo.InvariantCulture);
-        var s = creditId.Replace("-", string.Empty, StringComparison.Ordinal)
-                        .Replace(" ", string.Empty, StringComparison.Ordinal)
-                        .Trim();
-        if (s.Length == 0)
-            return creditNumber.ToString("D6", System.Globalization.CultureInfo.InvariantCulture);
-        return s.Length > AuthorizationIdMaxLength ? s[..AuthorizationIdMaxLength] : s;
-    }
+        var requested = Money.FromCentsString(tx?.AmountCents);
+        if (requested is null) return;
 
-    private static string ToCents(double pesos) =>
-        ((long)Math.Round(pesos * 100)).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var requestedCents = Money.ToCents(requested.Value);
+        var diff = Math.Abs(requestedCents - amountCents);
+        if (diff <= AmountToleranceCents) return;
 
-    private static string MaskDocumentId(string? docId)
-    {
-        if (string.IsNullOrEmpty(docId) || docId.Length < 4)
-            return docId ?? string.Empty;
-        return new string('*', docId.Length - 4) + docId[^4..];
-    }
+        var message =
+            $"DESCUADRE DE MONTO: HioPos pidio {requestedCents} centavos y el credito " +
+            $"financio {amountCents} (diferencia {diff}). La factura del POS puede quedar " +
+            "sin cuadrar; hay que conciliar esta venta.";
 
-    private static string ExtractSellerName(string? sellerData)
-    {
-        if (string.IsNullOrWhiteSpace(sellerData)) return "Cajero Permoda";
-        var match = System.Text.RegularExpressions.Regex.Match(
-            sellerData, @"<name>([^<]+)</name>",
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-        return match.Success ? match.Groups[1].Value : "Cajero Permoda";
+        AppLogger.E("ConfirmacionViewModel", message);
+        audit.Log(AuditActions.CreditCreated, message,
+            documentId: state.ActiveDocument?.SaleId ?? tx?.TransactionId);
     }
 }

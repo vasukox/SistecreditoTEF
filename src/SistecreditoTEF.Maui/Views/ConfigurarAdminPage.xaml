@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:SistecreditoTEF.Maui.ViewModels"
+             xmlns:beh="clr-namespace:SistecreditoTEF.Maui.Common.Behaviors"
+             xmlns:ctrl="clr-namespace:SistecreditoTEF.Maui.Views.Controls"
+             x:Class="SistecreditoTEF.Maui.Views.ConfigurarAdminPage"
+             x:DataType="vm:ConfigurarAdminViewModel"
+             Title="Configuración inicial">
+    <ScrollView>
+        <VerticalStackLayout Spacing="20" Padding="20,24,20,28">
+
+            <ctrl:HeroCardView>
+                <ctrl:HeroCardView.Behaviors>
+                    <beh:EntranceBehavior />
+                </ctrl:HeroCardView.Behaviors>
+                <VerticalStackLayout Spacing="6">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Grid.Column="0" Text="Primer uso" TextColor="{StaticResource White}"
+                               FontSize="18" FontAttributes="Bold" VerticalOptions="Center" />
+                        <Label Grid.Column="1" Text="sistecrédito" TextColor="#99FFFFFF"
+                               FontSize="12" FontAttributes="Bold,Italic" />
+                    </Grid>
+                    <Label Text="Cree el PIN de administrador de este terminal."
+                           TextColor="{StaticResource OnHeroMuted}" FontSize="12" />
+                </VerticalStackLayout>
+            </ctrl:HeroCardView>
+
+            <!--
+                ATAJO PARA LA CAJA 2 EN ADELANTE
+                Va ARRIBA del formulario a propósito: si esta tienda ya tiene una
+                caja montada, el instalador no tiene que crear nada acá. Antes esta
+                opción solo existía detrás del PIN de administrador, o sea que había
+                que inventar un PIN para llegar a la pantalla que viene a copiarlo.
+            -->
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="¿YA HAY OTRA CAJA CONFIGURADA?" Style="{StaticResource FieldLabel}" />
+                    <Label Style="{StaticResource Caption}"
+                           Text="Copia el PIN y los cajeros desde ella y esta caja queda lista, sin crear nada." />
+                    <Button Text="Copiar configuración de otra caja"
+                            Style="{StaticResource PrimaryButton}"
+                            Command="{Binding CopiarDeOtraCajaCommand}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Label Text="— o configura esta caja desde cero —"
+                   Style="{StaticResource Caption}"
+                   TextColor="{StaticResource TextMuted}"
+                   HorizontalTextAlignment="Center" />
+
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="14">
+                    <Label Text="PIN DE ADMINISTRADOR" Style="{StaticResource FieldLabel}" />
+
+                    <Border Style="{StaticResource FieldCard}">
+                        <Entry Keyboard="Numeric" IsPassword="True" Placeholder="••••"
+                               FontSize="22" HeightRequest="52"
+                               Text="{Binding Pin, Mode=TwoWay}" />
+                    </Border>
+
+                    <Label Text="REPITA EL PIN" Style="{StaticResource FieldLabel}" />
+                    <Border Style="{StaticResource FieldCard}">
+                        <Entry Keyboard="Numeric" IsPassword="True" Placeholder="••••"
+                               FontSize="22" HeightRequest="52"
+                               Text="{Binding PinConfirmacion, Mode=TwoWay}" />
+                    </Border>
+
+                    <Label Text="{Binding Ayuda}" Style="{StaticResource Caption}"
+                           TextColor="{StaticResource TextMuted}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Button Text="Crear PIN y continuar"
+                    Style="{StaticResource PrimaryButton}"
+                    Command="{Binding GuardarCommand}" />
+
+            <!-- Un botón gris sin explicación deja al instalador sin saber qué falta. -->
+            <Label Text="{Binding MotivoBloqueo}" Style="{StaticResource Caption}"
+                   TextColor="{StaticResource TextMuted}"
+                   HorizontalTextAlignment="Center" />
+
+            <Border IsVisible="{Binding TieneError}" BackgroundColor="{StaticResource WarningSoft}"
+                    Stroke="Transparent" StrokeShape="RoundRectangle 12" Padding="14,12">
+                <Label Text="{Binding ErrorMessage}" TextColor="{StaticResource Warning}"
+                       FontSize="13" HorizontalTextAlignment="Center" />
+            </Border>
+
+            <!--
+                Qué build tiene esta caja y contra qué ambiente apunta.
+                ApplicationVersion está fijo en 1 por contrato con ICG, así que sin
+                esto la única forma de saberlo era la fecha del .apk en la máquina de
+                quien compiló. Los dos APK se llaman igual y se ven igual: si un
+                terminal de pruebas quedó con el productivo, acá se nota.
+            -->
+            <Label Text="{Binding Build}" Style="{StaticResource Caption}"
+                   TextColor="{StaticResource TextMuted}"
+                   FontSize="11"
+                   HorizontalTextAlignment="Center" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

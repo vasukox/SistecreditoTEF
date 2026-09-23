@@ -65,33 +65,80 @@ public class XmlDocumentReader : IDocumentReader
         var root = XDocument.Parse(rawXml).Root;
         if (root is null) return null;
 
+        var clientes = ReadCustomers(root);
+
         return new SaleDocument
         {
             Header       = new DocumentHeader { Fields = ReadFields(root, "HeaderField") },
             Lines        = new DocumentLines  { Lines  = ReadLines(root) },
             PaymentMeans = ReadPaymentMeans(root),
-            Customer     = ReadCustomer(root)
+            Customers    = clientes,
+            Customer     = SelectCustomer(clientes)
         };
     }
 
     /// <summary>
-    /// Cliente asignado a la venta (doc §21). Toma el primer elemento
-    /// <c>Customer</c> y recolecta sus campos hoja con atributo <c>Key</c>
-    /// (FiscalId, FiscalIdDocType, Name, ...). null si la venta va sin cliente.
+    /// TODOS los elementos <c>Customer</c> del documento, con sus campos hoja que
+    /// tengan atributo <c>Key</c> (FiscalId, FiscalIdDocType, Name, ...).
+    ///
+    /// Se leen todos —no solo el primero— porque el documento de HioPos puede
+    /// traer más de uno: el cliente genérico del POS y el realmente asignado a la
+    /// venta. Ver [SelectCustomer].
     /// </summary>
-    private static DocumentCustomer? ReadCustomer(XElement root)
-    {
-        var customer = root.Descendants()
-            .FirstOrDefault(e => e.Name.LocalName == "Customer");
-        if (customer is null) return null;
+    private static List<DocumentCustomer> ReadCustomers(XElement root) =>
+        root.DescendantsAndSelf()
+            .Where(e => string.Equals(e.Name.LocalName, "Customer", StringComparison.OrdinalIgnoreCase))
+            .Select(customer => new DocumentCustomer
+            {
+                Fields = customer.Descendants()
+                    .Where(f => f.Attribute("Key") is not null && !f.HasElements)
+                    .Select(ToField)
+                    .ToList()
+            })
+            .ToList();
 
-        return new DocumentCustomer
+    /// <summary>
+    /// Elige el cliente ASIGNADO A LA VENTA entre los que trae el documento.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────────
+    /// EL PROBLEMA QUE RESUELVE
+    /// ─────────────────────────────────────────────────────────────────────────
+    /// Antes se tomaba <c>FirstOrDefault</c>: el primer <c>Customer</c> en orden
+    /// del documento. Cuando HioPos incluye el **cliente genérico** del POS
+    /// (222222222222) antes del cliente real de la venta, el módulo autocompletaba
+    /// la cédula del genérico. En el terminal se veía así: se facturaba a un
+    /// cliente cuya cédula empieza por 430 y la pantalla de consulta traía
+    /// 222222222222.
+    ///
+    /// Ahora se prefiere el primer cliente cuyo documento NO tenga forma de
+    /// marcador genérico. Si todos son genéricos se devuelve el primero de todos
+    /// modos —para no perder el resto de sus campos— y es
+    /// [CapturaCedulaViewModel] el que decide no autocompletar, dejando el campo
+    /// en blanco para captura manual.
+    /// </summary>
+    private static DocumentCustomer? SelectCustomer(List<DocumentCustomer> clientes)
+    {
+        if (clientes.Count == 0) return null;
+
+        var real = clientes.FirstOrDefault(c =>
+            DocumentNumber.IsUsableForAutocomplete(c.Fields.GetValue("FiscalId")));
+
+        if (clientes.Count > 1)
         {
-            Fields = customer.Descendants()
-                .Where(f => f.Attribute("Key") is not null && !f.HasElements)
-                .Select(ToField)
-                .ToList()
-        };
+            // Diagnóstico con las cédulas ENMASCARADAS: permite ver en el terminal
+            // cuántos clientes trae el documento y cuál se eligió.
+            var descritos = string.Join(", ", clientes.Select((c, i) =>
+            {
+                var id = c.Fields.GetValue("FiscalId");
+                var generico = DocumentNumber.IsGenericPlaceholder(id) ? " [GENERICO]" : "";
+                return $"#{i}={PiiMask.Document(id)}{generico}";
+            }));
+            AppLogger.W("IDocumentReader",
+                $"El documento trae {clientes.Count} elementos Customer: {descritos}. " +
+                $"Elegido: {(real is null ? "ninguno usable" : PiiMask.Document(real.Fields.GetValue("FiscalId")))}.");
+        }
+
+        return real ?? clientes[0];
     }
 
     /// <summary>Todos los campos con LocalName dado, en cualquier parte.</summary>

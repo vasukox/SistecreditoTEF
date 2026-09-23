@@ -18,6 +18,18 @@ public partial class CapturaCedulaViewModel(
 {
     public enum Estado { Idle, Loading, Success, Error, Validation }
 
+    // ------------------------------------------------------------------
+    // Salida al flujo de abonos: RETIRADA
+    // ------------------------------------------------------------------
+    // Habia un boton "Pagar credito (abono)" que desde la venta llevaba al
+    // recaudo. Se quito porque los abonos salieron del flujo de HioPos: ahora se
+    // hacen abriendo el APK desde el icono. En la venta esta pantalla es solo para
+    // solicitar credito.
+    //
+    // El ruteo automatico de MainActivity (TRANSACTION sin documento -> recaudo) se
+    // dejo en pie a proposito: si HioPos igual dispara una entrada de caja, sigue
+    // funcionando en vez de dejar al cajero en la captura de cliente.
+
     [ObservableProperty]
     private Estado status = Estado.Idle;
 
@@ -73,9 +85,32 @@ public partial class CapturaCedulaViewModel(
             $"Customer del documento: campos=[{string.Join(",", keys)}], " +
             $"docType='{doc?.CustomerFiscalDocType ?? "-"}'.");
 
-        // Si el cajero ya escribio algo (o volvio a la pantalla), no pisar.
-        if (!string.IsNullOrWhiteSpace(NumeroDocumento))
+        // Se re-sincroniza con el cliente de la venta CADA VEZ que se entra a la
+        // pantalla, salvo que el cajero haya escrito una cedula distinta a mano.
+        //
+        // Antes bastaba que el campo tuviera algo para no tocarlo:
+        //
+        //     if (!string.IsNullOrWhiteSpace(NumeroDocumento)) return;
+        //
+        // Con eso, al volver atras y entrar de nuevo quedaba pegada la cedula de
+        // antes. Si en el medio HioPos habia cambiado de venta (el cajero volvio
+        // atras y eligio Sistecredito otra vez), el modulo seguia mostrando el
+        // cliente equivocado.
+        //
+        // Se distingue "lo puso el autocompletado" de "lo escribio el cajero"
+        // comparando contra el ultimo valor autocompletado: si coincide, nadie lo
+        // toco y se puede refrescar; si difiere, se respeta lo tecleado.
+        var editadoPorElCajero =
+            !string.IsNullOrWhiteSpace(NumeroDocumento)
+            && !string.Equals(NumeroDocumento, _ultimaCedulaAutocompletada, StringComparison.Ordinal);
+
+        if (editadoPorElCajero)
+        {
+            AppLogger.I("CapturaCedulaViewModel",
+                $"Se conserva la cedula ingresada a mano ({Mask(NumeroDocumento)}); " +
+                "no se sobreescribe con la del documento.");
             return;
+        }
 
         var fiscalId = doc?.CustomerFiscalId;
         if (string.IsNullOrWhiteSpace(fiscalId))
@@ -86,16 +121,38 @@ public partial class CapturaCedulaViewModel(
         }
 
         // Misma normalizacion que ValidarAsync (CREDINET exige sin separadores).
-        var limpio = fiscalId.Trim()
-            .Replace(".", "").Replace(",", "").Replace(" ", "").Replace("-", "");
-        if (limpio.Length == 0)
+        var limpio = DocumentNumber.Normalize(fiscalId);
+
+        // GUARD DEL CLIENTE GENERICO: si el documento de la venta trae el marcador
+        // de cliente anonimo del POS (222222222222 y similares), NO se
+        // autocompleta.
+        //
+        // Autocompletar el generico es peor que dejar el campo vacio: el cajero ve
+        // un numero ya puesto, no lo revisa, y valida contra Credinet a una
+        // persona que no es la que esta comprando. En el terminal se veia asi: se
+        // facturaba con una cedula que empieza por 430 y la pantalla traia
+        // 222222222222.
+        if (DocumentNumber.IsGenericPlaceholder(limpio))
+        {
+            AppLogger.W("CapturaCedulaViewModel",
+                $"El cliente del documento de HioPos es el GENERICO ({Mask(limpio)}); " +
+                "no se autocompleta. El cajero debe ingresar la cedula real.");
             return;
+        }
 
         NumeroDocumento = limpio;
+        _ultimaCedulaAutocompletada = limpio;
         TipoDocumento = MapDocType(doc!.CustomerFiscalDocType);
         AppLogger.I("CapturaCedulaViewModel",
             $"Cedula autocompletada desde HioPos: {Mask(limpio)} (tipo={TipoDocumento}).");
     }
+
+    /// <summary>
+    /// Último valor puesto por el autocompletado. Sirve para distinguir "el campo
+    /// lo llenó el módulo" de "lo escribió el cajero", y así poder re-sincronizar
+    /// sin pisar lo que la persona tecleó.
+    /// </summary>
+    private string? _ultimaCedulaAutocompletada;
 
     /// <summary>
     /// Mapeo del tipo de documento de HioPos al enum. Por defecto CC (caso
@@ -111,16 +168,23 @@ public partial class CapturaCedulaViewModel(
         return DocumentType.CedulaCiudadania;
     }
 
-    /// <summary>Enmascara la cedula para logs (deja solo los ultimos 4).</summary>
-    private static string Mask(string doc) =>
-        doc.Length <= 4 ? new string('*', doc.Length)
-                        : new string('*', doc.Length - 4) + doc[^4..];
+    /// <summary>
+    /// Enmascara la cedula para logs. QA A-1: delega en [PiiMask] para que el
+    /// enmascarado sea uno solo en todo el proyecto (esta clase tenia su propia
+    /// copia y la aplicaba en una linea pero no en otras dos).
+    /// </summary>
+    private static string Mask(string? doc) => PiiMask.Document(doc);
 
     [RelayCommand(CanExecute = nameof(CanValidar))]
     private async Task ValidarAsync()
     {
-#if ANDROID
-        Android.Util.Log.Info("CCVM", $"ENTER doc={NumeroDocumento} status={Status}");
+        // QA A-1: la traza de diagnostico va bajo #if DEBUG, no #if ANDROID.
+        // Antes se enviaba en RELEASE con la cedula EN CLARO al logcat, junto con
+        // otros cinco Log.Info del mismo metodo. En terminales POS con adb
+        // habilitado (habitual para soporte), eso deja el historico de cedulas
+        // atendidas al alcance de cualquiera con acceso USB. Ley 1581 de 2012.
+#if ANDROID && DEBUG
+        Android.Util.Log.Info("CCVM", $"ENTER doc={Mask(NumeroDocumento)} status={Status}");
 #endif
         if (string.IsNullOrWhiteSpace(NumeroDocumento))
         {
@@ -133,9 +197,9 @@ public partial class CapturaCedulaViewModel(
         // asi que el cajero puede dejar un '.' (o espacios/guiones/comas) en la
         // cedula. Un idDocument con separadores hace que CREDINET responda
         // 224 CustomerNotFound. El manual pide la cedula "sin separadores":
-        // normalizamos antes de validar.
-        var idLimpio = NumeroDocumento.Trim()
-            .Replace(".", "").Replace(",", "").Replace(" ", "").Replace("-", "");
+        // normalizamos antes de validar. Una sola implementacion, compartida con
+        // el autocompletado.
+        var idLimpio = DocumentNumber.Normalize(NumeroDocumento);
         if (idLimpio != NumeroDocumento)
             NumeroDocumento = idLimpio;
 
@@ -157,27 +221,19 @@ public partial class CapturaCedulaViewModel(
         ErrorMessage = null;
         ValidationMessage = null;
 
-#if ANDROID
-        Android.Util.Log.Info("CCVM", $"calling service.ValidarClienteAsync");
-#endif
         try
         {
             // HU8-973: NO usar ConfigureAwait(false) aqui. La continuacion
             // actualiza bindings y navega con Shell (trabajo de UI); debe
             // volver al hilo de UI o la navegacion se cuelga/crashea en Android.
             var result = await service.ValidarClienteAsync(TipoDocumento, NumeroDocumento);
-#if ANDROID
-            Android.Util.Log.Info("CCVM", $"await done, type={result.GetType().Name}");
-#endif
+
             switch (result)
             {
                 case ApiResult<Client>.Ok<Client> ok:
                     Client = ok.Data;
                     Status = Estado.Success;
                     state.SetValidatedClient(ok.Data);
-#if ANDROID
-                    Android.Util.Log.Info("CCVM", "navigating to ValidacionCliente");
-#endif
                     if (Shell.Current is not null)
                         await Shell.Current.GoToAsync(AppRoutes.ValidacionCliente);
                     break;
@@ -185,26 +241,20 @@ public partial class CapturaCedulaViewModel(
                     // Mensaje amigable al cajero (sin "CREDINET:", sin codigos HTTP).
                     ErrorMessage = FriendlyMessage.FromApiError(f.Cause);
                     Status = Estado.Error;
-#if ANDROID
-                    Android.Util.Log.Info("CCVM", $"Failure: {f.Cause.UserMessage}");
-#endif
+                    AppLogger.W("CapturaCedulaViewModel",
+                        $"Validacion rechazada para {Mask(NumeroDocumento)}: {f.Cause.UserMessage}");
                     break;
             }
         }
         catch (Exception ex)
         {
-#if ANDROID
-            Android.Util.Log.Error("CCVM",
-                $"EX {ex.GetType().Name}: {ex.Message}");
-#endif
+            // QA A-1: cedula ENMASCARADA. Antes este log volcaba el numero
+            // completo al logcat.
             AppLogger.E("CapturaCedulaViewModel",
-                $"Excepcion inesperada validando {TipoDocumento.Code()} {NumeroDocumento}", ex);
+                $"Excepcion inesperada validando {TipoDocumento.Code()} {Mask(NumeroDocumento)}", ex);
             ErrorMessage = "Algo salio mal. Intenta de nuevo.";
             Status = Estado.Error;
         }
-#if ANDROID
-        Android.Util.Log.Info("CCVM", $"EXIT status={Status}");
-#endif
     }
 
     private bool CanValidar() => !string.IsNullOrWhiteSpace(NumeroDocumento) && Status != Estado.Loading;

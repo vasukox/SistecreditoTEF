@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:SistecreditoTEF.Maui.ViewModels"
+             xmlns:auth="clr-namespace:SistecreditoTEF.Maui.Services.Auth"
+             x:Class="SistecreditoTEF.Maui.Views.AdminCajerosPage"
+             x:DataType="vm:AdminCajerosViewModel"
+             Shell.FlyoutBehavior="Flyout"
+             Title="Administración">
+    <ScrollView>
+        <VerticalStackLayout Spacing="18" Padding="20,24,20,28">
+
+            <!-- ============ PUERTA: el PIN ============ -->
+            <Border Style="{StaticResource Card}" IsVisible="{Binding Desbloqueado, Converter={StaticResource InvertedBoolConverter}}">
+                <VerticalStackLayout Spacing="14">
+                    <Label Text="PIN DE ADMINISTRADOR" Style="{StaticResource FieldLabel}" />
+                    <Border Style="{StaticResource FieldCard}">
+                        <Entry Keyboard="Numeric" IsPassword="True" Placeholder="••••"
+                               FontSize="22" HeightRequest="52"
+                               Text="{Binding Pin, Mode=TwoWay}" />
+                    </Border>
+                    <Button Text="Entrar"
+                            Style="{StaticResource PrimaryButton}"
+                            Command="{Binding DesbloquearCommand}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- ============ CONTENIDO ============ -->
+            <VerticalStackLayout Spacing="18" IsVisible="{Binding Desbloqueado}">
+
+                <!-- Alta -->
+                <Border Style="{StaticResource Card}">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="AGREGAR CAJERO" Style="{StaticResource FieldLabel}" />
+                        <!--
+                            Dos campos, no tres: usuario y clave. El "Nombre completo"
+                            se quitó por pedido de operación — son ~1.536 terminales y
+                            el comprobante ya cae al usuario cuando no hay nombre
+                            (ver [Cajero.NombreVisible]).
+                        -->
+                        <Border Style="{StaticResource FieldCard}">
+                            <Entry Placeholder="Usuario (para ingresar)" HeightRequest="48"
+                                   IsTextPredictionEnabled="False"
+                                   IsSpellCheckEnabled="False"
+                                   Text="{Binding NuevoUsuario, Mode=TwoWay}" />
+                        </Border>
+                        <Border Style="{StaticResource FieldCard}">
+                            <Entry Placeholder="Clave" IsPassword="True" HeightRequest="48"
+                                   Text="{Binding NuevaClave, Mode=TwoWay}" />
+                        </Border>
+                        <Button Text="Agregar"
+                                Command="{Binding AgregarCommand}"
+                                HeightRequest="46"
+                                BackgroundColor="{StaticResource PrimaryTint}"
+                                TextColor="{StaticResource PrimaryDark}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- Lista -->
+                <Border Style="{StaticResource Card}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="CAJEROS" Style="{StaticResource FieldLabel}" />
+                        <CollectionView ItemsSource="{Binding Cajeros}" SelectionMode="None">
+                            <CollectionView.EmptyView>
+                                <Label Text="Todavía no hay cajeros." Style="{StaticResource Caption}" />
+                            </CollectionView.EmptyView>
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="auth:Cajero">
+                                    <Grid ColumnDefinitions="*,Auto,Auto" Padding="0,8" ColumnSpacing="8">
+                                        <VerticalStackLayout Grid.Column="0" Spacing="2">
+                                            <Label Text="{Binding NombreVisible}" FontAttributes="Bold"
+                                                   TextColor="{StaticResource TextPrimary}" />
+                                            <!-- El usuario a la vista: es el dato con el que ingresa. -->
+                                            <Label Text="{Binding Usuario, StringFormat='usuario: {0}'}"
+                                                   Style="{StaticResource Caption}"
+                                                   TextColor="{StaticResource TextMuted}" />
+                                            <Label Text="Inactivo" Style="{StaticResource Caption}"
+                                                   TextColor="{StaticResource Warning}"
+                                                   IsVisible="{Binding Activo, Converter={StaticResource InvertedBoolConverter}}" />
+                                        </VerticalStackLayout>
+                                        <Button Grid.Column="1" Text="Clave"
+                                                FontSize="12" HeightRequest="38" Padding="10,0"
+                                                BackgroundColor="{StaticResource PrimaryTint}"
+                                                TextColor="{StaticResource PrimaryDark}"
+                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.CambiarClaveCommand}"
+                                                CommandParameter="{Binding .}" />
+                                        <!--
+                                            Dos botones excluyentes en la misma
+                                            columna: dar de baja si esta activo,
+                                            reactivar si no. Antes solo existia el
+                                            primero y la baja era irreversible.
+                                        -->
+                                        <Button Grid.Column="2" Text="Quitar"
+                                                FontSize="12" HeightRequest="38" Padding="10,0"
+                                                BackgroundColor="Transparent"
+                                                TextColor="{StaticResource TextMuted}"
+                                                IsVisible="{Binding Activo}"
+                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.DesactivarCommand}"
+                                                CommandParameter="{Binding .}" />
+                                        <Button Grid.Column="2" Text="Activar"
+                                                FontSize="12" HeightRequest="38" Padding="10,0"
+                                                BackgroundColor="{StaticResource Accent}"
+                                                TextColor="{StaticResource OnAccent}"
+                                                IsVisible="{Binding Activo, Converter={StaticResource InvertedBoolConverter}}"
+                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ReactivarCommand}"
+                                                CommandParameter="{Binding .}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- Cambio de clave -->
+                <Border Style="{StaticResource Card}" IsVisible="{Binding CambiandoClave}">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="NUEVA CLAVE" Style="{StaticResource FieldLabel}" />
+                        <Border Style="{StaticResource FieldCard}">
+                            <Entry Placeholder="Nueva clave" IsPassword="True" HeightRequest="48"
+                                   Text="{Binding ClaveNueva, Mode=TwoWay}" />
+                        </Border>
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                            <Button Grid.Column="0" Text="Guardar"
+                                    Command="{Binding GuardarClaveNuevaCommand}"
+                                    HeightRequest="46"
+                                    BackgroundColor="{StaticResource PrimaryTint}"
+                                    TextColor="{StaticResource PrimaryDark}" />
+                            <Button Grid.Column="1" Text="Cancelar"
+                                    Command="{Binding CancelarCambioClaveCommand}"
+                                    HeightRequest="46"
+                                    BackgroundColor="Transparent"
+                                    TextColor="{StaticResource TextMuted}" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+                <!--
+                    Salida hacia adelante. Sin esto, tras crear el PIN y dar de alta
+                    los cajeros la pantalla no tenia continuacion y el instalador
+                    quedaba en administracion sin camino a operar.
+                -->
+                <Button Text="Siguiente"
+                        Style="{StaticResource PrimaryButton}"
+                        Command="{Binding SiguienteCommand}" />
+
+                <Label Text="{Binding MotivoSiguiente}" Style="{StaticResource Caption}"
+                       TextColor="{StaticResource TextMuted}"
+                       HorizontalTextAlignment="Center" />
+
+                <!-- PIN admin -->
+                <Border Style="{StaticResource Card}">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="CAMBIAR PIN DE ADMINISTRADOR" Style="{StaticResource FieldLabel}" />
+                        <Border Style="{StaticResource FieldCard}">
+                            <Entry Keyboard="Numeric" IsPassword="True" Placeholder="PIN actual"
+                                   HeightRequest="48" Text="{Binding PinActual, Mode=TwoWay}" />
+                        </Border>
+                        <Border Style="{StaticResource FieldCard}">
+                            <Entry Keyboard="Numeric" IsPassword="True" Placeholder="PIN nuevo"
+                                   HeightRequest="48" Text="{Binding PinNuevo, Mode=TwoWay}" />
+                        </Border>
+                        <Button Text="Cambiar PIN"
+                                Command="{Binding CambiarPinCommand}"
+                                HeightRequest="46"
+                                BackgroundColor="Transparent"
+                                TextColor="{StaticResource TextMuted}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!--
+                    COPIA ENTRE CAJAS
+                    Detrás del PIN, igual que el alta de cajeros: quien puede
+                    repartir el padrón es el mismo que puede darlo de alta.
+                -->
+                <Border Style="{StaticResource Card}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="OTRAS CAJAS DE ESTA TIENDA" Style="{StaticResource FieldLabel}" />
+                        <Label Style="{StaticResource Caption}"
+                               Text="Copia el PIN y los cajeros desde otra caja ya configurada, o compártelos a una caja nueva." />
+                        <Button Text="Copiar o compartir configuración"
+                                Command="{Binding ReplicarCommand}"
+                                HeightRequest="46" />
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+
+            <!-- ============ MENSAJES ============ -->
+            <Border IsVisible="{Binding TieneError}" BackgroundColor="{StaticResource WarningSoft}"
+                    Stroke="Transparent" StrokeShape="RoundRectangle 12" Padding="14,12">
+                <Label Text="{Binding ErrorMessage}" TextColor="{StaticResource Warning}"
+                       FontSize="13" HorizontalTextAlignment="Center" />
+            </Border>
+
+            <Label Text="{Binding MensajeOk}" IsVisible="{Binding TieneMensajeOk}"
+                   Style="{StaticResource Caption}"
+                   TextColor="{StaticResource Primary}"
+                   HorizontalTextAlignment="Center" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

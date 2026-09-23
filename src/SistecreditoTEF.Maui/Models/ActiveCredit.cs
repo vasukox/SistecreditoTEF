@@ -27,4 +27,11 @@ public record ActiveCredit(
             System.Globalization.DateTimeStyles.None, out var d)
             ? d.ToString("dd/MM/yyyy", System.Globalization.CultureInfo.InvariantCulture)
             : (DueDate ?? "-");
+
+    /// <summary>
+    /// True si el credito esta en mora. Se expone para la UI: es un dato que
+    /// cambia la decision del cajero y explica por que el pago minimo puede no
+    /// coincidir con la cuota.
+    /// </summary>
+    public bool EstaEnMora => ArrearsDays > 0;
 }

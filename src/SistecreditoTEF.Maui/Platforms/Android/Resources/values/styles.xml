@@ -7,15 +7,34 @@
 
         Theme.MaterialComponents NO funciona aqui (causa IllegalStateException
         en AppCompatDelegate.createSubDecor).
+
+        ════════════════════════════════════════════════════════════════════════
+        ESTE ARCHIVO TAMBIEN LLEVA LA PALETLA, Y ES FACIL DE OLVIDAR
+        ════════════════════════════════════════════════════════════════════════
+        Al cambiar la paleta a la identidad nueva se actualizo Colors.xaml pero NO
+        esto, y quedo la BARRA DE ESTADO EN VERDE sobre una app azul. El tema nativo
+        pinta lo que no dibuja MAUI: la barra de estado, los dialogos de sistema, los
+        selectores y los manejadores de seleccion de texto.
+
+        Regla: si cambia la paleta en Colors.xaml, cambia aca tambien.
     -->
     <style name="Theme.SistecreditoTEF" parent="Theme.AppCompat.Light.NoActionBar">
-        <item name="colorPrimary">#6F8855</item>
-        <item name="colorPrimaryDark">#2D2D2D</item>
-        <item name="colorAccent">#6F8855</item>
-        <!-- HU8-973: barra de estado oscura (matchea la barra de navegación),
-             ícono claro (texto blanco sobre oscuro). -->
-        <item name="android:statusBarColor">#2D2D2D</item>
+        <!-- Azul de marca: #4554a1 -->
+        <item name="colorPrimary">#4554A1</item>
+        <item name="colorAccent">#4554A1</item>
+
+        <!-- Gris oscuro de la paleta: #333333. Barra de estado y de navegacion. -->
+        <item name="colorPrimaryDark">#333333</item>
+        <item name="android:statusBarColor">#333333</item>
+        <item name="android:navigationBarColor">#333333</item>
+
+        <!-- Iconos claros de la barra: el fondo es oscuro. -->
         <item name="android:windowLightStatusBar">false</item>
+
+        <!-- Fondo de las ventanas: el gris claro de la paleta, para que no se vea
+             un flash blanco entre pantallas. -->
+        <item name="android:windowBackground">@color/fondo_pantalla</item>
+
         <!--
             HU8-973: atributos Material requeridos por los dialogos de MAUI
             (MaterialAlertDialogBuilder). Sin colorSurface, abrir un Picker o
@@ -24,7 +43,7 @@
             MauiAppCompatActivity, ver comentario arriba).
         -->
         <item name="colorSurface">#FFFFFF</item>
-        <item name="colorOnSurface">#1A1A1A</item>
-        <item name="colorError">#D32F2F</item>
+        <item name="colorOnSurface">#333333</item>
+        <item name="colorError">#B23A2A</item>
     </style>
 </resources>

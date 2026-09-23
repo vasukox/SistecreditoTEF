@@ -1,43 +1,85 @@
 using Android.Content;
-using Android.OS;
-using Microsoft.Maui.ApplicationModel;
 using SistecreditoTEF.Maui.Common;
 
 namespace SistecreditoTEF.Maui.Services.Platform;
 
 /// <summary>
-/// Imprime usando el SDK de Sunmi (AIDL preinstalado en POS Sunmi).
+/// Impresión nativa en POS Sunmi. **DESACTIVADO POR DEFECTO** — ver más abajo.
 ///
-/// Sunmi expone un IntentService accesible via Intent:
-///   ComponentName: "com.sunmi.printerservice/.PrinterService"
-///   Action: "sunmi printerprint"
-///   Extras: "data" = XML del recibo (formato propio de Sunmi)
-///   Extras: "package" = nombre del package actual (requerido)
+/// ─────────────────────────────────────────────────────────────────────────────
+/// QA: POR QUÉ ESTA CLASE ESTABA ROTA Y AHORA NO MIENTE
+/// ─────────────────────────────────────────────────────────────────────────────
+/// La implementación anterior no correspondía a ninguna API real de Sunmi:
 ///
-/// Si el POS no es Sunmi (o el servicio no esta instalado), IsAvailable
-/// retorna false y se usa el fallback PDF.
+///   • Componente: <c>com.sunmi.printerservice/.PrinterService</c>
+///     El servicio real de Sunmi es <c>woyou.aidlservice.jiuv5.IWoyouService</c>,
+///     en el paquete <c>woyou.aidlservice.jiuv5</c>.
+///   • Acción: el código usaba <c>"sunmi.print"</c> mientras el comentario de la
+///     propia clase documentaba <c>"sunmi printerprint"</c>. Ninguna de las dos
+///     existe.
+///   • Transporte: <c>StartService</c> hacia un servicio de OTRA app lanza
+///     <c>IllegalStateException</c> en Android 8+ (API 26+) desde background, y
+///     además requiere que el servicio esté exportado. Sunmi se consume por
+///     <c>BindService</c> + AIDL, no por StartService.
+///   • Marcado: el texto usaba tags inventados (<c>{center}</c>, <c>{b}</c>,
+///     <c>{cut}</c>) que ninguna impresora interpreta.
+///   • **Y lo más grave:** el método devolvía <c>true</c> incondicionalmente
+///     después de un <c>Task.Delay(1500)</c>, así que la app reportaba
+///     "comprobante impreso" cuando no se había impreso nada. Ese es el motivo
+///     por el que "los abonos no imprimen" pasó desapercibido.
 ///
-/// NOTA: no usamos NuGet oficial de Sunmi para evitar agregar una
-/// dependencia dura al proyecto. Usamos Intent directo + reflection.
-/// Si en el futuro Sunmi cambia el Intent, hay que actualizar.
+/// ─────────────────────────────────────────────────────────────────────────────
+/// ESTADO ACTUAL
+/// ─────────────────────────────────────────────────────────────────────────────
+/// Integrar Sunmi de verdad requiere el AIDL oficial del fabricante
+/// (<c>IWoyouService.aidl</c> → binding generado) o su SDK, y validación en
+/// hardware real. Nada de eso se puede inventar desde el código: los códigos de
+/// transacción del Binder son ordinales del AIDL y adivinarlos produciría fallos
+/// silenciosos, exactamente el problema que estamos corrigiendo.
+///
+/// Por eso esta clase:
+///   1. Solo se declara disponible si el paquete AIDL real está instalado **Y**
+///      la configuración <c>Printing:EnableSunmiNative</c> está en true.
+///   2. Mientras no exista el binding oficial, <see cref="PrintAsync"/> devuelve
+///      <c>false</c> — nunca un falso positivo — para que
+///      [CompositeReceiptPrinter] caiga al siguiente medio (Android Print con
+///      PDF real), que sí funciona.
+///
+/// PARA HABILITARLA: agregar el AIDL/SDK oficial de Sunmi, implementar el
+/// binding en <see cref="PrintAsync"/>, poner <c>Printing:EnableSunmiNative</c>
+/// en true y validar en una terminal Sunmi física.
 /// </summary>
 public class SunmiPrinter : IReceiptPrinter
 {
-    public string Name => "Sunmi Printer";
+    /// <summary>Paquete del servicio AIDL real de Sunmi (no el que se usaba antes).</summary>
+    internal const string SunmiAidlPackage = "woyou.aidlservice.jiuv5";
+
+    private readonly bool _nativeEnabled;
+
+    public SunmiPrinter(bool nativeEnabled = false)
+    {
+        _nativeEnabled = nativeEnabled;
+    }
+
+    public string Name => "Sunmi (nativo)";
 
     public bool IsAvailable
     {
         get
         {
+            // Sin binding oficial no hay impresión posible: declararse
+            // disponible solo lograría que la cadena se detenga en un printer
+            // que no puede imprimir.
+            if (!_nativeEnabled) return false;
+
             try
             {
                 var context = Microsoft.Maui.ApplicationModel.Platform.CurrentActivity?.ApplicationContext;
-                if (context is null) return false;
+                if (context?.PackageManager is null) return false;
 
-                var pm = context.PackageManager;
                 try
                 {
-                    pm.GetPackageInfo("com.sunmi.printerservice", 0);
+                    context.PackageManager.GetPackageInfo(SunmiAidlPackage, 0);
                     return true;
                 }
                 catch (Android.Content.PM.PackageManager.NameNotFoundException)
@@ -45,65 +87,21 @@ public class SunmiPrinter : IReceiptPrinter
                     return false;
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                AppLogger.W("SunmiPrinter", $"No se pudo consultar el servicio Sunmi: {ex.Message}");
                 return false;
             }
         }
     }
 
-    public Task<bool> PrintAsync(StandaloneReceipt r)
+    public Task<bool> PrintAsync(StandaloneReceipt receipt)
     {
-        return Task.Run(() =>
-        {
-            try
-            {
-                var activity = Microsoft.Maui.ApplicationModel.Platform.CurrentActivity;
-                if (activity is null) return false;
-
-                var text = BuildSunmiReceiptText(r);
-
-                var intent = new Intent();
-                intent.SetComponent(new ComponentName(
-                    "com.sunmi.printerservice",
-                    "com.sunmi.printerservice.PrinterService"));
-                intent.SetAction("sunmi.print");
-                intent.PutExtra("data", text);
-                intent.PutExtra("package", activity.PackageName);
-
-                activity.StartService(intent);
-                Common.AppLogger.I("SunmiPrinter", $"Recibo enviado a Sunmi ({r.PaymentNumber})");
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Common.AppLogger.E("SunmiPrinter", "Error imprimiendo en Sunmi", ex);
-                return false;
-            }
-        });
-    }
-
-    private static string BuildSunmiReceiptText(StandaloneReceipt r)
-    {
-        var sep = new string('=', 42);
-        var lines = new System.Collections.Generic.List<string>
-        {
-            "{center}{b}COMPROBANTE DE PAGO{/b}{/center}",
-            sep,
-            $"Fecha: {r.Fecha:dd/MM/yyyy HH:mm}",
-            $"Pago #: {r.PaymentNumber}",
-            $"Credito: {r.CreditNumber}",
-            $"Cliente: {r.Cliente}",
-            $"C.C.: {r.ClienteDocumento}",
-            sep,
-            $"Capital pagado: $ {r.CapitalPagado:N0}",
-            $"Saldo restante: $ {r.SaldoRestante:N0}",
-            $"Proximo pago: {r.ProximoPago:yyyy-MM-dd}",
-            $"Minimo proximo: $ {r.ProximoMinimo:N0}",
-            sep,
-            "{center}{b}GRACIAS POR SU PAGO{/b}{/center}",
-            "{cut}"
-        };
-        return string.Join("\n", lines);
+        // Contrato explícito: false = "no imprimí", para que el compuesto siga
+        // con el siguiente printer. NUNCA devolver true sin impresión real.
+        AppLogger.W("SunmiPrinter",
+            "Impresion nativa Sunmi no implementada (falta el AIDL oficial del fabricante). " +
+            "Se delega al siguiente printer de la cadena.");
+        return Task.FromResult(false);
     }
 }

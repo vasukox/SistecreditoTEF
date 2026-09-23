@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using SistecreditoTEF.Maui.Common;
 using SistecreditoTEF.Maui.Dtos;
 using SistecreditoTEF.Maui.Mappers;
@@ -17,13 +18,36 @@ namespace SistecreditoTEF.Maui.Services.Credinet;
 public class CredinetRepository : ICredinetRepository
 {
     private readonly ICredinetApi _api;
-    private readonly ApiConfig _config;
+    private readonly IApiConfigSource _configSource;
 
-    public CredinetRepository(ICredinetApi api, ApiConfig config)
+    /// <summary>
+    /// Recibe una FUENTE de configuracion, no una instancia. El repositorio es
+    /// singleton, asi que capturar el ApiConfig del arranque dejaria el
+    /// <c>StoreId</c> congelado: si ICG lo entrega por CloudLicense despues de la
+    /// primera resolucion del contenedor, las consultas seguirian saliendo sin
+    /// tienda toda la vida del proceso.
+    ///
+    /// UN SOLO CONSTRUCTOR, a proposito. Con dos sobrecargas de la misma aridad
+    /// —una con el proveedor recargable y otra con un ApiConfig fijo "para
+    /// tests"— el contenedor lanza <c>AmbiguousConstructorException</c> y la app
+    /// crashea en el primer GetService.
+    ///
+    /// El atributo <c>[ActivatorUtilitiesConstructor]</c> NO sirve para desempatar
+    /// aca: lo honra <c>ActivatorUtilities.CreateInstance</c>, no el
+    /// <c>CallSiteFactory</c> que usa el ServiceProvider para resolver un servicio
+    /// registrado. La unica solucion es no tener la ambiguedad.
+    ///
+    /// Para configuracion fija (tests) se inyecta [StaticApiConfigSource].
+    /// </summary>
+    public CredinetRepository(ICredinetApi api, IApiConfigSource configSource)
     {
+        ArgumentNullException.ThrowIfNull(api);
+        ArgumentNullException.ThrowIfNull(configSource);
         _api = api;
-        _config = config;
+        _configSource = configSource;
     }
+
+    private ApiConfig _config => _configSource.Current;
 
     public async Task<ApiResult<Client>> GetCreditLimitClientAsync(
         string typeDocument, string idDocument)

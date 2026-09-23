@@ -37,6 +37,19 @@ public interface IReceiptPrinter
 
 /// <summary>
 /// DTO con los datos del comprobante para impresion standalone.
+///
+/// ─────────────────────────────────────────────────────────────────────────────
+/// EL DESGLOSE COMPLETO, NO SOLO EL CAPITAL
+/// ─────────────────────────────────────────────────────────────────────────────
+/// El comprobante mostraba unicamente <c>CapitalPagado</c>, rotulado "Capital
+/// pagado", y NO la plata que el cliente entrego. Son cosas distintas: Credinet
+/// reparte el pago entre capital, intereses, mora, aval y cargos, asi que el
+/// capital es SIEMPRE menor o igual al total. En caja se leia como que el
+/// comprobante decia un monto que no era el cobrado.
+///
+/// Ahora viajan los cinco componentes. El total no se manda como un campo
+/// aparte a proposito: se calcula sumandolos (ver <see cref="TotalPagado"/>), asi
+/// no puede quedar un total que no cuadre con su propio desglose.
 /// </summary>
 public record StandaloneReceipt(
     string Tienda,
@@ -49,4 +62,17 @@ public record StandaloneReceipt(
     decimal CapitalPagado,
     decimal SaldoRestante,
     DateTime ProximoPago,
-    decimal ProximoMinimo);
+    decimal ProximoMinimo,
+    decimal InteresesPagados = 0m,
+    decimal MoraPagada = 0m,
+    decimal AvalPagado = 0m,
+    decimal OtrosCargos = 0m)
+{
+    /// <summary>
+    /// Lo que efectivamente pago el cliente: la suma de todo lo que Credinet
+    /// reporta como aplicado. Es el numero que el cajero y el cliente comparan
+    /// contra la plata que se entrego.
+    /// </summary>
+    public decimal TotalPagado =>
+        CapitalPagado + InteresesPagados + MoraPagada + AvalPagado + OtrosCargos;
+}

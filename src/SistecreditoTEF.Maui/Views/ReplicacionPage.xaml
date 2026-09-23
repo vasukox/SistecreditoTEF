@@ -1,0 +1,151 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:SistecreditoTEF.Maui.ViewModels"
+             xmlns:pair="clr-namespace:SistecreditoTEF.Maui.Services.Pairing"
+             x:Class="SistecreditoTEF.Maui.Views.ReplicacionPage"
+             x:DataType="vm:ReplicacionViewModel"
+             Title="Copiar configuración">
+    <ScrollView>
+        <VerticalStackLayout Spacing="18" Padding="20,24,20,28">
+
+            <Label Style="{StaticResource Caption}"
+                   Text="Copia el PIN de administrador y el padrón de cajeros entre las cajas de esta tienda. Las credenciales de Sistecrédito no se copian: bajan solas desde HioPosCloud." />
+
+            <!-- ==================================================================
+                 RECEPTOR · arriba del todo
+                 ==================================================================
+                 Va primero porque es lo que necesita quien está montando una caja
+                 nueva, que es el caso en el que alguien entra a esta pantalla.
+            -->
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="14">
+                    <Label Text="COPIAR DE OTRA CAJA" Style="{StaticResource FieldLabel}" />
+
+                    <!-- ===== PASO 1 ===== -->
+                    <Label Text="1 · Encuentra la otra caja" Style="{StaticResource Caption}"
+                           FontAttributes="Bold" />
+
+                    <Button Text="Escanear red"
+                            Command="{Binding BuscarCommand}"
+                            IsEnabled="{Binding Escaneando, Converter={StaticResource InvertedBoolConverter}}" />
+
+                    <ActivityIndicator IsRunning="{Binding Escaneando}"
+                                       IsVisible="{Binding Escaneando}" />
+
+                    <!-- Solo aparece si hay más de una: con una sola ya quedó elegida. -->
+                    <CollectionView ItemsSource="{Binding CajasEncontradas}"
+                                    SelectionMode="Single"
+                                    SelectedItem="{Binding CajaSeleccionada, Mode=TwoWay}"
+                                    HeightRequest="120">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="pair:CajaEncontrada">
+                                <Border Style="{StaticResource FieldCard}" Padding="12,10" Margin="0,3">
+                                    <VerticalStackLayout Spacing="2">
+                                        <Label Text="{Binding Address}" FontAttributes="Bold" />
+                                        <Label Text="{Binding Tienda}" Style="{StaticResource Caption}" />
+                                    </VerticalStackLayout>
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+
+                    <Border Style="{StaticResource FieldCard}">
+                        <Entry Placeholder="…o escribe la dirección (ej. 192.168.1.20)"
+                               Keyboard="Numeric" HeightRequest="48"
+                               IsTextPredictionEnabled="False"
+                               IsSpellCheckEnabled="False"
+                               Text="{Binding DireccionOrigen, Mode=TwoWay}" />
+                    </Border>
+
+                    <!-- ===== PASO 2 ===== -->
+                    <Label Text="2 · Escribe el código que muestra esa caja"
+                           Style="{StaticResource Caption}" FontAttributes="Bold" />
+
+                    <Border Style="{StaticResource FieldCard}">
+                        <Entry Placeholder="000000"
+                               Keyboard="Numeric" MaxLength="6"
+                               FontSize="26" HeightRequest="56"
+                               HorizontalTextAlignment="Center"
+                               Text="{Binding CodigoIngresado, Mode=TwoWay}" />
+                    </Border>
+
+                    <Button Text="Traer configuración"
+                            Style="{StaticResource PrimaryButton}"
+                            IsEnabled="{Binding Copiando, Converter={StaticResource InvertedBoolConverter}}"
+                            Command="{Binding TraerCommand}" />
+
+                    <ActivityIndicator IsRunning="{Binding Copiando}"
+                                       IsVisible="{Binding Copiando}" />
+
+                    <Label Style="{StaticResource Caption}"
+                           Text="{Binding EstadoReceptor}"
+                           IsVisible="{Binding EstadoReceptor, Converter={StaticResource StringNotEmptyConverter}}" />
+
+                    <!-- ===== PASO 3 =====
+                        DOS PASOS, NO UNO. Primero se trae y se muestra QUÉ va a
+                        quedar; recién después se guarda. Guardar sin confirmar deja
+                        una caja operando con el padrón de otra tienda, y eso no se
+                        nota hasta que alguien no puede ingresar.
+                    -->
+                    <VerticalStackLayout Spacing="10" IsVisible="{Binding HayAlgoPorConfirmar}">
+                        <Label Text="3 · Revisa y acepta" Style="{StaticResource Caption}"
+                               FontAttributes="Bold" />
+
+                        <Border BackgroundColor="{StaticResource PrimaryTint}"
+                                Stroke="Transparent" StrokeShape="RoundRectangle 12" Padding="14,12">
+                            <Label Text="{Binding ResumenRecibido}"
+                                   TextColor="{StaticResource PrimaryDark}" FontSize="13" />
+                        </Border>
+
+                        <Button Text="Aceptar"
+                                Style="{StaticResource PrimaryButton}"
+                                Command="{Binding ConfirmarCommand}" />
+                    </VerticalStackLayout>
+
+                    <!-- El aviso que faltaba: sin esto el instalador no sabía si pasó algo. -->
+                    <Border IsVisible="{Binding TieneMensajeExito}"
+                            BackgroundColor="{StaticResource PrimaryTint}"
+                            Stroke="Transparent" StrokeShape="RoundRectangle 12" Padding="14,12">
+                        <Label Text="{Binding MensajeExito}"
+                               TextColor="{StaticResource PrimaryDark}"
+                               FontSize="14" FontAttributes="Bold"
+                               HorizontalTextAlignment="Center" />
+                    </Border>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- ==================================================================
+                 EMISOR
+                 ================================================================== -->
+            <Border Style="{StaticResource Card}">
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="COMPARTIR A OTRA CAJA" Style="{StaticResource FieldLabel}" />
+
+                    <Button Text="Generar código"
+                            Command="{Binding AbrirVentanaCommand}" />
+
+                    <VerticalStackLayout Spacing="6" IsVisible="{Binding TieneCodigo}">
+                        <Label Text="{Binding Codigo}"
+                               FontSize="40" FontAttributes="Bold"
+                               HorizontalOptions="Center" CharacterSpacing="6" />
+
+                        <!--
+                            La IP se muestra SIEMPRE, no solo cuando el descubrimiento
+                            falla. La difusión puede estar bloqueada aunque las cajas
+                            se vean entre sí, y un atajo que falla en silencio deja al
+                            que instala sin salida.
+                        -->
+                        <Label Style="{StaticResource Caption}" HorizontalOptions="Center"
+                               Text="{Binding DireccionPropia, StringFormat='Dirección de esta caja: {0}'}" />
+                    </VerticalStackLayout>
+
+                    <Label Style="{StaticResource Caption}"
+                           Text="{Binding EstadoEmisor}"
+                           IsVisible="{Binding EstadoEmisor, Converter={StaticResource StringNotEmptyConverter}}" />
+                </VerticalStackLayout>
+            </Border>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

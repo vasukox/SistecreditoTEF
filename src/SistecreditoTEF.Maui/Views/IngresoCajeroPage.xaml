@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:SistecreditoTEF.Maui.ViewModels"
+             xmlns:beh="clr-namespace:SistecreditoTEF.Maui.Common.Behaviors"
+             xmlns:ctrl="clr-namespace:SistecreditoTEF.Maui.Views.Controls"
+             x:Class="SistecreditoTEF.Maui.Views.IngresoCajeroPage"
+             x:DataType="vm:IngresoCajeroViewModel"
+             Shell.FlyoutBehavior="Flyout"
+             Title="Ingreso">
+    <ScrollView>
+        <VerticalStackLayout Spacing="20" Padding="20,24,20,28">
+
+            <ctrl:HeroCardView>
+                <ctrl:HeroCardView.Behaviors>
+                    <beh:EntranceBehavior />
+                </ctrl:HeroCardView.Behaviors>
+                <VerticalStackLayout Spacing="6">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Grid.Column="0" Text="Pago de crédito" TextColor="{StaticResource White}"
+                               FontSize="18" FontAttributes="Bold" VerticalOptions="Center" />
+                        <Label Grid.Column="1" Text="sistecrédito" TextColor="#99FFFFFF"
+                               FontSize="12" FontAttributes="Bold,Italic" />
+                    </Grid>
+                    <Label Text="Ingresa con tu usuario y clave para registrar abonos."
+                           TextColor="{StaticResource OnHeroMuted}" FontSize="12" />
+                </VerticalStackLayout>
+            </ctrl:HeroCardView>
+
+            <!--
+                Panel de ingreso. Reemplazó la lista de cajeros para elegir: esa
+                lista publicaba quiénes trabajan en la tienda ante cualquiera que
+                agarrara el terminal, y dejaba el ingreso a un solo dato secreto.
+            -->
+            <Border Style="{StaticResource Card}">
+                <Border.Behaviors>
+                    <beh:EntranceBehavior DelayMs="90" />
+                </Border.Behaviors>
+                <VerticalStackLayout Spacing="14">
+
+                    <Label Text="USUARIO" Style="{StaticResource FieldLabel}" />
+                    <Border Style="{StaticResource FieldCard}">
+                        <Entry Placeholder="usuario"
+                               Keyboard="Text"
+                               IsTextPredictionEnabled="False"
+                               IsSpellCheckEnabled="False"
+                               FontSize="18" HeightRequest="52"
+                               Text="{Binding Usuario, Mode=TwoWay}" />
+                    </Border>
+
+                    <Label Text="CLAVE" Style="{StaticResource FieldLabel}" />
+                    <Border Style="{StaticResource FieldCard}">
+                        <Entry IsPassword="True" Placeholder="••••"
+                               FontSize="18" HeightRequest="52"
+                               Text="{Binding Clave, Mode=TwoWay}" />
+                    </Border>
+                </VerticalStackLayout>
+            </Border>
+
+            <Button Text="Ingresar"
+                    Style="{StaticResource PrimaryButton}"
+                    Command="{Binding IngresarCommand}">
+                <Button.Behaviors>
+                    <beh:EntranceBehavior DelayMs="160" />
+                    <beh:PressableBehavior />
+                </Button.Behaviors>
+            </Button>
+
+            <Label Text="{Binding MotivoBloqueo}" Style="{StaticResource Caption}"
+                   TextColor="{StaticResource TextMuted}"
+                   HorizontalTextAlignment="Center" />
+
+            <Border IsVisible="{Binding TieneError}" BackgroundColor="{StaticResource WarningSoft}"
+                    Stroke="Transparent" StrokeShape="RoundRectangle 12" Padding="14,12">
+                <Label Text="{Binding ErrorMessage}" TextColor="{StaticResource Warning}"
+                       FontSize="13" HorizontalTextAlignment="Center" />
+            </Border>
+
+            <Button Text="Administración"
+                    Command="{Binding IrAAdministracionCommand}"
+                    HeightRequest="46"
+                    BackgroundColor="Transparent"
+                    TextColor="{StaticResource TextMuted}" />
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

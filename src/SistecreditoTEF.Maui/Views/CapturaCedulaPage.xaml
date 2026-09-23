@@ -1,18 +1,26 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+<local:HioposFlowPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:SistecreditoTEF.Maui.ViewModels"
              xmlns:beh="clr-namespace:SistecreditoTEF.Maui.Common.Behaviors"
              xmlns:ctrl="clr-namespace:SistecreditoTEF.Maui.Views.Controls"
+             xmlns:local="clr-namespace:SistecreditoTEF.Maui.Views"
              x:Class="SistecreditoTEF.Maui.Views.CapturaCedulaPage"
              x:DataType="vm:CapturaCedulaViewModel"
              Shell.NavBarIsVisible="False"
              Title="Pagar a crédito">
 
+    <!--
+        PermitirVolverAHiopos: esta es la primera pantalla del modulo de VENTA. El
+        cajero llego eligiendo Sistecredito como medio de pago y todavia no hay nada
+        cobrado, asi que aca la flecha ofrece devolver el control al POS. En el
+        modulo de recaudo NO se pide (ver CreditosActivosPage).
+    -->
     <ctrl:ScaffoldView EyebrowText="Pagar a crédito"
                        TitleText="Consultar cliente"
                        SubtitleText="Ingresa el documento para validar el cupo"
-                       ShowBack="True">
+                       ShowBack="True"
+                       PermitirVolverAHiopos="True">
         <VerticalStackLayout Spacing="18" Padding="20,24,20,28"
                              MaximumWidthRequest="760" HorizontalOptions="Center">
 
@@ -54,6 +62,13 @@
                     <beh:EntranceBehavior DelayMs="140" />
                 </Button.Behaviors>
             </Button>
+
+            <!--
+                Aca hubo un boton "Pagar credito (abono)" que llevaba al recaudo
+                desde la venta. Se quito: los abonos ya no se hacen dentro de
+                HioPos, se hacen abriendo el APK desde el icono. En la venta esta
+                pantalla es solo para solicitar credito.
+            -->
 
             <ActivityIndicator IsVisible="{Binding IsLoading}"
                                IsRunning="{Binding IsLoading}"
@@ -123,4 +138,4 @@
 
         </VerticalStackLayout>
     </ctrl:ScaffoldView>
-</ContentPage>
+</local:HioposFlowPage>

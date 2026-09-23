@@ -32,4 +32,11 @@ public sealed class InMemoryAuditLog : IAuditLogCapture
     {
         lock (_gate) _entries.Clear();
     }
+
+    public Task PurgeOlderThanAsync(TimeSpan retention)
+    {
+        var cutoff = DateTime.Now - retention;
+        lock (_gate) _entries.RemoveAll(e => e.Timestamp < cutoff);
+        return Task.CompletedTask;
+    }
 }

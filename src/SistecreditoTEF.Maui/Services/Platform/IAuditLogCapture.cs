@@ -14,6 +14,13 @@ public interface IAuditLogCapture
     IReadOnlyList<AuditEntry> Entries { get; }
     void Append(string action, string comment, string? documentId);
     void Clear();
+
+    /// <summary>
+    /// QA M-13: borra las entradas mas viejas que la retencion indicada. La
+    /// tabla de auditoria no tenia purga y crecia sin techo; en un POS que opera
+    /// anos la BD cifrada se degrada y las consultas se vuelven lentas.
+    /// </summary>
+    Task PurgeOlderThanAsync(TimeSpan retention);
 }
 
 public sealed record AuditEntry(

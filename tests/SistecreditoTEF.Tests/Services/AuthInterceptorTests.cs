@@ -1,4 +1,4 @@
-using System.Linq;
+﻿using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
@@ -43,7 +43,7 @@ public class AuthInterceptorTests
     public async Task Adds_Auth_Header()
     {
         var final = new FinalCaptureHandler();
-        var auth = new AuthInterceptor(Cfg("k123")) { InnerHandler = final };
+        var auth = new AuthInterceptor(new StaticApiConfigSource(Cfg("k123"))) { InnerHandler = final };
         var http = new HttpClient(auth) { BaseAddress = new System.Uri("https://x/") };
 
         await http.GetAsync("/dummy");
@@ -56,7 +56,7 @@ public class AuthInterceptorTests
     public async Task Adds_Accept_json_header()
     {
         var final = new FinalCaptureHandler();
-        var auth = new AuthInterceptor(Cfg()) { InnerHandler = final };
+        var auth = new AuthInterceptor(new StaticApiConfigSource(Cfg())) { InnerHandler = final };
         var http = new HttpClient(auth) { BaseAddress = new System.Uri("https://x/") };
 
         await http.GetAsync("/dummy");
@@ -70,7 +70,7 @@ public class AuthInterceptorTests
     public async Task Does_not_send_SCLocation_or_country_headers()
     {
         var final = new FinalCaptureHandler();
-        var auth = new AuthInterceptor(Cfg()) { InnerHandler = final };
+        var auth = new AuthInterceptor(new StaticApiConfigSource(Cfg())) { InnerHandler = final };
         var http = new HttpClient(auth) { BaseAddress = new System.Uri("https://x/") };
 
         await http.GetAsync("/dummy");

@@ -1,13 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!--
-    Target frameworks: net10.0-Android + net10.0-ios + net10.0-maccatalyst.
-    Para build de Windows se puede agregar net10.0-windows10.x.x; para MVP
-    solo Android es requerido (HioPosCloud corre en terminal POS Android).
-
-    Define el apk_name de HioPosCloud como constante de MSBuild.
-    El app_id queda derivado del namespace (csproj <RootNamespace>).
-  -->
   <PropertyGroup>
     <!--
       TFM unico: Android. HioPosCloud corre en POS Android, por lo que
@@ -30,10 +22,53 @@
       Package Name para el alta en HioPosCloud (ICG). HioPos lanza el modulo
       por este package. Debe coincidir con lo registrado en ICG.
     -->
-    <ApplicationId>com.pos2pay</ApplicationId>
-    <ApplicationIdGuidTree>com.pos2pay</ApplicationIdGuidTree>
+    <ApplicationId>com.permoda.sistecreditotef</ApplicationId>
+    <ApplicationIdGuidTree>com.permoda.sistecreditotef</ApplicationIdGuidTree>
 
+    <!--
+      versionCode: DEBE subir en cada release que se instale sobre una version
+      previa. Android rechaza el downgrade (INSTALL_FAILED_VERSION_DOWNGRADE) y
+      algunos MDM no detectan el reemplazo si el numero no cambia.
+        1 -> primera instalacion en el POS de piloto
+        2 -> correccion de la resolucion del contenedor de DI
+        3 -> diagnostico de estructura del XML de Parameters de CloudLicense
+        4 -> cliente generico de HioPos + navegacion directa a captura de cliente
+        5 -> impresion USB ESC/POS de abonos, guard de intents de HioPos,
+             re-sincronizacion de la cedula y parseo de importes con coma decimal
+        6 -> corrige el formato de log que tumbaba la impresion USB, Android Print
+             deja de reportar exito sin impresora, y claridad de montos en abonos
+        7 -> el comprobante del abono lleva nombre y cedula del cliente y el
+             nombre real de la tienda
+        8 -> errores de negocio que llegan con HTTP 4xx se clasifican bien,
+             desbloqueo del boton de cobrar cuando el minimo excede el saldo,
+             y aviso cuando Credinet reutiliza el codigo OTP
+        9 -> montos con separador de miles al digitar, etiquetas alineadas a la
+             semantica real de Credinet, y el registro HTTP deja de encenderse
+             como efecto secundario de construir el handler
+       10 -> corrige el cierre de la app al borrar digitos del monto (el
+             reformateo se movio a MoneyEntryBehavior, que controla el cursor) y
+             el comprobante del abono se imprime al abrir la pantalla en vez de
+             quedar detras del boton Finalizar
+       11 -> GET_VERSION reporta una version de contrato fija y deja de derivarla
+             del versionName, que hacia que HioPos pidiera "actualizar el modulo"
+             en cada arranque
+    -->
+    <!--
+      ApplicationDisplayVersion = versionName: la version VISIBLE (la que se ve en
+      Ajustes y la que se reporta). Es libre.
+
+      ApplicationVersion = versionCode: entero interno de Android. Tiene que ser
+      SIEMPRE mayor o igual al ya instalado, o "adb install -r" falla con
+      INSTALL_FAILED_VERSION_DOWNGRADE y habria que desinstalar la app del POS
+      (perdiendo la base con la idempotencia de los abonos). Por eso sigue subiendo
+      aunque el nombre visible se reinicie.
+    -->
     <ApplicationVersion>1</ApplicationVersion>
+    <!--
+      "1" a proposito: es la version con la que ICG tiene registrado el modulo
+      "permoda" en HioPosCloud. Debe coincidir con HioposActions.ModuleVersion.
+      Si difieren, HioPos ofrece reinstalar el modulo en cada arranque.
+    -->
     <ApplicationDisplayVersion>1.0.0</ApplicationDisplayVersion>
 
     <!--
@@ -47,12 +82,24 @@
     <FastDeployment>false</FastDeployment>
     <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
     <!--
-      Soporte para ARM64 (POS reales: Sunmi, PAX, etc.) y x86_64 (emulador
-      de desarrollo). Sin arm64-v8a, el APK no instala en terminales
-      HI-POS Cloud que son ARM, o crashea al cargar las .so nativas de
-      SQLCipher / Mono.
+      ABI del APK.
+
+      Antes esto se declaraba con <AndroidSupportedAbis>, que el Android SDK 36
+      ya no admite (warning XA0036): todavia lo traduce, pero es una muleta que
+      desaparece en la proxima version del SDK. La propiedad vigente es
+      RuntimeIdentifiers, y declararla ahora evita que un upgrade de SDK deje el
+      APK sin la ABI de las terminales sin que nadie lo note.
+
+      arm64-v8a es lo unico que corre en las cajas (Sunmi, PAX). Sin ella el APK
+      no instala, o crashea al cargar las .so nativas de SQLCipher / Mono.
+
+      x86_64 existe SOLO para el emulador de desarrollo, y medido pesa 20,6 MB
+      de los 47 MB del APK —el 44%— para una arquitectura que ninguna terminal
+      usa. Por eso va unicamente en Debug: Release baja a la mitad, y eso se
+      siente cada vez que hay que instalar o actualizar en una caja.
     -->
-    <AndroidSupportedAbis>arm64-v8a;x86_64</AndroidSupportedAbis>
+    <RuntimeIdentifiers Condition="'$(Configuration)' == 'Debug'">android-arm64;android-x64</RuntimeIdentifiers>
+    <RuntimeIdentifiers Condition="'$(Configuration)' != 'Debug'">android-arm64</RuntimeIdentifiers>
 
     <!--
       AOT (Ahead-Of-Time) viene ACTIVADO por defecto en .NET MAUI 10 Release.
@@ -72,6 +119,14 @@
     <SupportedOSPlatformVersion>24.0</SupportedOSPlatformVersion>
 
     <!--
+      HU8-973 BugFix: R8/D8 con todo MAUI + AndroidX + SQLCipher se queda
+      sin memoria o falla con "java.exe code 2" en este TAMAÑO de proyecto.
+      Forzamos d8 (más liviano que r8) sin minification.
+    -->
+    <AndroidR8Mode>false</AndroidR8Mode>
+    <DebugType>portable</DebugType>
+
+    <!--
       Warnings suprimidas (cosmetic, no afectan build):
       - CA1822: marker miembros como static (no merece refactor todavia).
       - XA0101: test platform XAML build actions (cosmetic en Tests project).
@@ -81,48 +136,275 @@
 
   <!--
     ============================================================================
-    HU8-973 · FIRMA DE RELEASE (producción)
+    FIRMA DE RELEASE (produccion) - HU8-973 / QA C-1
     ============================================================================
-    Solo aplica a builds Release (Debug sigue usando la firma de depuración).
+    Solo aplica a builds Release (Debug sigue usando la firma de depuracion).
+    Las CONTRASENAS nunca van en el repo: se leen de variables de entorno
+    (PERMODA_KEYSTORE_PASS y PERMODA_KEY_PASS). El keystore tampoco se commitea.
 
-    Las CONTRASEÑAS nunca van en el repo: se leen de variables de entorno
-    (PERMODA_KEYSTORE_PASS y PERMODA_KEY_PASS). El KEYSTORE tampoco se commitea.
+    ...........................................................................
+    QA C-1: QUE ESTABA MAL Y QUE SE CORRIGIO
+    ...........................................................................
+    Verificado con keytool sobre el APK que producia este mismo csproj:
 
-    PASOS (una sola vez, en la máquina/pipeline de build):
-      1) Crear el keystore:
-           keytool -genkeypair -v -keystore permoda-release.keystore \
+      keytool -printcert -jarfile bin/Release/.../com.pos2pay-Signed.apk
+        Propietario: CN=Android Debug, O=Android, C=US      &lt;- DEPURACION
+
+    El default apuntaba a $(MSBuildProjectDirectory)\permoda-release.keystore, o
+    sea src\SistecreditoTEF.Maui\, pero los keystores estan en la RAIZ del repo.
+    Exists() daba false, AndroidKeyStore nunca se activaba, y .NET Android caia a
+    ~/.android/debug.keystore. El diseno "seguro por defecto" convertia un error
+    de configuracion en un APK debug-firmado SIN UN SOLO WARNING. La firma real
+    solo existia porque alguien la aplicaba a mano (los *.firmado.apk del bin).
+
+    Un APK debug-firmado es rechazable por MDM y por ICG, y su llave es publica:
+    cualquiera puede firmar un APK con el mismo package com.pos2pay y suplantar
+    el modulo TEF.
+
+    Correcciones:
+      1. La ruta por defecto apunta a la raiz de la solucion, donde estan.
+      2. Un Release SIN firma real ahora FALLA el build (target
+         ValidarFirmaDeRelease) en vez de degradarse en silencio.
+      3. Se puede saltar el chequeo a proposito con -p:AllowUnsignedRelease=true
+         (para un build local de prueba), y queda constancia en el log.
+
+    PASOS (una sola vez, en la maquina o el pipeline de build):
+      1) Crear el keystore, si no existe:
+           keytool -genkeypair -v -keystore permoda-release-v2.keystore
              -alias sistecredito -keyalg RSA -keysize 2048 -validity 10000
-         → guardarlo en la raíz del proyecto (junto a este .csproj) o dar la ruta
-           completa en la variable PERMODA_KEYSTORE.
-      2) Definir las variables de entorno con las contraseñas elegidas:
-           setx PERMODA_KEYSTORE_PASS "＜clave-store＞"
-           setx PERMODA_KEY_PASS      "＜clave-alias＞"
-      3) Compilar firmado:
+         NOTA: keytool por defecto usa la MISMA contrasena para el keystore y
+         para la llave privada. Si se quiere una contrasena distinta para la
+         llave, agregar -keypass PASS (PKCS12 no lo soporta en keypasswd).
+      2) Definir las contrasenas como variables de entorno (PKCS12: misma clave):
+           setx PERMODA_KEYSTORE_PASS "clave-store"
+           setx PERMODA_KEY_PASS      "clave-store"
+         setx NO afecta la terminal actual: abrir una nueva.
+         En un pipeline, usar variables secretas del agente, no setx.
+      3) Compilar:
            dotnet publish -c Release -f net10.0-android
-         (o forzar la ruta:  -p:PermodaKeystore=C:\ruta\permoda-release.keystore )
+         Para usar otro keystore:  -p:PermodaKeystore=C:\ruta\otro.keystore
+      4) VERIFICAR el resultado (no asumir):
+           keytool -printcert -jarfile ARCHIVO.apk
+         Si el Propietario dice "CN=Android Debug", quedo firmado en depuracion.
+         Si el SHA-1 NO coincide con el dado de alta en ICG, no distribuir.
 
-    Para sacar SHA-1 / SHA-256 (para ICG):
-           keytool -list -v -keystore permoda-release.keystore -alias sistecredito
+    SHA-1 / SHA-256 para dar de alta en ICG:
+      keytool -list -v -keystore permoda-release-v2.keystore -alias sistecredito
+
+    ...........................................................................
+    HISTORIAL DE ROTACION DE CERTIFICADOS
+    ...........................................................................
+    v1 (permoda-release.keystore)   SHA-1 f81119a4...   [OBSOLETO, no borrar:
+                                                          conservar como registro
+                                                          historico de la firma
+                                                          con la que se distribuyo
+                                                          alguna vez al POS]
+    v2 (permoda-release-v2.keystore) SHA-1 7d142427...   [VIGENTE desde 14/07/2026]
   -->
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
-    <!-- Ruta del keystore: por defecto en la raíz del proyecto; se puede overridear. -->
-    <PermodaKeystore Condition="'$(PermodaKeystore)' == ''">$(MSBuildProjectDirectory)\permoda-release.keystore</PermodaKeystore>
+    <!-- Raiz de la solucion: este .csproj vive en src\SistecreditoTEF.Maui\.
+         v2 = certificado vigente (rotado 14/07/2026). El v1 se conserva por
+         trazabilidad pero NO se usa para builds. -->
+    <PermodaKeystore Condition="'$(PermodaKeystore)' == ''">$(MSBuildThisFileDirectory)..\..\permoda-release-v2.keystore</PermodaKeystore>
 
-    <!-- La firma se activa SOLO si el keystore existe (así un Release sin keystore
-         no rompe el build de quien no tenga el archivo todavía). -->
-    <AndroidKeyStore Condition="Exists('$(PermodaKeystore)')">true</AndroidKeyStore>
-    <AndroidSigningKeyStore Condition="Exists('$(PermodaKeystore)')">$(PermodaKeystore)</AndroidSigningKeyStore>
-    <AndroidSigningKeyAlias Condition="Exists('$(PermodaKeystore)')">sistecredito</AndroidSigningKeyAlias>
-    <AndroidSigningStorePass Condition="Exists('$(PermodaKeystore)')">$(PERMODA_KEYSTORE_PASS)</AndroidSigningStorePass>
-    <AndroidSigningKeyPass Condition="Exists('$(PermodaKeystore)')">$(PERMODA_KEY_PASS)</AndroidSigningKeyPass>
+    <PermodaKeystoreExists>false</PermodaKeystoreExists>
+    <PermodaKeystoreExists Condition="Exists('$(PermodaKeystore)')">true</PermodaKeystoreExists>
+
+    <PermodaSigningReady>false</PermodaSigningReady>
+    <PermodaSigningReady Condition="'$(PermodaKeystoreExists)' == 'true' And '$(PERMODA_KEYSTORE_PASS)' != '' And '$(PERMODA_KEY_PASS)' != ''">true</PermodaSigningReady>
+
+    <AndroidKeyStore Condition="'$(PermodaSigningReady)' == 'true'">true</AndroidKeyStore>
+    <AndroidSigningKeyStore Condition="'$(PermodaSigningReady)' == 'true'">$(PermodaKeystore)</AndroidSigningKeyStore>
+    <AndroidSigningKeyAlias Condition="'$(PermodaSigningReady)' == 'true'">sistecredito</AndroidSigningKeyAlias>
+    <AndroidSigningStorePass Condition="'$(PermodaSigningReady)' == 'true'">$(PERMODA_KEYSTORE_PASS)</AndroidSigningStorePass>
+    <AndroidSigningKeyPass Condition="'$(PermodaSigningReady)' == 'true'">$(PERMODA_KEY_PASS)</AndroidSigningKeyPass>
   </PropertyGroup>
+
+  <!--
+    QA C-1: el build de Release falla si no puede firmar de verdad. Es el nucleo
+    del arreglo: antes esto pasaba inadvertido y se entregaba un APK de depuracion.
+  -->
+  <Target Name="ValidarFirmaDeRelease"
+          BeforeTargets="Build"
+          Condition="'$(Configuration)' == 'Release' And '$(TargetFramework)' == 'net10.0-android'">
+    <Message Importance="high"
+             Condition="'$(PermodaSigningReady)' == 'true'"
+             Text="[FIRMA] Release se firmara con $(PermodaKeystore) (alias sistecredito)." />
+
+    <Warning Condition="'$(PermodaSigningReady)' != 'true' And '$(AllowUnsignedRelease)' == 'true'"
+             Text="[FIRMA] AllowUnsignedRelease=true: este APK NO lleva la firma de produccion (queda firmado en DEPURACION). No distribuir." />
+
+    <Error Condition="'$(PermodaSigningReady)' != 'true' And '$(AllowUnsignedRelease)' != 'true' And '$(PermodaKeystoreExists)' != 'true'"
+           Text="No se encontro el keystore de produccion en '$(PermodaKeystore)'. Un Release sin firmar quedaria firmado con la llave de DEPURACION (CN=Android Debug), que es publica y rechazable por ICG. Coloca el keystore ahi, o pasa -p:PermodaKeystore=RUTA, o -p:AllowUnsignedRelease=true si es un build local de prueba." />
+
+    <Error Condition="'$(PermodaSigningReady)' != 'true' And '$(AllowUnsignedRelease)' != 'true' And '$(PermodaKeystoreExists)' == 'true'"
+           Text="El keystore existe en '$(PermodaKeystore)' pero faltan las contrasenas: define las variables de entorno PERMODA_KEYSTORE_PASS y PERMODA_KEY_PASS (en una terminal NUEVA si usaste setx). Sin ellas el APK quedaria firmado en depuracion." />
+  </Target>
+
+  <!--
+    ============================================================================
+    QA C-1 (segunda parte) - FORZAR LA REFIRMA EN RELEASE
+    ============================================================================
+    Sintoma observado DESPUES de arreglar las propiedades de firma: el build
+    reportaba "[FIRMA] Release se firmara con permoda-release-v2.keystore" y sin
+    embargo el APK resultante seguia teniendo CN=Android Debug. El log con
+    verbosidad normal lo explica:
+
+      _Sign:
+        Se omitira el destino "_Sign" porque todos los archivos de salida estan
+        actualizados respecto a los archivos de entrada.
+
+    El target _Sign de .NET Android es INCREMENTAL y compara el APK de salida
+    contra el .apk sin firmar de entrada. El keystore y las contrasenas NO son
+    entradas declaradas, asi que cambiar la configuracion de firma no invalida el
+    APK ya firmado: MSBuild conserva el binario viejo (firmado en depuracion) y la
+    firma nueva nunca se aplica.
+
+    Es una trampa silenciosa y peligrosa: se rota el certificado, se recompila, y
+    se distribuye el APK con la firma anterior sin ninguna senal de que paso.
+
+    Este target borra el APK firmado antes de que corra _Sign, de modo que en
+    Release la firma se aplique SIEMPRE. Cuesta unos segundos de un build de
+    release; es un precio trivial frente a entregar un APK mal firmado.
+  -->
+  <Target Name="ForzarRefirmaEnRelease"
+          BeforeTargets="_Sign"
+          Condition="'$(Configuration)' == 'Release' And '$(PermodaSigningReady)' == 'true'">
+    <ItemGroup>
+      <PermodaApkFirmadoPrevio Include="$(OutputPath)*-Signed.apk" />
+      <PermodaApkFirmadoPrevio Include="$(OutputPath)*-Signed.aab" />
+      <PermodaApkFirmadoPrevio Include="$(PublishDir)*-Signed.apk" Condition="'$(PublishDir)' != ''" />
+    </ItemGroup>
+    <Message Importance="high"
+             Condition="'@(PermodaApkFirmadoPrevio)' != ''"
+             Text="[FIRMA] Se borra el APK firmado previo para que la firma se vuelva a aplicar: @(PermodaApkFirmadoPrevio)" />
+    <Delete Files="@(PermodaApkFirmadoPrevio)" ContinueOnError="true" />
+  </Target>
+
+  <!--
+    ============================================================================
+    EL MISMO DEFECTO, PERO CON EL AMBIENTE (22/09/2026)
+    ============================================================================
+    Sintoma: se compilo con -p:Ambiente=produccion y el APK resultante traia
+    appsettings de SANDBOX. Verificado abriendo el .apk.
+
+    La causa es la misma que la de la firma, un target incremental que conserva un
+    artefacto viejo. Los dos ambientes se empaquetan con el MISMO nombre de asset
+    (obj\...\assets\appsettings.json, por el LogicalName compartido), asi que al
+    cambiar de ambiente el archivo ya esta ahi y la copia se omite por "actualizado".
+
+    Es peor que el de la firma porque no deja rastro: un APK con el appsettings del
+    otro ambiente arranca, se ve idéntico y cobra contra la pasarela equivocada.
+    En la direccion pruebas -> produccion eso es plata real.
+
+    Este target borra el asset antes de cada build, de modo que siempre se copie el
+    del ambiente pedido.
+  -->
+  <Target Name="LimpiarAppSettingsEmpaquetado"
+          BeforeTargets="BeforeBuild"
+          Condition="'$(TargetFramework)' == 'net10.0-android'">
+    <Delete Files="$(IntermediateOutputPath)assets\appsettings.json" ContinueOnError="true" />
+  </Target>
+
+  <!--
+    Y la comprobacion, porque borrar el asset arregla la causa conocida pero no
+    demuestra el resultado. Esto abre el APK ya empaquetado, lee el appsettings
+    que quedo adentro y FALLA el build si el ambiente no es el que se pidio.
+
+    Es la verificacion que se venia haciendo a mano con un script aparte despues de
+    cada build. Que la haga el build.
+  -->
+  <PropertyGroup>
+    <!-- Sin -p:Ambiente, lo que se empaqueta es el de PRUEBAS. Ver el bloque de arriba. -->
+    <PermodaAmbienteEsperado Condition="'$(Ambiente)' == 'produccion'">production</PermodaAmbienteEsperado>
+    <PermodaAmbienteEsperado Condition="'$(Ambiente)' != 'produccion'">sandbox</PermodaAmbienteEsperado>
+  </PropertyGroup>
+
+  <!--
+    SELLO DE COMPILACION
+    ============================================================================
+    ApplicationVersion esta fijo en 1 porque es un valor de contrato con ICG, asi
+    que ninguna caja podia decir que build tiene: se deducia por la fecha del .apk
+    en la maquina de quien compilo. Inservible cuando la pregunta llega desde una
+    de 512 tiendas.
+
+    Esto viaja DENTRO del APK, se lee en [BuildInfo], se registra en cada arranque
+    y acompaña a cada fallo guardado. No toca la version que ve HioPos.
+  -->
+  <ItemGroup>
+    <AssemblyMetadata Include="BuildStamp"
+                      Value="$([System.DateTime]::Now.ToString('yyyyMMdd-HHmm'))" />
+    <AssemblyMetadata Include="BuildAmbiente" Value="$(PermodaAmbienteEsperado)" />
+  </ItemGroup>
+
+  <Target Name="VerificarAmbienteEmpaquetado"
+          AfterTargets="_Sign"
+          Condition="'$(Configuration)' == 'Release' And '$(TargetFramework)' == 'net10.0-android'">
+
+    <!--
+      Se comprueba el asset YA PREPARADO en obj\, que es exactamente el archivo que
+      el empaquetado mete en el APK. Se intento leerlo del .apk con una tarea inline
+      y no vale la pena: en MSBuild de .NET las referencias de compresion no
+      resuelven, y este archivo es el mismo bit a bit.
+    -->
+    <ReadLinesFromFile File="$(IntermediateOutputPath)assets\appsettings.json">
+      <Output TaskParameter="Lines" ItemName="PermodaAppSettingsLineas" />
+    </ReadLinesFromFile>
+
+    <PropertyGroup>
+      <PermodaAppSettingsTexto>@(PermodaAppSettingsLineas)</PermodaAppSettingsTexto>
+      <PermodaAmbienteOk>false</PermodaAmbienteOk>
+      <PermodaAmbienteOk Condition="$(PermodaAppSettingsTexto.Contains('&quot;$(PermodaAmbienteEsperado)&quot;'))">true</PermodaAmbienteOk>
+    </PropertyGroup>
+
+    <Message Importance="high"
+             Condition="'$(PermodaAmbienteOk)' == 'true'"
+             Text="[AMBIENTE] Verificado en el paquete: $(PermodaAmbienteEsperado)." />
+
+    <Error Condition="'$(PermodaAmbienteOk)' != 'true'"
+           Text="El APK NO quedo con el ambiente pedido ('$(PermodaAmbienteEsperado)'). Es el defecto del asset empaquetado: borra obj\$(Configuration)\$(TargetFramework) y vuelve a compilar. NO distribuyas este APK." />
+  </Target>
+
+  <!--
+    Copia el APK firmado a artefactos\ con el ambiente y la fecha en el NOMBRE.
+    Los dos ambientes se construyen en la misma ruta y con el mismo nombre de
+    archivo, asi que fuera de bin\ no hay forma de saber cual es cual.
+  -->
+  <Target Name="ArchivarApkConAmbiente"
+          AfterTargets="VerificarAmbienteEmpaquetado"
+          Condition="'$(Configuration)' == 'Release' And '$(TargetFramework)' == 'net10.0-android'">
+    <ItemGroup>
+      <PermodaApkParaArchivar Include="$(OutputPath)*-Signed.apk" />
+    </ItemGroup>
+    <Copy SourceFiles="@(PermodaApkParaArchivar)"
+          DestinationFiles="$(MSBuildThisFileDirectory)..\..\artefactos\sistecreditotef-$(PermodaAmbienteEsperado)-$([System.DateTime]::Now.ToString('yyyyMMdd-HHmm')).apk"
+          Condition="'@(PermodaApkParaArchivar)' != ''" />
+    <Message Importance="high"
+             Condition="'@(PermodaApkParaArchivar)' != ''"
+             Text="[AMBIENTE] Copia archivada en artefactos\sistecreditotef-$(PermodaAmbienteEsperado)-*.apk" />
+  </Target>
 
   <ItemGroup>
     <MauiAsset Include="Resources\**" Exclude="Resources\AppIcon\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
 
-    <!-- Ícono de la app (launcher) = logo KOAJ. Fondo blanco para el relleno
+    <!-- Icono de la app (launcher) = logo KOAJ. Fondo blanco para el relleno
          del adaptive icon de Android. -->
     <MauiIcon Include="Resources\AppIcon\koaj_logo.png" Color="#FFFFFF" />
+
+    <!--
+      EL MISMO PNG, tambien embebido, para el logo que HioPos muestra junto al medio
+      de pago (GET_CUSTOM_PARAMS).
+
+      Antes ese logo vivia como una cadena base64 dentro de
+      Resources\Images\SistecreditoLogo.cs: una SEGUNDA COPIA del mismo archivo. Se
+      verifico que eran byte por byte identicos, pero nada lo garantizaba — cambiar
+      koaj_logo.png dejaba a HioPos mostrando el logo viejo y no habia forma de
+      notarlo desde el codigo.
+
+      Con el PNG embebido hay una sola fuente: el archivo. Ver [SistecreditoLogo].
+    -->
+    <EmbeddedResource Include="Resources\AppIcon\koaj_logo.png"
+                      LogicalName="koaj_logo.png" />
     <MauiXaml Update="**\*.xaml" />
     <!--
       appsettings.json: lo empaquetamos como EmbeddedResource (no MauiAsset)
@@ -130,10 +412,44 @@
       y el AssetManager de Android no estan disponibles todavia, y ambos
       fallan con "Specified method is not supported".
       EmbeddedResource se lee con Assembly.GetManifestResourceStream, que
-      SI funciona en cualquier momento (incluso antes de MAUI inicialice).
+      SI funciona en cualquier momento (incluso antes de que MAUI inicialice).
     -->
-    <EmbeddedResource Include="appsettings.json" />
-    <MauiAsset Include="appsettings.json" LogicalName="appsettings.json" />
+    <!--
+      ══════════════════════════════════════════════════════════════════════
+      QUE AMBIENTE SE EMPAQUETA
+      ══════════════════════════════════════════════════════════════════════
+      Por DEFECTO va appsettings.json, que es el de PRUEBAS. Para produccion
+      hay que pedirlo explicitamente:
+
+          dotnet build -c Release -f net10.0-android -p:Ambiente=produccion
+
+      y entonces se empaqueta appsettings.produccion.json, con el mismo
+      LogicalName para que el codigo lo encuentre igual (lo busca por sufijo
+      "appsettings.json", ver [LoadAppSettingsFromAsset]).
+
+      La asimetria es deliberada y vale la pena escribir por que: un build
+      distraido tiene que salir apuntando a sandbox, NUNCA a produccion. Antes
+      habia un solo appsettings.json que se editaba a mano para cambiar de
+      ambiente, y con eso se instalo el APK PRODUCTIVO —posprod, clave real,
+      StoreId de la 037— en una terminal de PRUEBAS. No fallo nada visible:
+      simplemente quedo listo para cobrar plata de verdad.
+
+      Con esta separacion ese error no se puede repetir por olvido; hay que
+      escribir -p:Ambiente=produccion a proposito.
+    -->
+    <EmbeddedResource Include="appsettings.json"
+                      LogicalName="appsettings.json"
+                      Condition="'$(Ambiente)' != 'produccion'" />
+    <MauiAsset Include="appsettings.json"
+               LogicalName="appsettings.json"
+               Condition="'$(Ambiente)' != 'produccion'" />
+
+    <EmbeddedResource Include="appsettings.produccion.json"
+                      LogicalName="appsettings.json"
+                      Condition="'$(Ambiente)' == 'produccion'" />
+    <MauiAsset Include="appsettings.produccion.json"
+               LogicalName="appsettings.json"
+               Condition="'$(Ambiente)' == 'produccion'" />
   </ItemGroup>
 
   <!--
@@ -154,8 +470,35 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
     <PackageReference Include="sqlite-net-pcl" Version="1.9.172" />
-    <!-- HU8-973: bundle con SQLCipher para cifrar la BD local (cédulas/creditId). -->
-    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlcipher" Version="2.1.10" />
+
+    <!-- HU8-973: bundle con SQLCipher para cifrar la BD local (cedulas/creditId). -->
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlcipher" Version="2.1.11" />
+
+    <!--
+      QA A-4: sqlite-net-pcl 1.9.172 arrastra SQLitePCLRaw.lib.e_sqlite3.android
+      2.1.2, que tiene una vulnerabilidad de severidad ALTA conocida
+      (NU1903 / GHSA-2m69-gcr7-jv3q). El aviso alcanza tambien a 2.1.10 y 2.1.11:
+      la primera version limpia es 2.1.12, y por eso se fija explicitamente aqui
+      para que gane sobre la transitiva.
+      bundle_e_sqlcipher se queda en 2.1.11 porque no existe 2.1.12 de ese
+      paquete; NuGet resuelve el nativo y el core a 2.1.12, que es lo que importa
+      para el aviso.
+      Verificar con: dotnet list package (opciones vulnerable e include-transitive)
+    -->
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3.android" Version="2.1.12" />
+    <PackageReference Include="SQLitePCLRaw.core" Version="2.1.12" />
   </ItemGroup>
 
 </Project>
+
+
+
+
+
+
+
+
+
+
+
+

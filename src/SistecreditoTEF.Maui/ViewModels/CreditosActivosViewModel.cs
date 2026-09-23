@@ -93,10 +93,22 @@ public partial class CreditosActivosViewModel(
                     {
                         foreach (var c in ok.Data) Creditos.Add(c);
                         Status = Estado.Success;
+
+                        // El comprobante del abono debe llevar el nombre del cliente,
+                        // y getactivecredits NO lo devuelve (solo idDocument). Se
+                        // consulta aparte, en modo BEST-EFFORT: si falla, el abono
+                        // sigue su curso y el comprobante sale con la cedula y sin
+                        // el nombre. Nunca debe bloquear un recaudo.
+                        await CargarNombreDelClienteAsync(docLimpio);
                     }
                     break;
                 case ApiResult<List<ActiveCredit>>.Failure<List<ActiveCredit>> f:
-                    ErrorMessage = f.Cause.UserMessage;
+                    // Traducido, no crudo. Asignaba [UserMessage] directo y en la
+                    // pantalla se leia "CREDINET: CreditsNotFound" — ingles tecnico
+                    // con el prefijo del proveedor, sin decirle al cajero que hacer.
+                    AppLogger.W("CreditosActivosViewModel",
+                        $"getactivecredits rechazado: {f.Cause.UserMessage}");
+                    ErrorMessage = FriendlyMessage.FromApiError(f.Cause);
                     Status = Estado.Error;
                     break;
             }
@@ -105,7 +117,10 @@ public partial class CreditosActivosViewModel(
         {
             AppLogger.E("CreditosActivosViewModel",
                 "Excepcion inesperada buscando creditos activos", ex);
-            ErrorMessage = $"Error inesperado: {ex.Message}";
+            // El detalle tecnico va al log, no a la pantalla: "Error inesperado:
+            // Object reference not set..." no le sirve a nadie en una caja.
+            ErrorMessage = "No pudimos consultar los creditos. Revisa la conexion e " +
+                           "intenta de nuevo.";
             Status = Estado.Error;
         }
     }
@@ -119,6 +134,40 @@ public partial class CreditosActivosViewModel(
     // (1.234.567-8 -> 12345678) para evitar errores de validacion en Credinet.
     private static string SanitizarDocumento(string doc) =>
         new string(doc.Where(char.IsDigit).ToArray());
+
+    /// <summary>
+    /// Trae el nombre del cliente para que aparezca en el comprobante del abono.
+    ///
+    /// <c>getactivecredits</c> devuelve el documento pero no el nombre, asi que se
+    /// consulta <c>getCreditLimitClient</c>. Es BEST-EFFORT a proposito: un cliente
+    /// puede tener creditos activos y a la vez no ser consultable por ese endpoint
+    /// (sin cupo, bloqueado, etc.). Si falla, se registra y se sigue: el
+    /// comprobante saldra con la cedula y sin el nombre, pero el recaudo se hace.
+    /// </summary>
+    private async Task CargarNombreDelClienteAsync(string documento)
+    {
+        try
+        {
+            var result = await service.ValidarClienteAsync(TipoDocumento, documento);
+            if (result is ApiResult<Client>.Ok<Client> ok)
+            {
+                state.SetValidatedClient(ok.Data);
+                AppLogger.I("CreditosActivosViewModel",
+                    $"Datos del cliente cargados para el comprobante: {PiiMask.Name(ok.Data.FullName)}.");
+            }
+            else
+            {
+                AppLogger.W("CreditosActivosViewModel",
+                    "No se pudo obtener el nombre del cliente; el comprobante saldra " +
+                    "con la cedula solamente.");
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLogger.W("CreditosActivosViewModel",
+                $"Fallo la consulta del nombre del cliente (no bloquea el abono): {ex.Message}");
+        }
+    }
 
     [RelayCommand]
     private async Task SeleccionarAsync(ActiveCredit credito)

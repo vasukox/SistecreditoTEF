@@ -114,11 +114,17 @@ public class CredinetApiClient : ICredinetApi
     private static string BuildQs(params string?[] pairs)
     {
         var sb = new System.Text.StringBuilder();
-        for (int i = 0; i < pairs.Length; i += 2)
+        // Se recorre hasta pairs.Length - 1 para que un arreglo de longitud IMPAR no
+        // salga por IndexOutOfRange al leer pairs[i + 1]: el ultimo elemento sin
+        // pareja simplemente no aporta parametro.
+        for (int i = 0; i + 1 < pairs.Length; i += 2)
         {
             var key = pairs[i];
             var value = pairs[i + 1];
-            if (string.IsNullOrEmpty(value)) continue;
+            // La clave tambien se comprueba: EscapeDataString(null) lanza
+            // ArgumentNullException, y eso tumbaria la llamada entera por armar mal
+            // un query string.
+            if (string.IsNullOrEmpty(key) || string.IsNullOrEmpty(value)) continue;
             if (sb.Length > 0) sb.Append('&');
             sb.Append(Uri.EscapeDataString(key));
             sb.Append('=');
@@ -136,6 +142,38 @@ public class CredinetApiClient : ICredinetApi
             if (!response.IsSuccessStatusCode)
             {
                 var body = await response.Content.ReadAsStringAsync();
+
+                // ─────────────────────────────────────────────────────────────
+                // CREDINET DEVUELVE ERRORES DE NEGOCIO CON HTTP 4xx
+                // ─────────────────────────────────────────────────────────────
+                // El modulo asumia que los errores de negocio llegan SIEMPRE como
+                // HTTP 200 + errorCode. No es asi. Capturado en el terminal:
+                //
+                //   HTTP 400 {"function":"/api/credit/create","errorCode":230,
+                //             "message":"TokenAlreadyUsed","country":"co"}
+                //
+                // Clasificarlo como fallo de transporte tenia tres efectos malos:
+                // el cajero veia "Error de comunicacion con el servidor" en vez de
+                // "ese codigo ya se uso"; no se consumia intento, asi que podia
+                // machacar el mismo codigo muerto indefinidamente (se vieron 8
+                // intentos seguidos); y la traduccion por errorCode nunca se
+                // aplicaba.
+                //
+                // El sobre de error es IDENTICO al de exito, asi que si el cuerpo
+                // trae un errorCode se devuelve como respuesta normal y el
+                // repositorio lo convierte en ApiError.Business, que es lo que es.
+                var negocio = TryParseCredinetEnvelope<T>(body);
+                if (negocio is not null)
+                {
+                    AppLogger.W("CredinetApiClient",
+                        $"Credinet respondio HTTP {(int)response.StatusCode} con un error de " +
+                        $"NEGOCIO: errorCode={negocio.ErrorCode} message={negocio.Message} " +
+                        $"({Describe(request)}).");
+                    return negocio;
+                }
+
+                // No es un sobre de Credinet: es un fallo real de transporte
+                // (gateway, 401 de APIM, HTML de error, etc.).
                 throw new ApiException.HttpException((int)response.StatusCode, body);
             }
 
@@ -156,29 +194,67 @@ public class CredinetApiClient : ICredinetApi
         {
             SistecreditoTEF.Maui.Common.AppLogger.E(
                 "CredinetApiClient",
-                $"Network error en {request.Method} {request.RequestUri}: {ex.Message}", ex);
+                // QA A-1: la URL lleva idDocument=<cedula> en la query. Antes se
+                // logueaba cruda en estos cuatro catch, saltandose el enmascarado
+                // que si aplicaba HttpLoggingHandler.
+                $"Network error en {request.Method} {Describe(request)}: {ex.Message}", ex);
             throw new ApiException.NetworkException(ex);
         }
         catch (TaskCanceledException ex)
         {
             SistecreditoTEF.Maui.Common.AppLogger.E(
                 "CredinetApiClient",
-                $"Timeout en {request.Method} {request.RequestUri}: {ex.Message}", ex);
+                $"Timeout en {request.Method} {Describe(request)}: {ex.Message}", ex);
             throw new ApiException.NetworkException(ex);
         }
         catch (System.Text.Json.JsonException ex)
         {
             SistecreditoTEF.Maui.Common.AppLogger.E(
                 "CredinetApiClient",
-                $"JSON invalido en {request.Method} {request.RequestUri}: {ex.Message}", ex);
+                $"JSON invalido en {request.Method} {Describe(request)}: {ex.Message}", ex);
             throw new ApiException.NetworkException(ex);
         }
         catch (Exception ex)
         {
             SistecreditoTEF.Maui.Common.AppLogger.E(
                 "CredinetApiClient",
-                $"Excepcion inesperada en {request.Method} {request.RequestUri}: {ex.Message}", ex);
+                $"Excepcion inesperada en {request.Method} {Describe(request)}: {ex.Message}", ex);
             throw new ApiException.NetworkException(ex);
+        }
+    }
+
+    /// <summary>
+    /// URL de la peticion con la cedula ENMASCARADA, para poder loguear el
+    /// endpoint que fallo sin exponer el dato personal (QA A-1).
+    /// </summary>
+    private static string Describe(HttpRequestMessage request) =>
+        SistecreditoTEF.Maui.Common.PiiMask.Url(request.RequestUri?.ToString());
+
+    /// <summary>
+    /// Intenta leer el cuerpo como el sobre estandar de Credinet. Devuelve null si
+    /// no lo es (o si no trae errorCode), para que el llamador lo trate como fallo
+    /// de transporte.
+    ///
+    /// Se exige <c>errorCode != 0</c>: un 4xx con errorCode 0 no es un error de
+    /// negocio identificable y merece tratarse como problema tecnico.
+    /// </summary>
+    internal static ApiResponse<T>? TryParseCredinetEnvelope<T>(string? body)
+    {
+        if (string.IsNullOrWhiteSpace(body)) return null;
+
+        try
+        {
+            var envelope = JsonSerializer.Deserialize<ApiResponse<T>>(body, JsonOpts);
+            return envelope is { ErrorCode: not 0 } ? envelope : null;
+        }
+        catch (JsonException)
+        {
+            // Cuerpo que no es JSON (HTML de un gateway, texto plano, vacio).
+            return null;
+        }
+        catch (NotSupportedException)
+        {
+            return null;
         }
     }
 

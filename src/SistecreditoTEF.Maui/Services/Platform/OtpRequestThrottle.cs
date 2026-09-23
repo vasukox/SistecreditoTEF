@@ -3,76 +3,143 @@ using SistecreditoTEF.Maui.Common;
 namespace SistecreditoTEF.Maui.Services.Platform;
 
 /// <summary>
-/// Throttle de reenvio de OTP. Evita que el cajero (o el codigo) regeneren
-/// el codigo demasiadas veces o demasiado rapido.
+/// Control anti-abuso del OTP. Vive como SINGLETON en DI para sobrevivir a la
+/// navegación entre pantallas.
 ///
-/// Politica (configurable por IConfiguration "Credinet:OtpResendCooldownSeconds"
-/// y "Credinet:OtpMaxResends", con defaults 60s y 3):
-///   - Cooldown: minimo N segundos entre solicitudes.
-///   - Maximo: tope de reenvios por sesion (transaccion). Se resetea al
-///     Confirmar() exitoso (ConfirmacionViewModel.Finalizar o al cambiar
-///     de transaccion desde MainActivity.HandleTransaction).
+/// Politica (configurable, ver [ApiConfig]):
+///   - Cooldown: mínimo N segundos entre solicitudes de código.
+///   - Máximo de reenvíos por transacción.
+///   - Máximo de INTENTOS DE VERIFICACIÓN por transacción.
 ///
-/// Singleton en DI. Sobrevive back navigation en el flujo de OTP porque
-/// vive en el mismo proceso (no se recrea por transaccion).
+/// ─────────────────────────────────────────────────────────────────────────────
+/// QA A-12 — POR QUÉ LOS INTENTOS SE CUENTAN AQUÍ Y NO EN EL VIEWMODEL
+/// ─────────────────────────────────────────────────────────────────────────────
+/// Antes el contador de intentos era <c>private int _attempts</c> dentro de
+/// [OtpViewModel], y los ViewModels están registrados como **Transient**. Bastaba
+/// navegar atrás y volver a la pantalla de OTP para obtener un ViewModel nuevo
+/// con <c>_attempts = 0</c>, mientras el mismo OTP seguía vigente: el tope de 3
+/// intentos se reiniciaba a voluntad. Un control de fuerza bruta no puede vivir
+/// en un objeto que se recrea con cada navegación.
+///
+/// Al moverlo al singleton, el tope se respeta durante toda la transacción y solo
+/// se reinicia donde corresponde: al iniciar una TRANSACTION nueva o al pedir un
+/// código nuevo.
+///
+/// QA M-8: todos los accesos están sincronizados. Antes no lo estaban, aunque el
+/// objeto se toca desde el hilo de UI y desde las continuaciones async.
 /// </summary>
 public class OtpRequestThrottle
 {
     private readonly TimeSpan _cooldown;
     private readonly int _maxResends;
+    private readonly int _maxVerifyAttempts;
+    private readonly object _gate = new();
 
     private DateTime? _lastRequestedAt;
     private int _resendCount;
+    private int _verifyAttempts;
 
-    public OtpRequestThrottle(TimeSpan cooldown, int maxResends)
+    public OtpRequestThrottle(TimeSpan cooldown, int maxResends, int maxVerifyAttempts = 3)
     {
         _cooldown = cooldown;
         _maxResends = maxResends;
+        _maxVerifyAttempts = Math.Max(1, maxVerifyAttempts);
     }
 
     public OtpRequestThrottle() : this(TimeSpan.FromSeconds(60), 3) { }
 
     public TimeSpan Cooldown => _cooldown;
     public int MaxResends => _maxResends;
-    public int ResendCount => _resendCount;
-    public DateTime? LastRequestedAt => _lastRequestedAt;
+    public int MaxVerifyAttempts => _maxVerifyAttempts;
+
+    public int ResendCount { get { lock (_gate) return _resendCount; } }
+    public DateTime? LastRequestedAt { get { lock (_gate) return _lastRequestedAt; } }
+
+    /// <summary>Intentos de verificación ya consumidos en esta transacción.</summary>
+    public int VerifyAttempts { get { lock (_gate) return _verifyAttempts; } }
+
+    /// <summary>Intentos de verificación que le quedan al cajero.</summary>
+    public int VerifyAttemptsLeft
+    {
+        get { lock (_gate) return Math.Max(0, _maxVerifyAttempts - _verifyAttempts); }
+    }
+
+    /// <summary>True si se agotaron los intentos de verificación.</summary>
+    public bool VerifyAttemptsExhausted => VerifyAttemptsLeft <= 0;
 
     /// <summary>
-    /// Chequea si se puede pedir un reenvio ahora mismo. No modifica estado.
+    /// ¿Se puede pedir un código ahora? No modifica estado.
+    ///
+    /// QA: el chequeo de "máximo alcanzado" ya NO está anidado dentro del
+    /// chequeo de cooldown. Antes <c>Exceeded</c> solo se devolvía una vez
+    /// transcurrido el cooldown, así que el cajero veía "Espera 60s" y solo
+    /// después "máximo alcanzado" — confuso y sin motivo.
     /// </summary>
     public OtpResendDecision CanRequest()
     {
-        if (_lastRequestedAt is { } last)
+        lock (_gate)
         {
-            var elapsed = DateTime.UtcNow - last;
-            if (elapsed < _cooldown)
-            {
-                var remaining = _cooldown - elapsed;
-                return new OtpResendDecision.Wait(remaining.TotalSeconds);
-            }
             if (_resendCount >= _maxResends)
                 return new OtpResendDecision.Exceeded();
+
+            if (_lastRequestedAt is { } last)
+            {
+                var elapsed = DateTime.UtcNow - last;
+                if (elapsed < _cooldown)
+                    return new OtpResendDecision.Wait((_cooldown - elapsed).TotalSeconds);
+            }
+
+            return new OtpResendDecision.Allowed();
         }
-        return new OtpResendDecision.Allowed();
     }
 
     /// <summary>
-    /// Registra una solicitud exitosa. Llamar SOLO cuando Credinet respondio OK.
-    /// Si falla, no llamar: asi el cajero puede reintentar de inmediato.
+    /// Registra una solicitud exitosa de código. Llamar SOLO cuando Credinet
+    /// respondió OK; si falla, no llamar, así el cajero puede reintentar ya.
+    ///
+    /// Un código nuevo reinicia los intentos de verificación: son intentos
+    /// "contra ese código".
     /// </summary>
     public void RecordRequest()
     {
-        _lastRequestedAt = DateTime.UtcNow;
-        _resendCount++;
+        lock (_gate)
+        {
+            _lastRequestedAt = DateTime.UtcNow;
+            _resendCount++;
+            _verifyAttempts = 0;
+        }
     }
 
     /// <summary>
-    /// Resetea el throttle. Llamar al iniciar una nueva transaccion o al
-    /// confirmar un credito exitoso.
+    /// Registra un intento de verificación FALLIDO por código incorrecto.
+    /// Devuelve los intentos restantes.
+    ///
+    /// QA M-9: NO llamar cuando el fallo es de red o de infraestructura. Antes el
+    /// <c>catch (Exception)</c> del ViewModel incrementaba el contador, así que
+    /// tres cortes de red seguidos dejaban al cajero con "Se agotaron los
+    /// intentos" y un OTP perfectamente válido.
+    /// </summary>
+    public int RecordFailedVerification()
+    {
+        lock (_gate)
+        {
+            _verifyAttempts++;
+            return Math.Max(0, _maxVerifyAttempts - _verifyAttempts);
+        }
+    }
+
+    /// <summary>
+    /// Reinicia todo el throttle. Llamar al iniciar una transacción nueva o al
+    /// confirmar un crédito exitoso.
     /// </summary>
     public void Reset()
     {
-        _lastRequestedAt = null;
-        _resendCount = 0;
+        lock (_gate)
+        {
+            _lastRequestedAt = null;
+            _resendCount = 0;
+            _verifyAttempts = 0;
+        }
+        AppLogger.I("OtpRequestThrottle", "Throttle de OTP reiniciado.");
     }
 }

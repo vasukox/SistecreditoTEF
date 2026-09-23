@@ -76,4 +76,63 @@ public class HioposIntentParserTests
         Assert.Null(tx.AmountCents);
         Assert.Null(tx.ShopData);
     }
+
+    // HU8-973 (Fase 2): distinguir SALE vs REFUND en el Intent de HioPos.
+    // La accion es la misma (TRANSACTION); lo que cambia es el extra
+    // TransactionType. MainActivity enruta segun esto: SALE -> CapturaCedula,
+    // REFUND -> CreditosActivos (recaudo).
+    [Fact]
+    public void Parse_SALE_marca_IsRefund_false()
+    {
+        var tx = _parser.Parse(new Dictionary<string, string?>
+        {
+            [HioposExtras.TransactionType] = "SALE"
+        });
+
+        Assert.True(tx.IsSale);
+        Assert.False(tx.IsRefund);
+    }
+
+    [Fact]
+    public void Parse_REFUND_marca_IsRefund_true()
+    {
+        var tx = _parser.Parse(new Dictionary<string, string?>
+        {
+            [HioposExtras.TransactionType] = "REFUND"
+        });
+
+        Assert.True(tx.IsRefund);
+        Assert.False(tx.IsSale);
+    }
+
+    [Fact]
+    public void Parse_REFUND_es_case_insensitive()
+    {
+        // El doc ICG §4 define el enum en MAYUSCULAS, pero no se debe
+        // romper si HioPos manda otra capitalizacion (lo mismo que IsSale).
+        var tx1 = _parser.Parse(new Dictionary<string, string?>
+        {
+            [HioposExtras.TransactionType] = "refund"
+        });
+        var tx2 = _parser.Parse(new Dictionary<string, string?>
+        {
+            [HioposExtras.TransactionType] = "Refund"
+        });
+
+        Assert.True(tx1.IsRefund);
+        Assert.True(tx2.IsRefund);
+    }
+
+    [Fact]
+    public void Parse_sin_TransactionType_no_es_REFUND()
+    {
+        // Por seguridad: si HioPos olvida mandar el extra, NO enrutamos
+        // accidentalmente al flujo de recaudo. Mejor caer en el default
+        // (SALE) y mostrar el menu, que cobrarse el riesgo de hacer un
+        // REFUND no solicitado.
+        var tx = _parser.Parse(new Dictionary<string, string?>());
+
+        Assert.False(tx.IsRefund);
+        Assert.False(tx.IsSale);
+    }
 }

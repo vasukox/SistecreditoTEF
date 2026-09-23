@@ -2,7 +2,7 @@ using SistecreditoTEF.Maui.ViewModels;
 
 namespace SistecreditoTEF.Maui.Views;
 
-public partial class SeleccionCuotasPage : ContentPage
+public partial class SeleccionCuotasPage : HioposFlowPage
 {
     private readonly SeleccionCuotasViewModel _vm;
 
@@ -13,7 +13,8 @@ public partial class SeleccionCuotasPage : ContentPage
         vm.PropertyChanged += async (_, e) =>
         {
             if (e.PropertyName == nameof(vm.Monto))
-                _ = vm.OnMontoChangedAsync(vm.Monto);
+                SistecreditoTEF.Maui.Common.Fire.AndForget(
+                    vm.OnMontoChangedAsync(vm.Monto), "SeleccionCuotasPage");
             else if (e.PropertyName == nameof(vm.HasResults) && vm.HasResults)
                 await ScrollToResultadoAsync();
         };

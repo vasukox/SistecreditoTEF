@@ -106,6 +106,37 @@ public sealed class SqliteAuditLog : IAuditLogCapture
         }
     }
 
+    /// <summary>
+    /// QA M-13: retención de la traza de auditoría. Se conserva el histórico
+    /// reciente (por defecto 180 días, ver [MainActivity]) y se descarta el resto.
+    /// </summary>
+    public async Task PurgeOlderThanAsync(TimeSpan retention)
+    {
+        try
+        {
+            var conn = await _db.Value;
+            var cutoff = DateTime.Now - retention;
+            // Un solo DELETE, no un SELECT + N DeleteAsync: la auditoría es la
+            // tabla que más crece (una fila por paso de cada transacción), así que
+            // era la que más filas materializaba y más idas y vueltas hacía sobre
+            // la conexión compartida con la operación.
+            var deleted = await conn.ExecuteAsync(
+                "DELETE FROM audit_log WHERE Timestamp < ?", cutoff);
+
+            if (deleted > 0)
+            {
+                AppLogger.I("SqliteAuditLog",
+                    $"Purga de auditoría: {deleted} entradas con más de {retention.TotalDays:0} días.");
+                lock (_gate) _entries.RemoveAll(e => e.Timestamp < cutoff);
+            }
+        }
+        catch (Exception ex)
+        {
+            // Mantenimiento: nunca debe impedir operar.
+            AppLogger.W("SqliteAuditLog", $"No se pudo purgar la auditoría: {ex.Message}");
+        }
+    }
+
     [Table("audit_log")]
     private sealed class AuditRow
     {

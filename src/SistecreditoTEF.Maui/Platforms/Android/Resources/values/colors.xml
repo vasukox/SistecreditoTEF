@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Colores nativos de Android. Espejo de los tokens de la paleta que el tema
+    nativo necesita como recurso (@color/...), porque un atributo de tema no puede
+    referenciar Colors.xaml de MAUI.
+
+    Solo lo imprescindible: el resto de la interfaz lo dibuja MAUI.
+-->
+<resources>
+    <!-- #f2f2f2 — gris claro de la paleta. Fondo de ventana: evita el flash
+         blanco entre el arranque nativo y la primera pantalla de MAUI. -->
+    <color name="fondo_pantalla">#F2F2F2</color>
+
+    <!-- #333333 — gris oscuro. Barras de estado y navegacion. -->
+    <color name="chrome_oscuro">#333333</color>
+
+    <!-- #4554a1 — azul de marca. -->
+    <color name="marca_azul">#4554A1</color>
+</resources>

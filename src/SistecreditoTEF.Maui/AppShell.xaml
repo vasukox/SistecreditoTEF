@@ -34,7 +34,42 @@
         registra como rutas en AppShell.xaml.cs y se navega con PUSH (rutas
         relativas), de modo que el botón "atrás" haga pop y NO cierre la app.
     -->
+    <!--
+        La RAIZ es la pantalla de marca, no un modulo.
+
+        El Shell navega a su raiz por si mismo, antes de que nadie pueda decidir
+        nada. Con HomePage de raiz se veia el menu un instante y despues la app
+        saltaba al modulo real: el destello del modulo equivocado. Con una raiz
+        neutra, lo unico que se ve antes del modulo correcto es la marca.
+
+        Home sigue registrada como ruta (ver RouteRegistrar) y accesible; ya no es
+        la raiz.
+    -->
     <ShellContent
-        Route="home"
-        ContentTemplate="{DataTemplate views:HomePage}" />
+        Route="splash"
+        ContentTemplate="{DataTemplate views:SplashPage}" />
+
+    <!--
+        ════════════════════════════════════════════════════════════════════════
+        MENU DE HAMBURGUESA
+        ════════════════════════════════════════════════════════════════════════
+        Son MenuItem con Clicked, NO FlyoutItem. La diferencia importa: un
+        FlyoutItem convierte la pantalla en un item del Shell, y una ruta no puede
+        estar registrada en [RouteRegistrar] y ser item del Shell a la vez — el
+        ruteo del flujo se rompe. Con MenuItem la administracion sigue siendo un
+        push normal.
+
+        El menu NO aparece en el flujo de venta: FlyoutBehavior sigue en Disabled a
+        nivel Shell y cada pantalla que lo quiere lo habilita
+        (Shell.FlyoutBehavior="Flyout" en HomePage e IngresoCajeroPage). Asi el
+        cajero no puede irse a configuracion en medio de una factura de HioPos.
+
+        El acceso a configuracion NO se protege escondiendolo: la pantalla destino
+        pide el PIN de administrador antes de mostrar nada.
+    -->
+    <MenuItem Text="Configuración de cajeros"
+              Clicked="OnConfiguracionClicked" />
+
+    <MenuItem Text="Cerrar sesión del cajero"
+              Clicked="OnCerrarSesionClicked" />
 </Shell>

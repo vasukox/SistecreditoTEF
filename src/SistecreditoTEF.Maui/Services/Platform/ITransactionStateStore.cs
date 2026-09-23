@@ -19,6 +19,17 @@ public interface ITransactionStateStore
     int                Months            { get; set; }
 
     /// <summary>
+    /// HU8-973: liveness de una factura de HI-POS. Es true SOLO entre el
+    /// arranque de una TRANSACTION y la devolución del resultado a HioPos
+    /// (FinishWithResult). El guard de MainActivity lo usa para saber si hay
+    /// una venta genuinamente viva esperando resultado, en vez de inferirlo de
+    /// datos residuales (ActiveTransaction/CreatedCredit/LastPayment) que
+    /// podían quedar colgados si un flujo se abandonaba y bloquear el ícono de
+    /// Abonos. En modo standalone (recaudo por launcher) permanece en false.
+    /// </summary>
+    bool               HioposTransactionActive { get; set; }
+
+    /// <summary>
     /// HU8-973 BugFix: lock anti-doble-cobro en PagoPage.
     /// Guardamos el creditId y timestamp del ultimo intento de pago.
     /// Si el cajero vuelve a entrar a PagoPage antes de 60s con el mismo

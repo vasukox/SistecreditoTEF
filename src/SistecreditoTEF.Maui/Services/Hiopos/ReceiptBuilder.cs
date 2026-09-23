@@ -20,7 +20,8 @@ namespace SistecreditoTEF.Maui.Services.Hiopos;
 ///   - Cada dato es una fila etiqueta-izquierda / valor-derecha, con el
 ///     valor pegado al margen derecho (columna 42).
 /// El ancho se calcula sobre el texto CRUDO (antes de escapar XML), porque
-/// escapar & -> &amp; no cambia el ancho impreso.
+/// escapar el ampersand (<c>&amp;</c> pasa a <c>&amp;amp;</c>) no cambia el ancho
+/// impreso.
 ///
 /// Formatos disponibles: BOLD, NORMAL, DOUBLE_HEIGHT, DOUBLE_WIDTH, UNDERLINE.
 /// (No hay formato CENTER/RIGHT: la alineacion se hace con espacios.)
@@ -29,7 +30,16 @@ public class ReceiptBuilder
 {
     private const int NumCols = 42;
 
-    /// <summary>Comprobante de CREDITO (POST /create). Voucher, no factura.</summary>
+    /// <summary>
+    /// Comprobante de CREDITO (POST /create). Voucher, no factura.
+    /// </summary>
+    /// <param name="otpDestination">
+    /// Canal por el que Credinet envia la clave: 1 = WhatsApp, 0 = SMS.
+    /// QA M-15: el texto del voucher decia SIEMPRE "Recibiras un SMS", pero el
+    /// canal confirmado por Sistecredito para test y produccion es WhatsApp
+    /// (<c>OtpDestination=1</c>, que es lo que trae appsettings.json). El cliente
+    /// se iba esperando un SMS que nunca llegaba.
+    /// </param>
     public string BuildMerchantReceipt(
         DateTime fecha,
         string creditNumber,
@@ -41,17 +51,19 @@ public class ReceiptBuilder
         int plazoCuotas,
         double tasaEfectivaAnual,
         string primeraFechaPago,
-        string tienda = "")
+        string tienda = "",
+        int otpDestination = 1)
     {
         var sep = new string('=', NumCols);
         // La TEA llega como fraccion (ej. 0.2832); el formateador la normaliza.
         var tasa = tasaEfectivaAnual.ToColombianPercentage();
+        var canal = otpDestination == 1 ? "WhatsApp" : "SMS";
 
         return $@"<?xml version=""1.0"" encoding=""UTF-8""?>
 <Receipt numCols=""{NumCols}"">
   {TitleLine("COMPROBANTE DE CREDITO")}
   {TextLine(sep)}
-  {Row("Fecha", fecha.ToString("dd/MM/yyyy HH:mm"))}
+  {Row("Fecha", fecha.ToString("dd/MM/yyyy HH:mm", System.Globalization.CultureInfo.InvariantCulture))}
   {Row("Numero de Credito", creditNumber, bold: true)}
   {Row("Cliente", cliente)}
   {Row("C.C.", documento)}
@@ -64,7 +76,7 @@ public class ReceiptBuilder
   {Row("Tasa E.A.", tasa)}
   {Row("Primer pago", primeraFechaPago)}
   {TextLine(sep)}
-  {CenterLine("Recibiras un SMS con la clave")}
+  {CenterLine($"Recibiras un {canal} con la clave")}
   {CenterLine("de confirmacion en tu celular.")}
   {TextLine("")}
   {CenterLine("GRACIAS POR SU COMPRA", bold: true)}
@@ -87,12 +99,24 @@ public class ReceiptBuilder
         int plazoCuotas,
         double tasaEfectivaAnual,
         string primeraFechaPago,
-        string tienda = "")
+        string tienda = "",
+        int otpDestination = 1)
         => BuildMerchantReceipt(fecha, creditNumber, cliente, documento,
             valorFinanciado, cuotaInicial, cuotaMensual, plazoCuotas,
-            tasaEfectivaAnual, primeraFechaPago, tienda);
+            tasaEfectivaAnual, primeraFechaPago, tienda, otpDestination);
 
-    /// <summary>Comprobante de PAGO (POST /payCredit). Voucher, no factura.</summary>
+    /// <summary>
+    /// Comprobante de PAGO (POST /payCredit). Voucher, no factura.
+    ///
+    /// Lleva el TOTAL pagado arriba y el desglose debajo. Antes la unica cifra era
+    /// <c>capitalPagado</c>, que es solo la parte aplicada a capital y por lo tanto
+    /// NO es la plata que entrego el cliente: Credinet reparte el abono entre
+    /// capital, intereses, mora, aval y cargos. El comprobante encabezaba con un
+    /// monto menor al cobrado y en caja se leia como un error.
+    ///
+    /// El total ya se calculaba en [ReciboPagoViewModel] para devolverselo al POS
+    /// —o sea que el dato estaba— pero al voucher solo le llegaba el capital.
+    /// </summary>
     public string BuildPaymentReceipt(
         string tienda,
         DateTime fecha,
@@ -103,20 +127,40 @@ public class ReceiptBuilder
         double saldoRestante,
         string proximoPago,
         double proximoMinimo,
-        string cliente = "")
+        string cliente = "",
+        double interesesPagados = 0,
+        double moraPagada = 0,
+        double avalPagado = 0,
+        double otrosCargos = 0)
     {
         var sep = new string('=', NumCols);
+        var subSep = new string('-', NumCols);
+
+        // Se suma aca y no se recibe como parametro: un total que llega aparte
+        // puede no cuadrar con su propio desglose.
+        var totalPagado = capitalPagado + interesesPagados + moraPagada
+                        + avalPagado + otrosCargos;
+
+        // Solo los conceptos con valor. "Mora $ 0" en un abono sin mora no informa
+        // y hace dudar de si hay mora.
+        var desglose = string.Concat(
+            RowSiHayValor("  Abonado a capital", capitalPagado),
+            RowSiHayValor("  Intereses", interesesPagados),
+            RowSiHayValor("  Mora", moraPagada),
+            RowSiHayValor("  Aval", avalPagado),
+            RowSiHayValor("  Otros cargos", otrosCargos));
 
         return $@"<?xml version=""1.0"" encoding=""UTF-8""?>
 <Receipt numCols=""{NumCols}"">
   {TitleLine("COMPROBANTE DE PAGO")}
   {TextLine(sep)}
-  {Row("Fecha", fecha.ToString("dd/MM/yyyy HH:mm"))}
+  {Row("Fecha", fecha.ToString("dd/MM/yyyy HH:mm", System.Globalization.CultureInfo.InvariantCulture))}
   {Row("Pago #", paymentNumber, bold: true)}
   {Row("Credito", creditNumber)}
   {Row("Cliente", cliente)}
   {TextLine(sep)}
-  {Row("Capital pagado", Money(capitalPagado))}
+  {Row("TOTAL PAGADO", Money(totalPagado), bold: true)}
+{desglose}  {TextLine(subSep)}
   {Row("Saldo restante", Money(saldoRestante))}
   {Row("Proximo pago", proximoPago)}
   {Row("Minimo proximo", Money(proximoMinimo))}
@@ -125,6 +169,10 @@ public class ReceiptBuilder
   <ReceiptLine type=""CUT_PAPER""/>
 </Receipt>";
     }
+
+    /// <summary>Fila del desglose, o cadena vacia si el concepto no tiene valor.</summary>
+    private string RowSiHayValor(string label, double valor) =>
+        valor == 0 ? string.Empty : "  " + Row(label, Money(valor)) + "\n";
 
     // ------------------------------------------------------------------
     // Helpers de layout (monoespaciado, NumCols columnas)

@@ -33,6 +33,24 @@
                                Text="{Binding CodigoOtp, Mode=TwoWay}" />
                     </Border>
 
+                    <!--
+                        Aviso cuando Credinet devuelve el MISMO codigo en vez de
+                        generar uno nuevo: sin esto el cajero espera un WhatsApp que
+                        no va a llegar. Ver [OtpTokenReuse].
+                    -->
+                    <Border IsVisible="{Binding TieneAvisoCodigoReutilizado}"
+                            BackgroundColor="{StaticResource WarningSoft}"
+                            Stroke="Transparent" StrokeShape="RoundRectangle 12"
+                            Padding="14,12">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                            <Label Grid.Column="0" Text="ⓘ" FontSize="18"
+                                   TextColor="{StaticResource Warning}" VerticalOptions="Center" />
+                            <Label Grid.Column="1" Text="{Binding AvisoCodigoReutilizado}"
+                                   TextColor="{StaticResource Warning}" FontSize="13"
+                                   VerticalOptions="Center" />
+                        </Grid>
+                    </Border>
+
                     <!-- Notificacion de intento fallido (banner claro, no texto suelto) -->
                     <Border IsVisible="{Binding HasError}"
                             BackgroundColor="{StaticResource ErrorSoft}"

@@ -2,7 +2,7 @@ using SistecreditoTEF.Maui.ViewModels;
 
 namespace SistecreditoTEF.Maui.Views;
 
-public partial class ValidacionClientePage : ContentPage
+public partial class ValidacionClientePage : HioposFlowPage
 {
     private readonly ValidacionClienteViewModel _vm;
 

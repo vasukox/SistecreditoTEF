@@ -1,17 +1,26 @@
+using System.Globalization;
 using Microsoft.Extensions.Configuration;
-using SistecreditoTEF.Maui.Services.Platform;
 
 namespace SistecreditoTEF.Maui.Services.Credinet;
 
 /// <summary>
 /// Configuracion centralizada de CREDINET.
-/// Equivalente 1:1 al ApiConfig.kt de Kotlin.
 ///
 /// Aplica KISS: un solo lugar donde se cambian URLs, timeouts y headers.
 /// Aplica DRY: cualquier capa que necesite hablar con CREDINET consume de aqui.
 ///
-/// Las credenciales (API key, storeId, baseUrl) NO estan hardcodeadas:
-/// vienen de IConfiguration (appsettings.json + User Secrets en dev).
+/// Precedencia (gana el primero que exista):
+///   1. CloudLicense (ICG, llega en el INITIALIZE)
+///   2. appsettings.json (embebido en el APK)
+///   3. User Secrets (solo DEBUG)
+///   4. Fallback en codigo
+///
+/// QA M-3: antes SOLO <c>SubscriptionKey</c>, <c>BaseUrl</c>, <c>StoreId</c>,
+/// <c>OtpDestination</c> y <c>Environment</c> se leian de CloudLicense. El resto
+/// (<c>Source</c>, <c>AuthMethod</c>, <c>Frequency</c>, <c>TimeoutSeconds</c>,
+/// las politicas de OTP y los pines TLS) se leian solo de appsettings, pese a
+/// que el comentario afirmaba que eran "configurables sin recompilar". Ahora
+/// TODOS pasan por CloudLicense primero.
 /// </summary>
 public record ApiConfig
 {
@@ -20,41 +29,56 @@ public record ApiConfig
     public required string BaseUrl { get; init; }
 
     /// <summary>
-    /// Canal de envío del OTP. Segun el manual Credinet (§4.2.3.3): 1 = WhatsApp,
-    /// 0 (o no enviar) = SMS, y el manual RECOMIENDA WhatsApp. Por eso el
-    /// appsettings usa 1. Configurable por "Credinet:OtpDestination" (o por
-    /// CloudLicense) sin recompilar. El fallback de codigo (si no hay config)
-    /// es 0 = SMS.
+    /// Canal de envío del OTP. Manual Credinet §4.2.3.3: 1 = WhatsApp,
+    /// 0 (o no enviar) = SMS. Sistecrédito confirmó WhatsApp para test y
+    /// producción, por eso el appsettings usa 1.
     /// </summary>
     public int OtpDestination { get; init; }
 
-    /// <summary>HU8-973: constantes del manual, ahora configurables (no hardcoded).</summary>
     public string Source     { get; init; } = "2";
     public int    AuthMethod { get; init; } = 1;
     public int    Frequency  { get; init; } = 30;
     public int    TimeoutSeconds { get; init; } = 30;
 
-    /// <summary>
-    /// HU8-973: politica anti-spam de OTP.
-    /// - OtpResendCooldownSeconds: segundos minimos entre dos getCreditToken
-    ///   consecutivos. Default 60 (conservador).
-    /// - OtpMaxResends: tope de reenvios por transaccion. Default 3.
-    /// - OtpVerifyCooldownSeconds: segundos entre intentos fallidos de
-    ///   verificacion para evitar rate-limit de Credinet. Default 2.
-    /// Configurable via appsettings.json o CloudConfigStore sin recompilar.
-    /// </summary>
+    /// <summary>Política anti-spam de OTP (ver [OtpRequestThrottle]).</summary>
     public int OtpResendCooldownSeconds { get; init; } = 60;
     public int OtpMaxResends            { get; init; } = 3;
     public int OtpVerifyCooldownSeconds { get; init; } = 2;
 
-    /// <summary>Solo para logging/diagnóstico: "sandbox" | "production".</summary>
+    /// <summary>Tope de intentos de verificación del OTP por transacción (QA A-12).</summary>
+    public int OtpMaxVerifyAttempts { get; init; } = 3;
+
+    /// <summary>"sandbox" | "production". Determina la validación estricta.</summary>
     public string Environment { get; init; } = "sandbox";
 
     /// <summary>
-    /// HU8-973: pines SPKI (SHA-256, base64) para certificate pinning contra
-    /// api.credinet.co. VACÍO por defecto = validación TLS estándar (no rompe
-    /// nada). Cuando Sistecrédito entregue el/los pin(es), se cargan por
-    /// "Credinet:CertificatePins" y el pinning se activa solo.
+    /// Nombre de la tienda para el voucher. QA M-7: antes estaba hardcodeado
+    /// como "Permoda" en los ViewModels, así que todos los comprobantes de todas
+    /// las tiendas KOAJ salían iguales.
+    /// </summary>
+    public string StoreName { get; init; } = "Permoda";
+
+    /// <summary>
+    /// Id del medio de pago para un RECAUDO (entrada de caja). Ver
+    /// <see cref="ICloudConfig.PaymentMeanIdRecaudo"/>: un abono entra en
+    /// efectivo, no en tarjeta.
+    /// </summary>
+    public string PaymentMeanIdRecaudo { get; init; } = "1";
+
+    /// <summary>
+    /// Id del medio de pago sobre el que se consolida Sistecredito en una VENTA.
+    /// </summary>
+    public string PaymentMeanIdVenta { get; init; } = "2";
+
+    /// <summary>
+    /// Habilita la impresión nativa Sunmi. Por defecto false: requiere el AIDL
+    /// oficial del fabricante y validación en hardware (ver [SunmiPrinter]).
+    /// </summary>
+    public bool EnableSunmiNative { get; init; }
+
+    /// <summary>
+    /// Pines SPKI (SHA-256, base64) para certificate pinning contra Credinet.
+    /// Vacío = validación TLS estándar.
     /// </summary>
     public IReadOnlyList<string> CertificatePins { get; init; } = [];
 
@@ -66,78 +90,150 @@ public record ApiConfig
     public const string HeaderAccept          = "Accept";
     public const string MimeJson              = "application/json";
 
+    /// <summary>Marcador que en appsettings pide usar la key pública de sandbox.</summary>
+    public const string SandboxKeyPlaceholder = "__SANDBOX__";
+
     /// <summary>
-    /// Clave sandbox de CREDINET (publicada en el manual).
-    /// Es publica para pruebas - en produccion real va por User Secrets.
+    /// Clave sandbox de CREDINET (publicada en el manual). Es pública y solo
+    /// sirve para pruebas; en producción llega por CloudLicense.
     /// </summary>
     public const string SandboxSubscriptionKey = "88dec4b8617c4644a239a8af283dc742";
 
+    /// <summary>True si la configuración dice que este POS opera en producción.</summary>
+    public bool IsProduction =>
+        Environment.Equals("production", StringComparison.OrdinalIgnoreCase)
+        || Environment.Equals("prod", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>True si se está usando la key pública de pruebas.</summary>
+    public bool UsesSandboxKey =>
+        string.Equals(SubscriptionKey, SandboxSubscriptionKey, StringComparison.Ordinal);
+
     /// <summary>
-    /// Construye ApiConfig desde IConfiguration. Busca la seccion "Credinet".
+    /// QA C-3: valida coherencia entre ambiente y credenciales. Devuelve la lista
+    /// de problemas (vacía = configuración sana).
     ///
-    /// appsettings.json esperado:
-    ///   {
-    ///     "Credinet": {
-    ///       "SubscriptionKey": "..." | "__SANDBOX__",
-    ///       "StoreId": "...",            // opcional
-    ///       "BaseUrl": "https://api.credinet.co/pos/"
-    ///     }
-    ///   }
-    ///
-    /// Si SubscriptionKey = "__SANDBOX__", usa [SandboxSubscriptionKey].
-    /// Si falta la key, lanza excepcion clara.
-    ///
-    /// Para sobreescribir en desarrollo local:
-    ///   dotnet user-secrets set "Credinet:SubscriptionKey" "<tu-key-real>"
+    /// Es la barrera que impide el peor modo de fallo del módulo: una terminal de
+    /// producción operando contra sandbox sin que nadie se entere. Antes esto no
+    /// se comprobaba en ningún punto.
     /// </summary>
-    public static ApiConfig FromConfiguration(IConfiguration config)
+    public IReadOnlyList<string> Validate()
+    {
+        var problems = new List<string>();
+
+        if (string.IsNullOrWhiteSpace(SubscriptionKey))
+            problems.Add("Falta la SUBSCRIPTION_KEY.");
+
+        if (string.IsNullOrWhiteSpace(BaseUrl))
+            problems.Add("Falta la API_BASE_URL.");
+        else if (!BaseUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            problems.Add($"La API_BASE_URL no usa HTTPS: '{BaseUrl}'.");
+
+        if (IsProduction)
+        {
+            if (UsesSandboxKey)
+                problems.Add(
+                    "ENVIRONMENT=production pero se esta usando la SUBSCRIPTION_KEY publica de " +
+                    "sandbox. ICG debe provisionar la key real en CloudLicense.");
+
+            // La URL de sandbox es /pos/; la de produccion /posprod/.
+            if (BaseUrl.Contains("/pos/", StringComparison.OrdinalIgnoreCase))
+                problems.Add(
+                    $"ENVIRONMENT=production pero la BaseUrl apunta a sandbox ('{BaseUrl}'). " +
+                    "Se espera /posprod/.");
+
+            if (string.IsNullOrWhiteSpace(StoreId))
+                problems.Add("ENVIRONMENT=production sin STORE_ID configurado.");
+        }
+
+        return problems;
+    }
+
+    /// <summary>
+    /// Construye ApiConfig aplicando la precedencia CloudLicense → appsettings →
+    /// secrets → default.
+    /// </summary>
+    /// <param name="config">Configuración de .NET (appsettings + user secrets).</param>
+    /// <param name="cloud">
+    /// Parámetros de CloudLicense. Si es null se usa [EmptyCloudConfig], lo que
+    /// equivale a "no llegó nada de ICG".
+    /// </param>
+    public static ApiConfig FromConfiguration(IConfiguration config, ICloudConfig? cloud = null)
     {
         var section = config.GetSection("Credinet");
+        var printing = config.GetSection("Printing");
+        cloud ??= EmptyCloudConfig.Instance;
 
-        // HU8-973 (Opción A): los parámetros que ICG carga en CloudLicense y llegan
-        // por el INITIALIZE tienen PRIORIDAD sobre appsettings.json. Si no llegaron
-        // (sandbox/dev), se usan los de appsettings.
-        static string? Cloud(string key) => CloudConfigStore.Get(key);
+        string? Value(string cloudKey, string settingsKey) =>
+            Blank(cloud.Get(cloudKey)) ?? Blank(section[settingsKey]);
 
-        var subscriptionKey = Cloud(CloudConfigStore.SubscriptionKey) ?? section["SubscriptionKey"];
+        int Int(string cloudKey, string settingsKey, int fallback) =>
+            int.TryParse(Value(cloudKey, settingsKey), NumberStyles.Integer,
+                CultureInfo.InvariantCulture, out var v) ? v : fallback;
+
+        var subscriptionKey = Value(ICloudConfig.SubscriptionKey, "SubscriptionKey");
         if (string.IsNullOrWhiteSpace(subscriptionKey))
             throw new InvalidOperationException(
                 "Falta Credinet:SubscriptionKey (ni CloudLicense ni appsettings.json). "
-              + "Opciones: parámetro Cloud SUBSCRIPTION_KEY, appsettings.json, o "
+              + "Opciones: parametro Cloud SUBSCRIPTION_KEY, appsettings.json, o "
               + "dotnet user-secrets set \"Credinet:SubscriptionKey\" \"<key>\"");
 
-        if (subscriptionKey == "__SANDBOX__")
+        if (subscriptionKey == SandboxKeyPlaceholder)
             subscriptionKey = SandboxSubscriptionKey;
 
         // El HttpClient.BaseAddress necesita '/' final para combinar rutas relativas.
-        var baseUrl = Cloud(CloudConfigStore.ApiBaseUrl) ?? section["BaseUrl"] ?? "https://api.credinet.co/pos/";
-        if (!baseUrl.EndsWith('/'))
-            baseUrl += "/";
-
-        var storeIdRaw = Cloud(CloudConfigStore.StoreId) ?? section["StoreId"];
-        var otpRaw = Cloud(CloudConfigStore.OtpDestination) ?? section["OtpDestination"];
-        var otpDestination = int.TryParse(otpRaw, out var d) ? d : 0;
-        var environment = Cloud(CloudConfigStore.Environment) ?? section["Environment"];
+        var baseUrl = Value(ICloudConfig.ApiBaseUrl, "BaseUrl") ?? "https://api.credinet.co/pos/";
+        if (!baseUrl.EndsWith('/')) baseUrl += "/";
 
         return new ApiConfig
         {
             SubscriptionKey = subscriptionKey,
-            StoreId = string.IsNullOrWhiteSpace(storeIdRaw) ? null : storeIdRaw,
-            BaseUrl = baseUrl,
-            OtpDestination = otpDestination,
-            Source = string.IsNullOrWhiteSpace(section["Source"]) ? "2" : section["Source"]!,
-            AuthMethod = int.TryParse(section["AuthMethod"], out var am) ? am : 1,
-            Frequency = int.TryParse(section["Frequency"], out var fr) ? fr : 30,
-            TimeoutSeconds = int.TryParse(section["TimeoutSeconds"], out var ts) ? ts : 30,
-            Environment = string.IsNullOrWhiteSpace(environment) ? "sandbox" : environment,
-            OtpResendCooldownSeconds = int.TryParse(section["OtpResendCooldownSeconds"], out var orc) ? orc : 60,
-            OtpMaxResends = int.TryParse(section["OtpMaxResends"], out var omr) ? omr : 3,
-            OtpVerifyCooldownSeconds = int.TryParse(section["OtpVerifyCooldownSeconds"], out var ovc) ? ovc : 2,
-            CertificatePins = section.GetSection("CertificatePins").GetChildren()
-                .Select(c => c.Value)
-                .Where(v => !string.IsNullOrWhiteSpace(v))
-                .Select(v => v!)
-                .ToList()
+            StoreId         = Value(ICloudConfig.StoreId, "StoreId"),
+            BaseUrl         = baseUrl,
+            OtpDestination  = Int(ICloudConfig.OtpDestination, "OtpDestination", 0),
+            Environment     = Value(ICloudConfig.Environment, "Environment") ?? "sandbox",
+            StoreName       = Value(ICloudConfig.StoreName, "StoreName") ?? "Permoda",
+            PaymentMeanIdRecaudo =
+                Value(ICloudConfig.PaymentMeanIdRecaudo, "PaymentMeanIdRecaudo") ?? "1",
+            PaymentMeanIdVenta =
+                Value(ICloudConfig.PaymentMeanIdVenta, "PaymentMeanIdVenta") ?? "2",
+            Source          = Value(ICloudConfig.Source, "Source") ?? "2",
+            AuthMethod      = Int(ICloudConfig.AuthMethod, "AuthMethod", 1),
+            Frequency       = Int(ICloudConfig.Frequency, "Frequency", 30),
+            TimeoutSeconds  = Int(ICloudConfig.TimeoutSeconds, "TimeoutSeconds", 30),
+            OtpResendCooldownSeconds = Int("OTP_RESEND_COOLDOWN", "OtpResendCooldownSeconds", 60),
+            OtpMaxResends            = Int(ICloudConfig.OtpMaxResends, "OtpMaxResends", 3),
+            OtpVerifyCooldownSeconds = Int("OTP_VERIFY_COOLDOWN", "OtpVerifyCooldownSeconds", 2),
+            OtpMaxVerifyAttempts     = Int("OTP_MAX_VERIFY_ATTEMPTS", "OtpMaxVerifyAttempts", 3),
+            EnableSunmiNative        = bool.TryParse(
+                Blank(cloud.Get("ENABLE_SUNMI_NATIVE")) ?? Blank(printing["EnableSunmiNative"]),
+                out var sunmi) && sunmi,
+            CertificatePins = ReadPins(cloud, section)
         };
     }
+
+    /// <summary>
+    /// Pines TLS. QA A-5: ahora se aceptan también por CloudLicense, en una sola
+    /// cadena separada por comas o punto y coma, porque CloudLicense entrega
+    /// valores planos (no arreglos). Antes solo se leían de appsettings, así que
+    /// el pinning no se podía activar sin recompilar el APK.
+    /// </summary>
+    private static IReadOnlyList<string> ReadPins(ICloudConfig cloud, IConfigurationSection section)
+    {
+        var fromCloud = Blank(cloud.Get(ICloudConfig.CertificatePins));
+        if (fromCloud is not null)
+        {
+            return fromCloud
+                .Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .ToList();
+        }
+
+        return section.GetSection("CertificatePins").GetChildren()
+            .Select(c => c.Value)
+            .Where(v => !string.IsNullOrWhiteSpace(v))
+            .Select(v => v!.Trim())
+            .ToList();
+    }
+
+    private static string? Blank(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }

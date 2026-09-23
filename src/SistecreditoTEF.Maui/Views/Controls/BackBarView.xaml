@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    BackBarView — mini-header de las pantallas del flujo que NO usan ScaffoldView.
+
+    Es una fila: [boton atras] [titulo]. El boton cambia de texto y de destino
+    segun donde este corriendo el modulo (lo decide el code-behind):
+
+      dentro de una operacion de HioPos  ->  "Volver a HioPos"  (cierra y devuelve
+                                             el control al POS, sin cobrar)
+      abierto desde el icono (abonos)    ->  "Atras"            (pop normal)
+
+    Por eso las pantallas que lo usan ocultan la barra del Shell
+    (Shell.NavBarIsVisible="False"): con la barra puesta habria DOS flechas en la
+    misma pantalla haciendo cosas distintas, y el titulo que perdemos al ocultarla
+    lo pone este control con TitleText.
+
+    Uso:  <ctrl:BackBarView TitleText="Simular credito" />
+-->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="SistecreditoTEF.Maui.Views.Controls.BackBarView">
+    <ContentView.ControlTemplate>
+        <ControlTemplate>
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" VerticalOptions="Center">
+
+                <Button x:Name="PART_Back" Grid.Column="0"
+                        BackgroundColor="{StaticResource Surface}"
+                        TextColor="{StaticResource Primary}"
+                        BorderColor="{StaticResource Border}"
+                        BorderWidth="1"
+                        FontSize="14" FontAttributes="Bold"
+                        HeightRequest="42" MinimumWidthRequest="42"
+                        Padding="14,0" CornerRadius="21"
+                        VerticalOptions="Center" />
+
+                <Label Grid.Column="1"
+                       Text="{TemplateBinding TitleText}"
+                       IsVisible="{TemplateBinding TitleText, Converter={StaticResource StringNotEmptyConverter}}"
+                       TextColor="{StaticResource TextPrimary}"
+                       FontSize="17" FontAttributes="Bold"
+                       LineBreakMode="TailTruncation"
+                       VerticalOptions="Center" />
+
+            </Grid>
+        </ControlTemplate>
+    </ContentView.ControlTemplate>
+</ContentView>

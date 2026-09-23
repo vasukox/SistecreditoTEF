@@ -19,10 +19,18 @@
                 <Border Grid.Row="0" Background="{StaticResource HeaderBrush}" Stroke="Transparent"
                         StrokeShape="RoundRectangle 0,0,22,22" Padding="14,18,22,24">
                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
+                        <!--
+                            El texto, el ancho y el fondo los termina de decidir el
+                            code-behind: dentro de una operacion de HioPos este boton
+                            pasa a ser una pastilla que dice "Volver a HioPos", y
+                            fuera queda como la flecha sola. Por eso el ancho es
+                            MINIMO y no fijo: con WidthRequest="46" la pastilla
+                            quedaba cortada.
+                        -->
                         <Button x:Name="PART_Back" Grid.Column="0"
                                 Text="←" FontSize="26" FontAttributes="Bold"
                                 BackgroundColor="Transparent" TextColor="{StaticResource OnDark}"
-                                WidthRequest="46" HeightRequest="46" Padding="0" CornerRadius="23"
+                                MinimumWidthRequest="46" HeightRequest="46" Padding="0" CornerRadius="23"
                                 VerticalOptions="Center"
                                 IsVisible="{TemplateBinding ShowBack}" />
                         <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">

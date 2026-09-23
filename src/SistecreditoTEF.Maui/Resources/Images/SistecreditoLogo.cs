@@ -1,12 +1,83 @@
+using System.Reflection;
+
 namespace SistecreditoTEF.Maui.Resources.Images;
 
-// HU8-973: logo KOAJ (Permoda) que el modulo entrega en GET_CUSTOM_PARAMS.
-// Es el logo que HioPosCloud muestra junto al medio de pago Sistecredito.
-// Embebido como base64 (PNG 320x320) para no depender de MauiAsset/Bundle.
+/// <summary>
+/// Logo KOAJ (Permoda) que el modulo entrega en <c>GET_CUSTOM_PARAMS</c>. Es el logo
+/// que HioPosCloud muestra junto al medio de pago Sistecredito.
+///
+/// ─────────────────────────────────────────────────────────────────────────────────
+/// UNA SOLA FUENTE: EL ARCHIVO
+/// ─────────────────────────────────────────────────────────────────────────────────
+/// Antes esto era una cadena base64 pegada en el codigo, o sea una SEGUNDA COPIA de
+/// <c>Resources\AppIcon\koaj_logo.png</c>. Se comprobo que eran byte por byte
+/// identicos (2017 bytes, 320x320), pero nada lo garantizaba: reemplazar el PNG del
+/// icono dejaba a HioPos mostrando el logo anterior, sin ningun error ni aviso.
+///
+/// Ahora se lee el MISMO archivo que usa el icono del launcher, embebido como
+/// EmbeddedResource (ver el csproj). Cambiar el PNG cambia los dos lugares.
+///
+/// Por que EmbeddedResource y no MauiAsset: el logo se pide en
+/// <c>GET_CUSTOM_PARAMS</c>, que HioPos puede disparar durante el arranque, cuando el
+/// IFileSystem y el AssetManager de Android todavia no estan disponibles. Es el mismo
+/// motivo por el que <c>appsettings.json</c> va embebido.
+/// </summary>
 public static class SistecreditoLogo
 {
-    public static byte[] PngBytes { get; } = System.Convert.FromBase64String(Base64);
+    /// <summary>
+    /// Bytes del PNG. Se cargan una sola vez; [Lazy] evita hacerlo en el arranque de
+    /// la app cuando quizas nadie va a pedir el logo.
+    /// </summary>
+    public static byte[] PngBytes => _bytes.Value;
 
-    private const string Base64 =
-        "iVBORw0KGgoAAAANSUhEUgAAAUAAAAFACAMAAAD6TlWYAAAAOVBMVEVHcEwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD////u7u7Y2Ni7u7uWlpZmZmZBQUEcHBwAAAB3znkoAAAACnRSTlMAFjNSdJS31Ov4o476UgAAB01JREFUeNrt3Nty4jgUhWF0lvAB2+//sNPBIbvSGmxZyhhS83933ZUAWV6WJRm4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHhT4Q+vLlW0C3eu4PeVNsY670OIKaUYg3fOaKUuzUwIMcbsNTTT3gfvL3vSsqSgKl/5cuf1XnjGuo/clr+kjxiNvjRRYX0s++MBxo+HLQlwqQpQuTWQaLd/W1sfPn4yLU9Eb1sytMtdCup3BWj8cufNdvd8XBYxz/M0r/7KUF3q6LCskvlNASq75rI99Cgb0ld0020chr7vVn0/DONtkhhDZYRuefDq9wSo/RpMMNvxSXhD311zXT+MXyFGqyr/ymWapYK/IcDP+qXN+hmfPuMbBwlPSIjjtKyCqSvg3N+Wmh6cEGB9/Vxc7qYsvVw33BY5JMcLOF6He43t+wcok5fk9WbIEl+RR4TBVBSwu16lgq8OsH3yIiHPY3ct1Y3T5wNXFPB67aWCLw+wfe5s4lq//npEf5MLexnl7k/TXa9SwbcOUDmZvOznJ/UrNc7HBkLzKOBXBd0bBygDWzAFf9Y8Xo8bpjXBSxn/KKBUUL9vgEomLwVLg3m41uinA+tak6SAUsHXBNg6eRFK8mtI0Fz2KSng3bj8EfWbBmhl8rJJecmvIcGoSwsozyQVfL8A9c7kRVg5rSpIDl4dLKBU8A0DlLlz2cTsdm0gq4qyAopukgqeHWDb3DlvRYuuqEkqyKH6XkHzigCbNv6ESdUD4NEm2cdTZb/oXxFgy+Qlb0WrQSp45KmkgucHWD95yVvRX1t1t90KWrnY5xVUbxPgV/30pYDy2RW4pYJBHe/6ILPI1wco9bOXIqapgHmT7GYB5anaK9geYMPkRThpRavx/sQ7y8Xbs+4u5vQAaycv+Wk1XEXjbDqqnY38p8NnUGcHWH/TXJgkc8Bmk4xl5dN1GQXt2QFW3LXM2MYzOJ+QuPICCqngKwKUjb/jB7L1GpwXyW9u5BesBM8PUOonJ/DZQ6AMgkEdLqBU8DUByuRlFfSBAOXPatfNTxcjZquAcn/pRQHK5CUcvM2o448GKFeRjY38jQpGfW6A+eRF+2MJ6rTeom0nKZitjfztCiZ3coD55EX5NUtzIMDpZwO0FQWUCp4cYH7XUrnPNr4uwIoCyub+qQHmdy3lhI62fAz84QBrtmxlc//EAJ9t/K0JJnvmRUQCTHZjI7+ggicG+HTjz67/7dSJ0xjZVjFVBZQKnhfg87uWNkovWyfS7dMYKwUsuDnqzwow+o2dFxML30DrZHRv18tEOt9H7a67xvadVZ1KA9xeuEmCrZsJ7XvSdvkwFDfYq9MClPrlTJB8T9jOkgb52ptWUsEzAty/a6lDycJYbVyG22cxUsCxLzHIGxxOCFA2/nYSPGM/S1Zj+l9fxVxoreAJAZYseGVhfM4gOEh9hFuO8+qEAAuWu7IwPmcqvd6Vyx7+oPxB1IefDzCoS3GC9oxzeHhMYrICpuCLxexKrrx8NvW8AMsXxuandrTknQlCx5IlUT7rtn9fxsORAGNrgHmCye4sRsb/qIDHV2deKvj6AOWQJqf+2zfHdNPzAlZ8jsl+C7D8IJjyAKMk0pag8iUX4pqdAOUO3aLJf0kCTKUB3ofcpgbmbNzYnJHtztYTOB8ojJSpSF5bOanNgfvcvqGBNQtj5dreYy4bKWpjOKuvoCs6DPKzybU3sHxhLKuFqW8cAIPOml1RQKngwVbJ6W4qGtiWoIlNCXY3WYEJVVfA/NptpC9F2QdV2cCGhbFNkmBtfvbSXMC8gjLRshVDYEUDaxfGrj7BfpJrVHsBpYJJf/unV/VncHsDJcFoNibcNZ82HCS/rNRSy5oKehlhCnOxcsyaG5hTRQnejpWwG2fJLytD9b6K/f5Kfdl8Ugc5Zj/cwN177jJdnMbuUP2ezNJt086eDlJBaaTaa4j8VEUDWxfG8pn/4u9M6G+zHJK2Au7kb9P+wykvF+/CBlYn6Lbf4T/fhq4oPrmx0FjAvQOg3O4dHu3lKWsa2LgwlhKuprHfTm94xBed2vn72ysoA7jTGx/OkpOrooHNC+P8m4vGvnv2rTv39DY+T+GyNrRVUE6e4IzKfta4IGNJZQMbF8ZCW/nurOk23r8565Fc1/ffvjwrerN5DWiQT4MehzYFbx9fYqiU1tZ9vuAkk9zCBtYmuDOeKOvjIuZpmm5/TNM0z4tIwenNtZi5tMgn4tpF+RLDEPyHENfwZCypb2D7wlhoyTAnp9LmG1QqCri3FNRr2UR2NE9oYOEdY6WN8zEtuRSDs1oVbga0VzAb7mLKX5A5lkZKaSPA9gQlROvkLFm/RNUarcr2AiqU7Mcq/fWi0uMF8bW6AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP4X/gFCEXlxCOZcWgAAAABJRU5ErkJggg==";
+    private static readonly Lazy<byte[]> _bytes = new(Cargar);
+
+    /// <summary>Nombre logico del recurso, fijado en el csproj.</summary>
+    public const string ResourceName = "koaj_logo.png";
+
+    private static byte[] Cargar()
+    {
+        try
+        {
+            var assembly = typeof(SistecreditoLogo).Assembly;
+
+            // Se busca por SUFIJO y no por nombre exacto, por el mismo motivo que en
+            // [LoadAppSettingsFromAsset]: el nombre real del recurso depende del
+            // LogicalName y del RootNamespace, y buscar por sufijo sobrevive a los dos.
+            var nombre = assembly.GetManifestResourceNames()
+                .FirstOrDefault(n => n.EndsWith(ResourceName, StringComparison.OrdinalIgnoreCase));
+
+            if (nombre is null)
+            {
+                Common.AppLogger.E("SistecreditoLogo",
+                    $"El recurso '{ResourceName}' no esta embebido en el assembly. " +
+                    "HioPos va a mostrar un icono generico junto al medio de pago.");
+                return [];
+            }
+
+            using var stream = assembly.GetManifestResourceStream(nombre);
+            if (stream is null)
+            {
+                Common.AppLogger.E("SistecreditoLogo",
+                    $"No se pudo abrir el recurso '{nombre}'.");
+                return [];
+            }
+
+            using var memoria = new MemoryStream();
+            stream.CopyTo(memoria);
+            var bytes = memoria.ToArray();
+
+            Common.AppLogger.I("SistecreditoLogo",
+                $"Logo cargado desde EmbeddedResource ({nombre}, {bytes.Length} bytes).");
+            return bytes;
+        }
+        catch (Exception ex)
+        {
+            // Un logo que no carga NO puede tumbar el handshake con HioPos: sin logo
+            // el POS muestra un icono generico, que es una molestia estetica. Una
+            // excepcion aca dejaria el medio de pago inutilizable.
+            Common.AppLogger.E("SistecreditoLogo", "Error cargando el logo del modulo.", ex);
+            return [];
+        }
+    }
 }

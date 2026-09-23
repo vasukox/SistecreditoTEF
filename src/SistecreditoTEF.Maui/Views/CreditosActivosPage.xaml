@@ -1,15 +1,27 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+<local:HioposFlowPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:SistecreditoTEF.Maui.ViewModels"
              xmlns:models="clr-namespace:SistecreditoTEF.Maui.Models"
              xmlns:beh="clr-namespace:SistecreditoTEF.Maui.Common.Behaviors"
              xmlns:ctrl="clr-namespace:SistecreditoTEF.Maui.Views.Controls"
+             xmlns:local="clr-namespace:SistecreditoTEF.Maui.Views"
              x:Class="SistecreditoTEF.Maui.Views.CreditosActivosPage"
              x:DataType="vm:CreditosActivosViewModel"
              Shell.NavBarIsVisible="False"
+             Shell.FlyoutBehavior="Flyout"
              Title="Pagar crédito">
 
+    <!--
+        SIN PermitirVolverAHiopos, a proposito.
+
+        Este es el modulo de RECAUDO ("pagar credito"), y aca la flecha es solo para
+        moverse dentro del flujo. "Volver a HioPos" pertenece al modulo de VENTA
+        ("pagar a credito"), que es donde el cajero eligio Sistecredito como medio de
+        pago y puede arrepentirse. El boton fisico del POS SI sigue devolviendo el
+        control (ver HioposFlowPage): sin eso, salirse dejaria a HioPos esperando un
+        resultado que nunca llega.
+    -->
     <ctrl:ScaffoldView TitleText="Pagar crédito"
                        SubtitleText="Consulta los créditos pendientes del cliente"
                        ShowBack="True">
@@ -75,17 +87,39 @@
                                 </Grid>
                                 <Label Text="SALDO PENDIENTE" Style="{StaticResource FieldLabel}" />
                                 <Label Text="{Binding Balance, StringFormat='$ {0:N0}'}" Style="{StaticResource MoneyLarge}" />
-                                <Grid ColumnDefinitions="*,*" RowSpacing="2">
+
+                                <!--
+                                    Los MISMOS tres importes con los MISMOS rotulos que la
+                                    pantalla de cobro.
+
+                                    Antes esta tarjeta mostraba solo "Cuota" (FeeValue) y la
+                                    pantalla de cobro precargaba el "Pago minimo"
+                                    (MinimumPayment), que es OTRO campo de Credinet. El cajero
+                                    veia un monto afuera y otro distinto al entrar, y parecia
+                                    un error del sistema.
+                                -->
+                                <Grid ColumnDefinitions="*,*,*" RowSpacing="2" ColumnSpacing="8">
                                     <VerticalStackLayout Grid.Column="0" Spacing="1">
+                                        <Label Text="Pago mínimo" Style="{StaticResource Caption}" />
+                                        <Label Text="{Binding MinimumPayment, StringFormat='$ {0:N0}'}" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
+                                    </VerticalStackLayout>
+                                    <VerticalStackLayout Grid.Column="1" Spacing="1">
                                         <Label Text="Cuota" Style="{StaticResource Caption}" />
                                         <Label Text="{Binding FeeValue, StringFormat='$ {0:N0}'}" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
                                     </VerticalStackLayout>
-                                    <VerticalStackLayout Grid.Column="1" Spacing="1">
-                                        <Label Text="Próximo vencimiento" Style="{StaticResource Caption}" />
+                                    <VerticalStackLayout Grid.Column="2" Spacing="1">
+                                        <Label Text="Vencimiento" Style="{StaticResource Caption}" />
                                         <Label Text="{Binding DueDateDisplay}" FontAttributes="Bold" TextColor="{StaticResource TextPrimary}" />
                                     </VerticalStackLayout>
                                 </Grid>
-                                <Button Text="Pagar este crédito"
+
+                                <!-- Mora: dato que cambia la decision del cajero -->
+                                <Label Text="{Binding ArrearsDays, StringFormat='En mora: {0} días'}"
+                                       IsVisible="{Binding EstaEnMora}"
+                                       TextColor="{StaticResource Warning}"
+                                       FontSize="12" FontAttributes="Bold" />
+
+                                <Button Text="Cobrar este crédito"
                                         Style="{StaticResource SuccessButton}"
                                         Command="{Binding Source={RelativeSource AncestorType={x:Type vm:CreditosActivosViewModel}}, Path=SeleccionarCommand}"
                                         CommandParameter="{Binding .}" />
@@ -97,4 +131,4 @@
 
         </VerticalStackLayout>
     </ctrl:ScaffoldView>
-</ContentPage>
+</local:HioposFlowPage>

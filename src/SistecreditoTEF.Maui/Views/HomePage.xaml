@@ -7,6 +7,7 @@
              x:Class="SistecreditoTEF.Maui.Views.HomePage"
              x:DataType="vm:HomeViewModel"
              Shell.NavBarIsVisible="False"
+             Shell.FlyoutBehavior="Flyout"
              Title="Permoda TEF">
 
     <ctrl:ScaffoldView TitleText="Permoda"

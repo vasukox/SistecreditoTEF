@@ -1,32 +1,189 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
+  <!--
+    ════════════════════════════════════════════════════════════════════════════
+    QA C-2 · POR QUÉ ESTE PROYECTO YA NO APUNTA A net10.0-android
+    ════════════════════════════════════════════════════════════════════════════
+    Antes el TFM era net10.0-android, así que `dotnet test` generaba un
+    testhost.exe de Android que NO puede ejecutarse en Windows ni en un agente de
+    CI:
+
+      El proceso del host de prueba ... finalizó con el siguiente error:
+      You must install or update .NET to run this application.
+      App: ...\bin\Debug\net10.0-android\testhost.exe
+
+    Combinado con un fake desactualizado que rompía la compilación (CS0535), el
+    resultado era que la suite llevaba mucho tiempo sin ejecutarse NUNCA: ni
+    localmente ni en el pipeline. Varios de los defectos que la auditoría
+    encontró (el truncado de centavos, el debounce falso, el campo Frequency mal
+    mapeado) son exactamente los que un test habría atrapado.
+
+    Los tests son de LÓGICA PURA: no necesitan Android. Ahora el proyecto apunta
+    a net10.0 y compila el código de producción que no depende de la plataforma,
+    vía globs con exclusiones. Los archivos nuevos del dominio se toman
+    automáticamente; lo específico de Android (Platforms/, Views/, printers,
+    SQLite, Preferences/SecureStorage) queda fuera y lo sigue validando el build
+    del APK.
+
+    Nota: extraer un proyecto SistecreditoTEF.Core (net10.0) referenciado por el
+    APK y por los tests sería la solución ideal a largo plazo. Se dejó anotado en
+    el informe; este cambio logra el objetivo inmediato —que la suite CORRA— sin
+    mover 80 archivos de lugar.
+  -->
   <PropertyGroup>
-    <TargetFramework>net10.0-android</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <IsPackable>false</IsPackable>
     <RootNamespace>SistecreditoTEF.Tests</RootNamespace>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <!-- Reglas de estilo apagadas en tests: los nombres con _ son deliberados. -->
+    <AnalysisLevel>none</AnalysisLevel>
+    <NoWarn>$(NoWarn);CA1707;CA1861;CA1305;CA1822</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <SrcDir>$(MSBuildThisFileDirectory)..\..\src\SistecreditoTEF.Maui</SrcDir>
   </PropertyGroup>
 
   <ItemGroup>
-    <!--
-      xUnit + Moq son el estandar de facto para .NET.
-      Para el MVP usamos fakes a mano (sin Moq) en mappers y use cases,
-      consistente con la version Kotlin que decidimos no usar Mockito.
-    -->
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
-    <!--
-      Arch.Core para InstantTaskExecutorRule (si lo necesitamos para
-      LiveData equivalente; en MAUI usamos ObservableProperty que no
-      requiere este rule). Lo dejo listo por si lo migramos.
-    -->
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.3.2" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Http.Polly" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\..\src\SistecreditoTEF.Maui\SistecreditoTEF.Maui.csproj" />
+  <ItemGroup Label="Codigo de produccion (capa pura, sin Android)">
+    <!-- Common: se excluyen los helpers de UI que dependen de MAUI. -->
+    <Compile Include="$(SrcDir)\Common\**\*.cs"
+             Exclude="$(SrcDir)\Common\Behaviors\**\*.cs;
+                      $(SrcDir)\Common\EnumToBoolConverter.cs;
+                      $(SrcDir)\Common\StringNotEmptyConverter.cs;
+                      $(SrcDir)\Common\InvertedBoolConverter.cs;
+                      $(SrcDir)\Common\AppRoutes.cs" />
+
+    <Compile Include="$(SrcDir)\Enums\**\*.cs" />
+    <Compile Include="$(SrcDir)\Models\**\*.cs" />
+    <Compile Include="$(SrcDir)\Dtos\**\*.cs" />
+    <Compile Include="$(SrcDir)\Mappers\**\*.cs" />
+    <Compile Include="$(SrcDir)\Services\Credinet\**\*.cs" />
+    <Compile Include="$(SrcDir)\Services\Hiopos\**\*.cs" />
+
+    <!--
+      Replicacion del padron entre cajas. Entra ENTERA a proposito: todo menos las
+      pantallas usa unicamente sockets del BCL (System.Net.Sockets), asi que el
+      emparejamiento completo —servidor, cliente, codigo, cifrado— corre sobre
+      127.0.0.1 en pruebas unitarias, sin ningun dispositivo.
+
+      No es un lujo: en el modulo de origen fue una prueba de transporte sobre
+      loopback, y no una tienda, la que encontro que el servidor mandaba el error
+      sin el saludo previo y dejaba al cliente leyendo algo que no entendia.
+    -->
+    <Compile Include="$(SrcDir)\Services\Pairing\**\*.cs" />
+
+    <!--
+      Auth: la logica de ingreso y el hashing son puros y se testean. El store
+      SQLite queda fuera (toca SQLCipher y el Keystore de Android) y lo cubre el
+      build del APK.
+    -->
+    <Compile Include="$(SrcDir)\Services\Auth\PasswordHasher.cs" />
+    <Compile Include="$(SrcDir)\Services\Auth\Cajero.cs" />
+    <Compile Include="$(SrcDir)\Services\Auth\IAuthStore.cs" />
+    <Compile Include="$(SrcDir)\Services\Auth\AuthService.cs" />
+    <Compile Include="$(SrcDir)\Services\Auth\SesionCajero.cs" />
+    <Compile Include="$(SrcDir)\UseCases\**\*.cs" />
+
+    <!--
+      Services\Platform: se incluyen SOLO los archivos puros. Los que tocan
+      Preferences, SecureStorage, SQLite, Android.Print o Shell quedan fuera.
+    -->
+    <!--
+      Red de seguridad contra caidas. Entra entera porque es logica pura (System.IO
+      y nada mas): el enganche con Android vive aparte, en Platforms\.
+    -->
+    <Compile Include="$(SrcDir)\Services\Platform\CrashRecord.cs" />
+    <Compile Include="$(SrcDir)\Services\Platform\CrashStore.cs" />
+    <Compile Include="$(SrcDir)\Services\Platform\CrashHandler.cs" />
+
+    <Compile Include="$(SrcDir)\Services\Platform\CloudConfigParser.cs" />
+    <Compile Include="$(SrcDir)\Services\Platform\XmlDocumentReader.cs" />
+    <Compile Include="$(SrcDir)\Services\Platform\IDocumentReader.cs" />
+    <Compile Include="$(SrcDir)\Services\Platform\ITransactionStateStore.cs" />
+    <Compile Include="$(SrcDir)\Services\Platform\ILaunchContext.cs" />
+    <Compile Include="$(SrcDir)\Services\Platform\TransactionStateStore.cs" />
+    <Compile Include="$(SrcDir)\Services\Platform\IIdempotencyStore.cs" />
+    <Compile Include="$(SrcDir)\Services\Platform\IAuditLogger.cs" />
+    <Compile Include="$(SrcDir)\Services\Platform\IAuditLogCapture.cs" />
+    <Compile Include="$(SrcDir)\Services\Platform\InMemoryAuditLog.cs" />
+    <Compile Include="$(SrcDir)\Services\Platform\AuditActions.cs" />
+    <Compile Include="$(SrcDir)\Services\Platform\OtpRequestThrottle.cs" />
+    <Compile Include="$(SrcDir)\Services\Platform\ITokenStore.cs" />
+    <Compile Include="$(SrcDir)\Services\Platform\ITransactionResultHandler.cs" />
+    <Compile Include="$(SrcDir)\Services\Platform\INavigationService.cs" />
+    <Compile Include="$(SrcDir)\Services\Platform\IRequestLogCapture.cs" />
+    <Compile Include="$(SrcDir)\Services\Platform\InMemoryRequestLogCapture.cs" />
+    <Compile Include="$(SrcDir)\Services\Platform\HttpLoggingHandler.cs" />
+    <!-- Impresion de abonos: el layout y el PDF son puros y se testean. -->
+    <Compile Include="$(SrcDir)\Services\Platform\IReceiptPrinter.cs" />
+    <Compile Include="$(SrcDir)\Services\Platform\ReceiptTextBuilder.cs" />
+    <Compile Include="$(SrcDir)\Services\Platform\ThermalPdfWriter.cs" />
+    <Compile Include="$(SrcDir)\Services\Platform\EscPos.cs" />
+    <Compile Include="$(SrcDir)\Services\Platform\CompositeReceiptPrinter.cs" />
+
+    <!--
+      ViewModels sin dependencias de plataforma.
+
+      PagoViewModel se incluyo despues de aprender por que importa: la suite podia
+      estar verde mientras el APK NI COMPILABA, porque esta pantalla —la que decide
+      cuanto se cobra— no estaba en el set de compilacion. Un rename dejo un
+      CS0103 que el `dotnet test` no vio.
+    -->
+    <Compile Include="$(SrcDir)\ViewModels\SeleccionCuotasViewModel.cs" />
+    <Compile Include="$(SrcDir)\ViewModels\PagoViewModel.cs" />
+
+    <!--
+      Entra para que un test por reflexion pueda verificar que NO implementa
+      IAsyncDisposable. Como transient solo-async, el contenedor de MAUI —que
+      libera en forma sincrona— tumbaba la app al salir de la pantalla. Paso en
+      produccion, en la caja 3 de la primera tienda.
+    -->
+    <Compile Include="$(SrcDir)\ViewModels\ReplicacionViewModel.cs" />
+
+    <!--
+      Los tres ViewModels de la puerta de entrada: crear el PIN, administrar
+      cajeros e ingresar. No tenian ni una prueba, y es donde se decide quien puede
+      operar la caja y quien firma cada abono. Los tres son logica pura (solo
+      CommunityToolkit y las interfaces de servicios), asi que entran tal cual.
+    -->
+    <Compile Include="$(SrcDir)\ViewModels\ConfigurarAdminViewModel.cs" />
+    <Compile Include="$(SrcDir)\ViewModels\AdminCajerosViewModel.cs" />
+    <Compile Include="$(SrcDir)\ViewModels\IngresoCajeroViewModel.cs" />
+
+    <!--
+      El logo que se le entrega a HioPos, con SU PNG embebido igual que en el APK.
+      Sin el EmbeddedResource aca, el test que compara el logo contra el archivo del
+      repo no podria correr y la deriva entre las dos copias volveria a ser invisible
+      hasta que alguien mirara la pantalla de medios de pago del POS.
+    -->
+    <Compile Include="$(SrcDir)\Resources\Images\SistecreditoLogo.cs" />
+    <EmbeddedResource Include="$(SrcDir)\Resources\AppIcon\koaj_logo.png"
+                      LogicalName="koaj_logo.png" />
+  </ItemGroup>
+
+  <ItemGroup Label="Tests">
+    <Compile Include="Common\**\*.cs" />
+    <Compile Include="Enums\**\*.cs" />
+    <Compile Include="Mappers\**\*.cs" />
+    <Compile Include="Services\**\*.cs" />
+    <Compile Include="UseCases\**\*.cs" />
+    <Compile Include="ViewModels\**\*.cs" />
+    <Compile Include="Platform\**\*.cs" />
+    <Compile Include="Resources\**\*.cs" />
   </ItemGroup>
 
 </Project>

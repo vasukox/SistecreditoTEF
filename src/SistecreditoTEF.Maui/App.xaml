@@ -12,6 +12,7 @@
             </ResourceDictionary.MergedDictionaries>
             <common:EnumToBoolConverter x:Key="EnumToBoolConverter" />
             <common:StringNotEmptyConverter x:Key="StringNotEmptyConverter" />
+            <common:InvertedBoolConverter x:Key="InvertedBoolConverter" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

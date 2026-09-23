@@ -19,6 +19,24 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <!--
+      USB Host: para imprimir el comprobante de abono en la termica del POS.
+
+      Se verifico en el terminal que la impresora es un dispositivo USB de clase 07
+      (SOL801V Printer, VID 0x0483 / PID 0x5720, bulk OUT 0x01) y que HioPos le
+      habla con la API USB Host. Ver [UsbEscPosPrinter].
+
+      required=false a proposito: si un terminal no tuviera impresora USB, la app
+      igual debe instalarse y funcionar (el comprobante cae al siguiente medio de
+      la cadena de impresion).
+
+      NO se declara un intent-filter USB_DEVICE_ATTACHED: en un POS con la
+      impresora conectada de forma permanente, ese filtro haria que Android lance
+      esta app al detectar el dispositivo (incluido el arranque del terminal),
+      interrumpiendo a HioPos. El permiso se pide en la primera impresion.
+    -->
+    <uses-feature android:name="android.hardware.usb.host" android:required="false" />
+
+    <!--
       Almacenamiento: requeridos para leer el DocumentData XML que
       HioPosCloud escribe en disco cuando OnlyUseDocumentPath=true
       (doc §6 y §12 gotcha #9).
@@ -31,8 +49,47 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
                      android:maxSdkVersion="29" />
 
+    <!--
+      HU8-973 BugFix #1: <queries> es OBLIGATORIO en Android 11+ (API 30+)
+      para que [PackageManager.GetPackageInfo] encuentre paquetes externos.
+      Docs: https://developer.android.com/training/package-visibility
+
+      QA: se corrigio el paquete de Sunmi. Antes decia
+      "com.sunmi.printerservice", que no es el servicio de impresion de Sunmi;
+      el AIDL real vive en "woyou.aidlservice.jiuv5". Con el nombre equivocado
+      la deteccion nunca podia funcionar.
+    -->
+    <queries>
+        <!-- SunmiPrinter: servicio AIDL real de Sunmi (ver SunmiPrinter.cs). -->
+        <package android:name="woyou.aidlservice.jiuv5" />
+        <!-- PdfReceiptPrinter: apps que reciben ACTION_SEND con un PDF. -->
+        <intent>
+            <action android:name="android.intent.action.SEND" />
+            <data android:mimeType="application/pdf" />
+        </intent>
+    </queries>
+
+    <!--
+      android:icon / android:roundIcon — SIN ESTO NO SE VE EL LOGO.
+
+      El <MauiIcon Include="Resources\AppIcon\koaj_logo.png"> del csproj genera los
+      mipmap en todas las densidades (mdpi a xxxhdpi, mas el adaptive icon de
+      anydpi-v26), y se verifico que quedan DENTRO del APK. Pero como este bloque
+      <application> se declara a mano, MAUI no inyecta el atributo, y sin el nada
+      apunta a esos recursos: Android usa el icono por defecto.
+
+      El sintoma es enganoso: revisar el contenido del APK muestra
+      res/mipmap-*/koaj_logo.png presentes y parece que esta bien. Lo que hay que
+      mirar es el atributo:
+
+          aapt2 dump badging <apk>  ->  application: label='Sistecredito' icon=''
+                                                                          ^^^^^^^^
+      Con icon='' el logo esta empaquetado y muerto.
+    -->
     <application
         android:label="Sistecredito"
+        android:icon="@mipmap/koaj_logo"
+        android:roundIcon="@mipmap/koaj_logo_round"
         android:allowBackup="false"
         android:supportsRtl="true"
         android:theme="@style/Theme.SistecreditoTEF">

@@ -42,4 +42,13 @@ public abstract record ApiError(string UserMessage)
     /// </summary>
     public sealed record Business(int Code, string Message, string? Function = null)
         : ApiError($"CREDINET: {Message}");
+
+    /// <summary>
+    /// QA: fallo generado por la propia app, sin haber consultado a CREDINET
+    /// (p. ej. un cache de idempotencia incompleto, o una configuracion
+    /// invalida). Antes estos casos se disfrazaban de [Business], y el mensaje
+    /// que veia el cajero empezaba con "CREDINET:", culpando al proveedor de un
+    /// problema local.
+    /// </summary>
+    public sealed record Local(string Message) : ApiError(Message);
 }

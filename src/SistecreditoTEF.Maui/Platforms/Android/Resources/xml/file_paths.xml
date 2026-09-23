@@ -3,7 +3,7 @@
     <!--
       FileProvider para el share intent del PdfReceiptPrinter.
       Permite compartir archivos del cache dir (donde escribimos los
-      comprobantes .txt) a otras apps via Intent.ActionSend.
+      comprobantes .pdf) a otras apps via Intent.ActionSend.
     -->
     <cache-path name="cache" path="." />
     <files-path name="files" path="." />

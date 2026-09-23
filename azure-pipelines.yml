@@ -1,0 +1,95 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# Integración continua — módulo TEF Sistecrédito (HU8-973)
+# ══════════════════════════════════════════════════════════════════════════════
+# Hoy la suite corre cuando alguien se acuerda de escribir `dotnet test`. Con ~1.500
+# terminales en el despliegue, eso no puede seguir siendo una decisión de cada día.
+#
+# El pipeline hace DOS cosas, y las dos importan por separado:
+#
+#   1. Corre las pruebas (capa pura, sin Android). Es rápido y es lo que corta un
+#      merge que rompe algo.
+#   2. Compila el APK de PRUEBAS. Suena redundante y no lo es: la suite puede estar
+#      verde con el APK sin compilar, porque el proyecto de tests solo incluye los
+#      archivos que declara. Ya pasó: un rename dejó un CS0103 que `dotnet test` no
+#      veía.
+#
+# El APK de PRODUCCIÓN no se construye acá a propósito: necesita el keystore y sus
+# contraseñas, y esas no viven en el repositorio. Se firma donde estén.
+
+trigger:
+  branches:
+    include:
+      - main
+      - 'feature/*'
+      - 'hu/*'
+
+pr:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: 'windows-latest'
+
+variables:
+  solucion: 'SistecreditoTEF.sln'
+  proyectoTests: 'tests/SistecreditoTEF.Tests/SistecreditoTEF.Tests.csproj'
+  proyectoApp: 'src/SistecreditoTEF.Maui/SistecreditoTEF.Maui.csproj'
+
+stages:
+  - stage: Verificar
+    displayName: 'Pruebas y compilación'
+    jobs:
+      - job: Pruebas
+        displayName: 'Suite de pruebas'
+        steps:
+          - task: UseDotNet@2
+            displayName: 'SDK .NET 10'
+            inputs:
+              packageType: 'sdk'
+              version: '10.0.x'
+
+          - script: dotnet restore $(proyectoTests)
+            displayName: 'Restaurar'
+
+          # --logger trx para que los resultados se vean en la pestaña Tests de
+          # Azure DevOps y no haya que leer el log crudo para saber qué falló.
+          - script: >
+              dotnet test $(proyectoTests)
+              --configuration Release
+              --logger "trx;LogFileName=pruebas.trx"
+              --results-directory $(Agent.TempDirectory)/resultados
+            displayName: 'Ejecutar pruebas'
+
+          - task: PublishTestResults@2
+            displayName: 'Publicar resultados'
+            condition: succeededOrFailed()
+            inputs:
+              testResultsFormat: 'VSTest'
+              testResultsFiles: '**/pruebas.trx'
+              searchFolder: '$(Agent.TempDirectory)/resultados'
+              failTaskOnFailedTests: true
+
+      - job: CompilarApk
+        displayName: 'Compilar APK de pruebas'
+        dependsOn: Pruebas
+        steps:
+          - task: UseDotNet@2
+            displayName: 'SDK .NET 10'
+            inputs:
+              packageType: 'sdk'
+              version: '10.0.x'
+
+          - script: dotnet workload install maui-android
+            displayName: 'Workload MAUI Android'
+
+          # Sin -p:Ambiente=produccion: sale el de sandbox, que es el valor por
+          # defecto deliberado (ver el .csproj). AllowUnsignedRelease porque el
+          # keystore de producción no está en el repositorio; el APK que se firma
+          # de verdad no sale de acá.
+          - script: >
+              dotnet build $(proyectoApp)
+              --configuration Release
+              --framework net10.0-android
+              -p:AllowUnsignedRelease=true
+            displayName: 'Compilar (sandbox, sin firmar)'

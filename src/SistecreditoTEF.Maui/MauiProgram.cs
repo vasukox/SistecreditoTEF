@@ -68,9 +68,33 @@ public static class MauiProgram
         builder.Services.AddSingleton<IStandaloneModeTracker, StandaloneModeTracker>();
 
         var app = builder.Build();
-        Android.Util.Log.Info("MauiProgram", $"Build SUCCESS. App null={app == null}");
+        // Se loguea que el contenedor quedo armado, sin comparar contra null:
+        // builder.Build() nunca devuelve null, y esa comparacion le decia al
+        // compilador que si podia, con lo que el acceso a app.Services de la linea
+        // siguiente quedaba marcado como posible desreferencia nula (CS8602). El
+        // aviso era falso, pero tapaba los avisos reales.
+        Android.Util.Log.Info("MauiProgram", "Build SUCCESS: contenedor de servicios listo.");
 
         AppLogger.Init(app.Services.GetRequiredService<ILogger<SistecreditoApp>>());
+
+#if ANDROID
+        // ─────────────────────────────────────────────────────────────────────
+        // RED DE SEGURIDAD: lo PRIMERO despues de que existe el log
+        // ─────────────────────────────────────────────────────────────────────
+        // Va aca y no antes porque necesita el logger y el contenedor; y va antes
+        // de devolver la app porque a partir de este punto cualquier excepcion no
+        // atrapada —incluidas las que lanza el propio contenedor al liberar
+        // servicios, que ya tumbaron una caja en produccion— queda registrada, no
+        // cierra la app y, si habia una venta viva, se le responde al POS.
+        Platforms.Android.CrashGuard.Instalar(app.Services);
+
+        // La llave de suscripcion se lee de SecureStorage de forma SINCRONA la
+        // primera vez que se arma una peticion HTTP. Se precalienta aca para que
+        // ese camino encuentre la cache llena y nunca bloquee un hilo esperando al
+        // Keystore. Es mejor esfuerzo: si falla, el camino sincronico sigue ahi.
+        Fire.AndForget(CloudConfigStore.PrecalentarAsync, "CloudConfigStore");
+#endif
+
         return app;
     }
 }
