@@ -51,9 +51,11 @@
                         </Border>
                         <Button Text="Agregar"
                                 Command="{Binding AgregarCommand}"
-                                HeightRequest="46"
-                                BackgroundColor="{StaticResource PrimaryTint}"
-                                TextColor="{StaticResource PrimaryDark}" />
+                                Style="{StaticResource SecondaryButton}">
+                            <Button.Behaviors>
+                                <beh:PressableBehavior />
+                            </Button.Behaviors>
+                        </Button>
                     </VerticalStackLayout>
                 </Border>
 
@@ -80,9 +82,7 @@
                                                    IsVisible="{Binding Activo, Converter={StaticResource InvertedBoolConverter}}" />
                                         </VerticalStackLayout>
                                         <Button Grid.Column="1" Text="Clave"
-                                                FontSize="12" HeightRequest="38" Padding="10,0"
-                                                BackgroundColor="{StaticResource PrimaryTint}"
-                                                TextColor="{StaticResource PrimaryDark}"
+                                                Style="{StaticResource ChipButton}"
                                                 Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.CambiarClaveCommand}"
                                                 CommandParameter="{Binding .}" />
                                         <!--
@@ -92,16 +92,12 @@
                                             primero y la baja era irreversible.
                                         -->
                                         <Button Grid.Column="2" Text="Quitar"
-                                                FontSize="12" HeightRequest="38" Padding="10,0"
-                                                BackgroundColor="Transparent"
-                                                TextColor="{StaticResource TextMuted}"
+                                                Style="{StaticResource ChipOutlineButton}"
                                                 IsVisible="{Binding Activo}"
                                                 Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.DesactivarCommand}"
                                                 CommandParameter="{Binding .}" />
                                         <Button Grid.Column="2" Text="Activar"
-                                                FontSize="12" HeightRequest="38" Padding="10,0"
-                                                BackgroundColor="{StaticResource Accent}"
-                                                TextColor="{StaticResource OnAccent}"
+                                                Style="{StaticResource ChipAccentButton}"
                                                 IsVisible="{Binding Activo, Converter={StaticResource InvertedBoolConverter}}"
                                                 Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ReactivarCommand}"
                                                 CommandParameter="{Binding .}" />
@@ -123,14 +119,10 @@
                         <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
                             <Button Grid.Column="0" Text="Guardar"
                                     Command="{Binding GuardarClaveNuevaCommand}"
-                                    HeightRequest="46"
-                                    BackgroundColor="{StaticResource PrimaryTint}"
-                                    TextColor="{StaticResource PrimaryDark}" />
+                                    Style="{StaticResource SecondaryButton}" />
                             <Button Grid.Column="1" Text="Cancelar"
                                     Command="{Binding CancelarCambioClaveCommand}"
-                                    HeightRequest="46"
-                                    BackgroundColor="Transparent"
-                                    TextColor="{StaticResource TextMuted}" />
+                                    Style="{StaticResource OutlineButton}" />
                         </Grid>
                     </VerticalStackLayout>
                 </Border>
@@ -162,9 +154,7 @@
                         </Border>
                         <Button Text="Cambiar PIN"
                                 Command="{Binding CambiarPinCommand}"
-                                HeightRequest="46"
-                                BackgroundColor="Transparent"
-                                TextColor="{StaticResource TextMuted}" />
+                                Style="{StaticResource OutlineButton}" />
                     </VerticalStackLayout>
                 </Border>
 
@@ -180,9 +170,7 @@
                                Text="Esta caja ya está configurada: puede pasarle el PIN y los cajeros a las demás con un código de 6 dígitos, sin volver a teclear nada." />
                         <Button Text="Compartir con otra caja"
                                 Command="{Binding ReplicarCommand}"
-                                HeightRequest="46"
-                                BackgroundColor="{StaticResource PrimaryTint}"
-                                TextColor="{StaticResource PrimaryDark}">
+                                Style="{StaticResource SecondaryButton}">
                             <Button.Behaviors>
                                 <beh:PressableBehavior />
                             </Button.Behaviors>
@@ -198,9 +186,7 @@
                         -->
                         <Button Text="Actualizar cajeros desde otra caja"
                                 Command="{Binding ActualizarCajerosCommand}"
-                                HeightRequest="46"
-                                BackgroundColor="Transparent"
-                                TextColor="{StaticResource PrimaryDark}">
+                                Style="{StaticResource OutlineButton}">
                             <Button.Behaviors>
                                 <beh:PressableBehavior />
                             </Button.Behaviors>

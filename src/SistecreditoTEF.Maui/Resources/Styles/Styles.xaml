@@ -224,11 +224,199 @@
         </Setter>
     </Style>
 
+    <!--
+        ════════════════════════════════════════════════════════════════════════
+        SECUNDARIO — la acción que acompaña, no la que manda
+        ════════════════════════════════════════════════════════════════════════
+        Existe porque no existía, y por eso las acciones de segundo orden se
+        escribían a mano en cada pantalla: BackgroundColor="Transparent",
+        HeightRequest="46", sin esquina, sin sombra y sin estado de presión. Al
+        lado de una píldora de 56dp con sombra, eso no se lee como un botón sino
+        como una etiqueta que alguien olvidó terminar.
+
+        Comparte GEOMETRÍA con el primario —misma altura, misma píldora, mismo
+        peso de fuente— y se diferencia solo por el color: azul al 10% con texto
+        azul oscuro. Esa es la forma correcta de bajar jerarquía en un POS: el
+        dedo apunta igual de fácil, la vista sabe cuál es primero.
+
+        La sombra es más suave que la del primario (0.10 contra 0.16): está
+        apoyado en la tarjeta, no flotando encima.
+    -->
+    <Style TargetType="Button" x:Key="SecondaryButton">
+        <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
+        <Setter Property="TextColor" Value="{StaticResource PrimaryDark}" />
+        <Setter Property="CornerRadius" Value="28" />
+        <Setter Property="HeightRequest" Value="56" />
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="Shadow">
+            <Shadow Brush="{StaticResource ShadowBrush}" Offset="0,2" Radius="8" Opacity="0.10" />
+        </Setter>
+        <Setter Property="VisualStateManager.VisualStateGroups">
+            <VisualStateGroupList>
+                <VisualStateGroup x:Name="CommonStates">
+                    <VisualState x:Name="Normal">
+                        <VisualState.Setters>
+                            <Setter Property="Scale" Value="1" />
+                            <Setter Property="Opacity" Value="1" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="Pressed">
+                        <VisualState.Setters>
+                            <Setter Property="Scale" Value="0.98" />
+                            <Setter Property="BackgroundColor" Value="{StaticResource SelectTint}" />
+                            <Setter Property="TextColor" Value="{StaticResource Primary}" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="Disabled">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="{StaticResource SurfaceAlt}" />
+                            <Setter Property="TextColor" Value="{StaticResource TextMuted}" />
+                            <Setter Property="Opacity" Value="0.6" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateGroupList>
+        </Setter>
+    </Style>
+
+    <!--
+        ════════════════════════════════════════════════════════════════════════
+        DELINEADO — tercer nivel, y sigue siendo un botón
+        ════════════════════════════════════════════════════════════════════════
+        Para la acción que casi nunca se usa pero tiene que estar (descartar,
+        cerrar la ventana, escribir la dirección a mano). El borde es lo que la
+        mantiene del lado de los botones: sin él vuelve a ser texto suelto, y un
+        texto suelto en un POS nadie sabe si se toca.
+
+        Al presionar se RELLENA en vez de solo encogerse: en una pantalla con
+        reflejos, un cambio de área se ve y un cambio de 2% de escala no.
+    -->
+    <Style TargetType="Button" x:Key="OutlineButton">
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="TextColor" Value="{StaticResource TextSecondary}" />
+        <Setter Property="BorderColor" Value="{StaticResource Border}" />
+        <Setter Property="BorderWidth" Value="1.5" />
+        <Setter Property="CornerRadius" Value="26" />
+        <Setter Property="HeightRequest" Value="50" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="VisualStateManager.VisualStateGroups">
+            <VisualStateGroupList>
+                <VisualStateGroup x:Name="CommonStates">
+                    <VisualState x:Name="Normal">
+                        <VisualState.Setters>
+                            <Setter Property="Scale" Value="1" />
+                            <Setter Property="BackgroundColor" Value="Transparent" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="Pressed">
+                        <VisualState.Setters>
+                            <Setter Property="Scale" Value="0.98" />
+                            <Setter Property="BackgroundColor" Value="{StaticResource SurfaceAlt}" />
+                            <Setter Property="TextColor" Value="{StaticResource TextPrimary}" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="Disabled">
+                        <VisualState.Setters>
+                            <Setter Property="Opacity" Value="0.45" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateGroupList>
+        </Setter>
+    </Style>
+
+    <!--
+        ════════════════════════════════════════════════════════════════════════
+        PASTILLAS — botones dentro de una fila de lista
+        ════════════════════════════════════════════════════════════════════════
+        Los de la lista de cajeros ("Clave", "Quitar", "Activar") viven dentro de
+        una fila, así que no pueden medir 56dp: compiten con el nombre del cajero,
+        que es lo que hay que leer primero. Pero tampoco pueden ser texto plano —
+        eran BackgroundColor="Transparent" sin borde, y así "Quitar" no se
+        distinguía de una etiqueta.
+
+        Son la misma píldora, en chico: 40dp, radio completo y el color dice qué
+        hace. 40dp queda por debajo de los 48 recomendados para un dedo, y se
+        acepta a propósito: van de a dos en una fila y agrandarlas empujaría el
+        nombre fuera de pantalla. El acierto se ayuda con el espacio entre ellas.
+    -->
+    <Style TargetType="Button" x:Key="ChipButton">
+        <Setter Property="BackgroundColor" Value="{StaticResource PrimaryTint}" />
+        <Setter Property="TextColor" Value="{StaticResource PrimaryDark}" />
+        <Setter Property="CornerRadius" Value="20" />
+        <Setter Property="HeightRequest" Value="40" />
+        <Setter Property="Padding" Value="16,0" />
+        <Setter Property="FontSize" Value="12.5" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="VisualStateManager.VisualStateGroups">
+            <VisualStateGroupList>
+                <VisualStateGroup x:Name="CommonStates">
+                    <VisualState x:Name="Normal">
+                        <VisualState.Setters>
+                            <Setter Property="Scale" Value="1" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="Pressed">
+                        <VisualState.Setters>
+                            <Setter Property="Scale" Value="0.96" />
+                            <Setter Property="BackgroundColor" Value="{StaticResource SelectTint}" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateGroupList>
+        </Setter>
+    </Style>
+
+    <!-- Pastilla delineada: la acción de bajar a alguien no se ofrece rellena. -->
+    <Style TargetType="Button" x:Key="ChipOutlineButton" BasedOn="{StaticResource ChipButton}">
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="TextColor" Value="{StaticResource TextSecondary}" />
+        <Setter Property="BorderColor" Value="{StaticResource Border}" />
+        <Setter Property="BorderWidth" Value="1.5" />
+    </Style>
+
+    <!-- Pastilla de acento: reactivar es devolverle el acceso a alguien. -->
+    <Style TargetType="Button" x:Key="ChipAccentButton" BasedOn="{StaticResource ChipButton}">
+        <Setter Property="BackgroundColor" Value="{StaticResource Accent}" />
+        <Setter Property="TextColor" Value="{StaticResource OnAccent}" />
+    </Style>
+
+    <!--
+        Delineado sobre el HERO azul. El borde y el texto grises desaparecen ahí,
+        así que van en blanco translúcido. Mismo control, otro fondo.
+    -->
+    <Style TargetType="Button" x:Key="OutlineOnHeroButton" BasedOn="{StaticResource OutlineButton}">
+        <Setter Property="TextColor" Value="{StaticResource OnHeroMuted}" />
+        <Setter Property="BorderColor" Value="{StaticResource OnHeroTileBorder}" />
+        <Setter Property="VisualStateManager.VisualStateGroups">
+            <VisualStateGroupList>
+                <VisualStateGroup x:Name="CommonStates">
+                    <VisualState x:Name="Normal">
+                        <VisualState.Setters>
+                            <Setter Property="Scale" Value="1" />
+                            <Setter Property="BackgroundColor" Value="Transparent" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="Pressed">
+                        <VisualState.Setters>
+                            <Setter Property="Scale" Value="0.98" />
+                            <Setter Property="BackgroundColor" Value="{StaticResource OnHeroTile}" />
+                            <Setter Property="TextColor" Value="{StaticResource White}" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateGroupList>
+        </Setter>
+    </Style>
+
     <Style TargetType="Button" x:Key="BorderlessButton">
         <Setter Property="BackgroundColor" Value="Transparent" />
         <Setter Property="TextColor" Value="{StaticResource Primary}" />
         <Setter Property="FontAttributes" Value="Bold" />
         <Setter Property="FontSize" Value="14" />
+        <Setter Property="HeightRequest" Value="44" />
     </Style>
 
     <!-- ============ ENTRY ============ -->

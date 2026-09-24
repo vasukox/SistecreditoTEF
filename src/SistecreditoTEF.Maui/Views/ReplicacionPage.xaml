@@ -24,11 +24,19 @@
                 <Border.Behaviors>
                     <beh:EntranceBehavior />
                 </Border.Behaviors>
+                <!--
+                    Segmentado de verdad: los dos botones llenan la píldora del
+                    contenedor, el elegido queda sólido y el otro queda hueco pero
+                    con su área intacta. Antes los dos eran transparentes con
+                    esquina de 10 dentro de una tarjeta de 16, así que el que no
+                    estaba elegido no se leía como algo que se pudiera tocar.
+                -->
                 <Grid ColumnDefinitions="*,*" ColumnSpacing="6">
                     <Button Grid.Column="0" Text="Traer a esta caja"
-                            FontSize="13.5" HeightRequest="46" CornerRadius="10"
+                            FontSize="13.5" HeightRequest="48" CornerRadius="24"
+                            FontAttributes="Bold"
                             BackgroundColor="Transparent"
-                            TextColor="{StaticResource TextMuted}"
+                            TextColor="{StaticResource TextSecondary}"
                             Command="{Binding VerRecibirCommand}">
                         <Button.Behaviors>
                             <beh:PressableBehavior />
@@ -42,9 +50,10 @@
                     </Button>
 
                     <Button Grid.Column="1" Text="Compartir desde aquí"
-                            FontSize="13.5" HeightRequest="46" CornerRadius="10"
+                            FontSize="13.5" HeightRequest="48" CornerRadius="24"
+                            FontAttributes="Bold"
                             BackgroundColor="Transparent"
-                            TextColor="{StaticResource TextMuted}"
+                            TextColor="{StaticResource TextSecondary}"
                             Command="{Binding VerCompartirCommand}">
                         <Button.Behaviors>
                             <beh:PressableBehavior />
@@ -150,8 +159,7 @@
                             escanear al lado. Se abre sola si el escaneo no encuentra nada.
                         -->
                         <Button Text="Escribir la dirección a mano"
-                                Style="{StaticResource BorderlessButton}"
-                                FontSize="12.5"
+                                Style="{StaticResource OutlineButton}"
                                 Command="{Binding AlternarDireccionAManoCommand}" />
 
                         <Border Style="{StaticResource FieldCard}"
@@ -336,18 +344,25 @@
                             la tienda queda con el PIN equivocado y quien lo cambió bien
                             se queda afuera de las demás cajas.
                         -->
-                        <VerticalStackLayout Spacing="2" IsVisible="{Binding SoloCajeros}">
-                            <HorizontalStackLayout Spacing="10">
-                                <CheckBox IsChecked="{Binding IncluirPinAdmin, Mode=TwoWay}"
-                                          Color="{StaticResource Primary}" VerticalOptions="Center" />
-                                <Label Text="También traer el PIN de administrador"
-                                       VerticalOptions="Center" FontSize="13.5"
-                                       TextColor="{StaticResource TextPrimary}" />
-                            </HorizontalStackLayout>
-                            <Label Text="Déjalo sin marcar salvo que hayas cambiado el PIN en la otra caja."
-                                   Style="{StaticResource Caption}"
-                                   TextColor="{StaticResource TextMuted}" />
-                        </VerticalStackLayout>
+                        <Border IsVisible="{Binding SoloCajeros}"
+                                BackgroundColor="{StaticResource SurfaceAlt}"
+                                Stroke="{StaticResource Border}" StrokeThickness="1"
+                                StrokeShape="RoundRectangle 14" Padding="14,10">
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                <CheckBox Grid.Column="0"
+                                          IsChecked="{Binding IncluirPinAdmin, Mode=TwoWay}"
+                                          Color="{StaticResource Primary}"
+                                          VerticalOptions="Center" />
+                                <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                                    <Label Text="También traer el PIN de administrador"
+                                           FontSize="13.5" FontAttributes="Bold"
+                                           TextColor="{StaticResource TextPrimary}" />
+                                    <Label Text="Déjalo sin marcar salvo que hayas cambiado el PIN en la otra caja."
+                                           Style="{StaticResource Caption}"
+                                           TextColor="{StaticResource TextMuted}" />
+                                </VerticalStackLayout>
+                            </Grid>
+                        </Border>
 
                         <Button Text="{Binding TextoDelBotonAceptar}"
                                 Style="{StaticResource PrimaryButton}"
@@ -361,8 +376,7 @@
                              resumen muestra una tienda que no es, el único camino no
                              puede ser aceptar. -->
                         <Button Text="Descartar"
-                                Style="{StaticResource BorderlessButton}"
-                                FontSize="12.5"
+                                Style="{StaticResource OutlineButton}"
                                 Command="{Binding DescartarRecibidoCommand}" />
                     </VerticalStackLayout>
                 </Border>
@@ -516,9 +530,7 @@
                         </Grid>
 
                         <Button Text="Cerrar ahora"
-                                BackgroundColor="Transparent"
-                                TextColor="{StaticResource OnHeroMuted}"
-                                FontSize="12.5" HeightRequest="38"
+                                Style="{StaticResource OutlineOnHeroButton}"
                                 Command="{Binding CerrarVentanaCommand}" />
                     </VerticalStackLayout>
                 </ctrl:HeroCardView>

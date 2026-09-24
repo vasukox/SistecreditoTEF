@@ -106,9 +106,7 @@
 
             <Button Text="Finalizar sin imprimir"
                     Command="{Binding FinalizarSinImprimirCommand}"
-                    HeightRequest="48"
-                    BackgroundColor="Transparent"
-                    TextColor="{StaticResource TextMuted}" />
+                    Style="{StaticResource OutlineButton}" />
 
         </VerticalStackLayout>
     </ScrollView>

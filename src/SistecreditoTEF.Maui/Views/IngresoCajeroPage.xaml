@@ -78,9 +78,7 @@
 
             <Button Text="Administración"
                     Command="{Binding IrAAdministracionCommand}"
-                    HeightRequest="46"
-                    BackgroundColor="Transparent"
-                    TextColor="{StaticResource TextMuted}" />
+                    Style="{StaticResource OutlineButton}" />
 
         </VerticalStackLayout>
     </ScrollView>
