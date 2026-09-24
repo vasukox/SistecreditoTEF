@@ -115,6 +115,13 @@
     <Compile Include="$(SrcDir)\Services\Platform\IDocumentReader.cs" />
     <Compile Include="$(SrcDir)\Services\Platform\ITransactionStateStore.cs" />
     <Compile Include="$(SrcDir)\Services\Platform\ILaunchContext.cs" />
+    <!--
+      Convivencia de los dos modulos (venta desde HioPos y abonos desde el icono).
+      La decision de a donde entrar vive en [SplashViewModel] y es logica pura; el
+      defecto que dejaba una pantalla negra en la caja se reproduce sin Android.
+    -->
+    <Compile Include="$(SrcDir)\Services\Platform\IStandaloneModeTracker.cs" />
+    <Compile Include="$(SrcDir)\Services\Platform\StandaloneModeTracker.cs" />
     <Compile Include="$(SrcDir)\Services\Platform\TransactionStateStore.cs" />
     <Compile Include="$(SrcDir)\Services\Platform\IIdempotencyStore.cs" />
     <Compile Include="$(SrcDir)\Services\Platform\IAuditLogger.cs" />
@@ -163,6 +170,13 @@
     <Compile Include="$(SrcDir)\ViewModels\ConfigurarAdminViewModel.cs" />
     <Compile Include="$(SrcDir)\ViewModels\AdminCajerosViewModel.cs" />
     <Compile Include="$(SrcDir)\ViewModels\IngresoCajeroViewModel.cs" />
+
+    <!--
+      La pantalla raiz: decide si la app entra al flujo de venta de HioPos o al de
+      abonos. Es la pieza donde el cajero quedaba encerrado en una pantalla negra
+      al salirse de una factura, asi que tiene que poder probarse.
+    -->
+    <Compile Include="$(SrcDir)\ViewModels\SplashViewModel.cs" />
 
     <!--
       El logo que se le entrega a HioPos, con SU PNG embebido igual que en el APK.

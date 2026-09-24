@@ -123,14 +123,92 @@ public class MainActivity : MauiAppCompatActivity
     protected override void OnNewIntent(Intent? intent)
     {
         base.OnNewIntent(intent);
-        if (intent is not null)
+        if (intent is null) return;
+
+        // Reemplaza Intent (propiedad heredada de Activity)
+        // para que MainActivity.Intent apunte al nuevo.
+        Intent = intent;
+        // Guardamos el nuevo intent; OnResume lo procesa.
+        _pendingIntent = intent;
+
+        // ─────────────────────────────────────────────────────────────────────
+        // EL CONTEXTO DE ARRANQUE TAMBIEN SE ACTUALIZA ACA
+        // ─────────────────────────────────────────────────────────────────────
+        // Solo se seteaba en OnCreate, asi que con launchMode=singleTask —donde la
+        // Activity se reutiliza— [ILaunchContext] se quedaba describiendo el intent
+        // con el que la app se abrio por PRIMERA vez. Una venta abierta desde el
+        // icono seguia diciendo "launcher", y al reves.
+        //
+        // Asignar Action ademas apaga NavegacionConsumida: el intent nuevo le
+        // devuelve el mando a esta Activity.
+        try
         {
-            // Reemplaza Intent (propiedad heredada de Activity)
-            // para que MainActivity.Intent apunte al nuevo.
-            Intent = intent;
-            // Guardamos el nuevo intent; OnResume lo procesa.
-            _pendingIntent = intent;
+            if (IPlatformApplication.Current?.Services
+                    .GetService(typeof(ILaunchContext)) is ILaunchContext launch)
+            {
+                launch.Action = intent.Action;
+                Log.Info("MainActivity",
+                    $"Intent nuevo: action={intent.Action ?? "(null)"}, esDeHiopos={launch.EsDeHiopos}");
+            }
         }
+        catch (Exception ex)
+        {
+            Log.Warn("MainActivity", $"No se pudo actualizar el contexto de arranque: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Cuando esta Activity se cierra SIN haberle respondido al POS, la venta deja
+    /// de estar viva aunque nadie haya bajado la bandera.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────────────
+    /// LA BANDERA PEGADA QUE DEJABA EL MODULO INUTILIZABLE
+    /// ─────────────────────────────────────────────────────────────────────────────
+    /// <c>HioposTransactionActive</c> la apaga un solo lugar:
+    /// [AndroidTransactionResultHandler.FinishWithResult]. Si el cajero se sale con
+    /// "atras" en medio de una venta, ese camino NUNCA corre: Android le devuelve
+    /// RESULT_CANCELED al POS por su cuenta y cierra la Activity.
+    ///
+    /// Pero el PROCESO sigue vivo, y con el los singletons del contenedor. O sea que
+    /// la bandera se quedaba en true sin nadie esperando nada del otro lado. A partir
+    /// de ahi, [HioposIntentGuard] descartaba el intent del icono ("hay una factura
+    /// esperando resultado") y el cajero no podia entrar mas a los abonos.
+    ///
+    /// Se limpia TODO el estado, no solo la bandera: los datos de una venta
+    /// abandonada —documento, cliente, credito elegido— no pueden sobrevivir a la
+    /// pantalla que los mostraba.
+    ///
+    /// Solo cuando <c>IsFinishing</c>. Si Android esta recreando la Activity (memoria,
+    /// cambio de configuracion no declarado), la venta sigue en pie y borrarla seria
+    /// peor que el problema.
+    /// </summary>
+    protected override void OnDestroy()
+    {
+        try
+        {
+            if (IsFinishing
+                && IPlatformApplication.Current?.Services is { } services
+                && services.GetService(typeof(ITransactionStateStore))
+                    is ITransactionStateStore state
+                && state.HioposTransactionActive)
+            {
+                Log.Warn("MainActivity",
+                    "La Activity se cierra sin haberle respondido al POS: la venta se da " +
+                    "por abandonada y se limpia el estado.");
+
+                state.Clear();
+                (services.GetService(typeof(IStandaloneModeTracker))
+                    as IStandaloneModeTracker)?.Reset();
+            }
+        }
+        catch (Exception ex)
+        {
+            // OnDestroy no puede tirar: la app se estaria cerrando igual, y una
+            // excepcion aca se lleva el proceso por delante.
+            Log.Warn("MainActivity", $"No se pudo limpiar el estado al cerrar: {ex.Message}");
+        }
+
+        base.OnDestroy();
     }
 
     protected override void OnResume()
@@ -242,6 +320,10 @@ public class MainActivity : MauiAppCompatActivity
             Log.Info("MainActivity", "LAUNCHER action: app abierta desde icono (standalone).");
             var serviceProvider = IPlatformApplication.Current?.Services;
             serviceProvider?.GetRequiredService<IStandaloneModeTracker>().IsStandalone = true;
+
+            // Esta Activity no va a navegar por este intent: la raiz tiene el mando.
+            var launchDelIcono = serviceProvider?.GetService<ILaunchContext>();
+            if (launchDelIcono is not null) launchDelIcono.NavegacionConsumida = true;
             return;
         }
 
@@ -856,30 +938,47 @@ public class MainActivity : MauiAppCompatActivity
         //    re-lanzamiento CALIENTE que quedo en una pantalla profunda.
         //    state.Clear() (arriba) ya limpio los datos; el Finish lo hacen
         //    ConfirmacionPage / ReciboPagoPage via ITransactionResultHandler.
-        if (Shell.Current is not null)
+        var launch = services.GetService<ILaunchContext>();
+
+        if (Shell.Current is null)
         {
-            MainThread.BeginInvokeOnMainThread(async () =>
-            {
-                try
-                {
-                    if (esRecaudo)
-                        await IrARecaudoAsync();
-                    else
-                        await IrACapturaDeClienteAsync();
-                }
-                catch (Exception ex)
-                {
-                    // FAIL-SAFE: esta lambda es async void para el dispatcher, asi
-                    // que una excepcion aqui NO la atrapa el try/catch de
-                    // HandleIntent: subiria al SynchronizationContext y mataria el
-                    // proceso. La venta ya esta en curso en HioPos, asi que ante un
-                    // fallo de navegacion el cajero se queda en la pantalla actual
-                    // en vez de perder la app.
-                    AppLogger.E("MainActivity",
-                        "Error navegando al iniciar la TRANSACTION.", ex);
-                }
-            });
+            // Sin Shell no hay a donde navegar, asi que nadie mas va a hacerlo: se
+            // le devuelve el mando a la raiz para que no quede esperando a un
+            // MainActivity que ya termino. Ver [ILaunchContext.NavegacionConsumida].
+            if (launch is not null) launch.NavegacionConsumida = true;
+            return;
         }
+
+        MainThread.BeginInvokeOnMainThread(async () =>
+        {
+            try
+            {
+                if (esRecaudo)
+                    await IrARecaudoAsync();
+                else
+                    await IrACapturaDeClienteAsync();
+            }
+            catch (Exception ex)
+            {
+                // FAIL-SAFE: esta lambda es async void para el dispatcher, asi
+                // que una excepcion aqui NO la atrapa el try/catch de
+                // HandleIntent: subiria al SynchronizationContext y mataria el
+                // proceso. La venta ya esta en curso en HioPos, asi que ante un
+                // fallo de navegacion el cajero se queda en la pantalla actual
+                // en vez de perder la app.
+                AppLogger.E("MainActivity",
+                    "Error navegando al iniciar la TRANSACTION.", ex);
+            }
+            finally
+            {
+                // A PARTIR DE ACA, VOLVER A LA RAIZ ES UN CAJERO QUE SE SALIO.
+                //
+                // Va en el finally, no en el camino feliz: si la navegacion fallo, la
+                // raiz tiene que poder decidir igual. Dejarla muda ante un fallo de
+                // navegacion es la pantalla negra por otro camino.
+                if (launch is not null) launch.NavegacionConsumida = true;
+            }
+        });
     }
 
     /// <summary>
