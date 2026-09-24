@@ -73,15 +73,23 @@ public sealed class PairingHost : IAsyncDisposable
     /// 0 en las pruebas, para que el sistema asigne uno libre y varias corran en
     /// paralelo sin pelearse el puerto.
     /// </param>
+    /// <param name="storeId">
+    /// Id de tienda de CloudLicense. Viaja en el saludo —no en el sobre— para que la
+    /// caja receptora pueda rechazar un padron de OTRA tienda. Ver la nota en
+    /// [PairingGreeting]: es opcional porque las cajas con el APK viejo no lo mandan
+    /// y tienen que seguir sirviendo de emisoras.
+    /// </param>
     public PairingHost(
         Func<CancellationToken, Task<CashierRosterEnvelope?>> factory,
         string tienda,
         Func<DateTimeOffset>? clock = null,
-        int port = PairingProtocol.Port)
+        int port = PairingProtocol.Port,
+        string? storeId = null)
     {
         _factory = factory;
         _clock = clock ?? (() => DateTimeOffset.UtcNow);
         Tienda = tienda;
+        StoreId = storeId;
 
         Code = PairingSecret.GenerateCode();
         ExpiresAt = _clock() + PairingProtocol.Window;
@@ -90,6 +98,9 @@ public sealed class PairingHost : IAsyncDisposable
     }
 
     public string Tienda { get; }
+
+    /// <summary>Id de tienda que se anuncia en el saludo, o null si no se configuro.</summary>
+    public string? StoreId { get; }
 
     public void Start()
     {
@@ -134,7 +145,8 @@ public sealed class PairingHost : IAsyncDisposable
                     CashierRosterEnvelope.CurrentVersion,
                     Convert.ToBase64String(challenge),
                     Tienda,
-                    await ContarCajerosAsync(timeout.Token)), timeout.Token);
+                    await ContarCajerosAsync(timeout.Token),
+                    StoreId), timeout.Token);
 
                 var proof = await PairingProtocol.ReceiveAsync<PairingProof>(stream, timeout.Token);
                 if (proof is null) return;   // se corto o mando algo ininteligible

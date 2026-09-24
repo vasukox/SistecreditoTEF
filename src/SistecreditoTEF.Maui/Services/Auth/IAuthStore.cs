@@ -65,4 +65,30 @@ public interface IAuthStore
     /// </summary>
     /// <returns><c>false</c> si no se pudo escribir; la caja queda como estaba.</returns>
     Task<bool> ImportarPadronAsync(CashierRosterEnvelope sobre);
+
+    /// <summary>
+    /// Actualiza SOLO el padron de cajeros de una caja que ya esta configurada.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────────
+    /// POR QUE ES UNA OPERACION APARTE Y NO UN PARAMETRO DE LA DE ARRIBA
+    /// ─────────────────────────────────────────────────────────────────────────
+    /// [ImportarPadronAsync] es para una caja que se esta MONTANDO: escribe el PIN
+    /// de administrador y el padron, porque no habia nada. Esta es para una caja que
+    /// ya opera, donde el unico motivo para copiar de otra es que alguien dio de
+    /// alta o de baja a un cajero.
+    ///
+    /// Que sean dos metodos y no una bandera es a proposito: el PIN de
+    /// administrador es lo unico que separa a un cajero de poder administrar la
+    /// caja. Si la escritura del PIN estuviera a un <c>true</c> de distancia en el
+    /// camino RUTINARIO, tarde o temprano se pasa —y entonces un PIN cambiado por
+    /// error en una caja se reparte a toda la tienda sin que nadie lo pida—.
+    ///
+    /// Cuando de verdad hay que propagar un PIN nuevo, [incluirPinAdmin] lo permite,
+    /// pero es una decision explicita del operador en pantalla, no el default.
+    ///
+    /// El padron se sigue escribiendo COMPLETO. Por eso la pantalla muestra el
+    /// diferencial antes de llamar aca: ver [DiferenciaDePadron].
+    /// </summary>
+    /// <returns><c>false</c> si no se pudo escribir; la caja queda como estaba.</returns>
+    Task<bool> ActualizarCajerosAsync(CashierRosterEnvelope sobre, bool incluirPinAdmin);
 }

@@ -124,12 +124,35 @@ public static class PairingProtocol
 /// <summary>
 /// Saludo de la caja que reparte. <c>Challenge</c> va en base64 porque el
 /// transporte es JSON de texto.
+///
+/// ─────────────────────────────────────────────────────────────────────────────
+/// POR QUE EL StoreId VIAJA ACA Y NO EN EL SOBRE
+/// ─────────────────────────────────────────────────────────────────────────────
+/// El sobre NO puede llevar identidad de caja ni de tienda: lo que el sobre lleva
+/// se ESCRIBE en la caja receptora, y escribir ahi un StoreId prestado pisaria lo
+/// que CloudLicense le asigno a ese terminal. Hay una prueba por reflexion que lo
+/// impide, y esta bien que la haya.
+///
+/// El saludo es otra cosa: es metadato del apretón de manos, se usa para DECIDIR y
+/// se tira. Sirve para que la caja que recibe pueda rechazar un padron de otra
+/// tienda —el caso del centro comercial con otra KOAJ en la misma red— sin guardar
+/// nada de eso.
+///
+/// ─────────────────────────────────────────────────────────────────────────────
+/// ES OPCIONAL, Y ESO NO ES DESCUIDO
+/// ─────────────────────────────────────────────────────────────────────────────
+/// Las cajas que ya tienen el APK instalado no mandan este campo, y tienen que
+/// seguir sirviendo como emisoras sin actualizarlas. Al faltar llega null, y la
+/// caja receptora cae a comparar por nombre de tienda avisando que no pudo
+/// verificar en firme. Por eso NO se toca [CashierRosterEnvelope.CurrentVersion]:
+/// el sobre no cambio, y subir la version rechazaria a todas las cajas viejas.
 /// </summary>
 public sealed record PairingGreeting(
     int Version,
     string Challenge,
     string Tienda,
-    int Cajeros);
+    int Cajeros,
+    string? StoreId = null);
 
 /// <summary>Prueba de que la caja nueva conoce el codigo.</summary>
 public sealed record PairingProof(string Proof);

@@ -59,10 +59,27 @@ public sealed class InMemoryAuthStore : IAuthStore
     public Task<bool> ImportarPadronAsync(CashierRosterEnvelope sobre)
     {
         _adminHash = sobre.AdminPinHash;
+        EscribirPadron(sobre);
+        return Task.FromResult(true);
+    }
+
+    /// <summary>
+    /// Reproduce la tercera regla del real: el padron se reemplaza completo, pero el
+    /// PIN de administrador NO se toca salvo que lo pidan.
+    /// </summary>
+    public Task<bool> ActualizarCajerosAsync(CashierRosterEnvelope sobre, bool incluirPinAdmin)
+    {
+        if (incluirPinAdmin && !string.IsNullOrWhiteSpace(sobre.AdminPinHash))
+            _adminHash = sobre.AdminPinHash;
+
+        EscribirPadron(sobre);
+        return Task.FromResult(true);
+    }
+
+    private void EscribirPadron(CashierRosterEnvelope sobre)
+    {
         _cajeros.Clear();
         foreach (var c in sobre.Cajeros)
             _cajeros[c.Id] = CashierRosterEnvelope.To(c);
-
-        return Task.FromResult(true);
     }
 }

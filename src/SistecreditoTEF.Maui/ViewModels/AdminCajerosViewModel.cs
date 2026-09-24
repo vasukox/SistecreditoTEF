@@ -72,6 +72,35 @@ public partial class AdminCajerosViewModel(
         }
     }
 
+    /// <summary>
+    /// Trae el padron de cajeros de otra caja, SIN tocar nada mas de esta.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────────
+    /// POR QUE NO ES EL MISMO BOTON QUE "COMPARTIR"
+    /// ─────────────────────────────────────────────────────────────────────────
+    /// Son dos momentos distintos de la vida de una caja. "Copiar configuracion"
+    /// existe para MONTAR una caja: trae el PIN de administrador porque no habia
+    /// ninguno. Esto existe para una caja que ya opera, donde el unico motivo para
+    /// copiar de otra es que dieron de alta o de baja a un cajero — y ahi pisar el
+    /// PIN de administrador no es lo que nadie pidio.
+    ///
+    /// La caja que reparte no se entera de la diferencia: manda el mismo sobre de
+    /// siempre. Las cajas ya instaladas siguen sirviendo de emisoras sin tocarlas.
+    /// </summary>
+    [RelayCommand]
+    private async Task ActualizarCajerosAsync()
+    {
+        try
+        {
+            await nav.GoToActualizarCajerosAsync();
+        }
+        catch (Exception ex)
+        {
+            AppLogger.E("AdminCajerosViewModel", "Error abriendo la actualizacion de cajeros.", ex);
+            ErrorMessage = "No se pudo abrir la pantalla de actualizacion de cajeros.";
+        }
+    }
+
     /// <summary>Motivo por el que no se puede continuar, o vacio.</summary>
     public string MotivoSiguiente =>
         CanContinuar() ? string.Empty : "Agrega al menos un cajero para continuar.";

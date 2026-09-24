@@ -187,6 +187,24 @@
                                 <beh:PressableBehavior />
                             </Button.Behaviors>
                         </Button>
+
+                        <!--
+                            LA OPERACIÓN INVERSA, Y MÁS ANGOSTA.
+                            Trae el padrón de otra caja SIN tocar el PIN de
+                            administrador ni nada más de esta caja. Vive acá —detrás
+                            del PIN— porque solo tiene sentido en una caja que ya está
+                            configurada y opera: la caja recién instalada usa
+                            "Copiar configuración" desde la pantalla de primer uso.
+                        -->
+                        <Button Text="Actualizar cajeros desde otra caja"
+                                Command="{Binding ActualizarCajerosCommand}"
+                                HeightRequest="46"
+                                BackgroundColor="Transparent"
+                                TextColor="{StaticResource PrimaryDark}">
+                            <Button.Behaviors>
+                                <beh:PressableBehavior />
+                            </Button.Behaviors>
+                        </Button>
                     </VerticalStackLayout>
                 </Border>
             </VerticalStackLayout>

@@ -19,7 +19,8 @@
                  mitades una debajo de la otra y tenían que leer los dos formularios
                  para darse cuenta de cuál les tocaba.
             -->
-            <Border Style="{StaticResource Card}" Padding="6">
+            <Border Style="{StaticResource Card}" Padding="6"
+                    IsVisible="{Binding MuestraElSelectorDeModo}">
                 <Border.Behaviors>
                     <beh:EntranceBehavior />
                 </Border.Behaviors>
@@ -58,8 +59,12 @@
                 </Grid>
             </Border>
 
-            <Label Style="{StaticResource Caption}"
-                   Text="Se copia el PIN de administrador y el padrón de cajeros. Las credenciales de Sistecrédito no: bajan solas desde HioPosCloud." />
+            <!-- El título y la explicación cambian según la operación: copiar la
+                 configuración de una caja nueva, o actualizar solo los cajeros. -->
+            <Label Text="{Binding Titulo}" Style="{StaticResource CardTitle}"
+                   IsVisible="{Binding SoloCajeros}" />
+
+            <Label Style="{StaticResource Caption}" Text="{Binding Explicacion}" />
 
             <!-- ==================================================================
                  ════════════════  RECIBIR  ════════════════
@@ -184,7 +189,7 @@
                                    Text="{Binding CodigoIngresado, Mode=TwoWay}" />
                         </Border>
 
-                        <Button Text="Traer configuración"
+                        <Button Text="{Binding TextoDelBotonTraer}"
                                 Style="{StaticResource PrimaryButton}"
                                 IsEnabled="{Binding PuedeTraer}"
                                 Command="{Binding TraerCommand}">
@@ -273,7 +278,45 @@
                             </VerticalStackLayout>
                         </Border>
 
-                        <Border BackgroundColor="{StaticResource WarningSoft}"
+                        <!--
+                            ════════════════════════════════════════════════════════
+                            LAS BAJAS, CON NOMBRE Y APELLIDO
+                            ════════════════════════════════════════════════════════
+                            El padrón se reemplaza entero, así que si la caja de la
+                            que se copia tiene el padrón viejo, "actualizar" BORRA
+                            cajeros sin avisar: el operador creía estar sumando.
+
+                            Es el único cambio que nadie pidió, así que va aparte del
+                            resumen y con los nombres a la vista. Un número se lee y
+                            se olvida; "se van a quitar: jperez, mgomez" hace que
+                            reconozca a quien conoce y cancele.
+                        -->
+                        <Border IsVisible="{Binding HayBajas}"
+                                BackgroundColor="{StaticResource ErrorSoft}"
+                                Stroke="Transparent" StrokeShape="RoundRectangle 12" Padding="14,12">
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                                <Label Grid.Column="0" Text="⚠" FontSize="18"
+                                       TextColor="{StaticResource Error}" VerticalOptions="Center" />
+                                <VerticalStackLayout Grid.Column="1" Spacing="3">
+                                    <Label Text="{Binding DetalleDeBajas}"
+                                           TextColor="{StaticResource Error}"
+                                           FontSize="13" FontAttributes="Bold" />
+                                    <Label Text="Si no era lo que esperabas, la otra caja tiene el padrón viejo: actualizala primero."
+                                           TextColor="{StaticResource Error}" FontSize="12" />
+                                </VerticalStackLayout>
+                            </Grid>
+                        </Border>
+
+                        <!-- Decirlo evita que el operador aplique "por las dudas" y
+                             se quede sin saber si funcionó. -->
+                        <Label IsVisible="{Binding NoHayCambios}"
+                               Text="El padrón de esa caja es idéntico al de esta. No hace falta aplicar nada."
+                               Style="{StaticResource Caption}"
+                               TextColor="{StaticResource TextMuted}" />
+
+                        <!-- Al MONTAR una caja el reemplazo incluye el PIN. -->
+                        <Border IsVisible="{Binding SoloCajeros, Converter={StaticResource InvertedBoolConverter}}"
+                                BackgroundColor="{StaticResource WarningSoft}"
                                 Stroke="Transparent" StrokeShape="RoundRectangle 12" Padding="14,12">
                             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
                                 <Label Grid.Column="0" Text="⚠" FontSize="18"
@@ -285,7 +328,28 @@
                             </Grid>
                         </Border>
 
-                        <Button Text="Aceptar y guardar"
+                        <!--
+                            El PIN de administrador NO se toca al actualizar, y por eso
+                            está acá como una casilla apagada y no como una nota al pie:
+                            el botón dice "cajeros" y tiene que hacer solo eso. Si un PIN
+                            cambiado por error se repartiera en cada actualización, toda
+                            la tienda queda con el PIN equivocado y quien lo cambió bien
+                            se queda afuera de las demás cajas.
+                        -->
+                        <VerticalStackLayout Spacing="2" IsVisible="{Binding SoloCajeros}">
+                            <HorizontalStackLayout Spacing="10">
+                                <CheckBox IsChecked="{Binding IncluirPinAdmin, Mode=TwoWay}"
+                                          Color="{StaticResource Primary}" VerticalOptions="Center" />
+                                <Label Text="También traer el PIN de administrador"
+                                       VerticalOptions="Center" FontSize="13.5"
+                                       TextColor="{StaticResource TextPrimary}" />
+                            </HorizontalStackLayout>
+                            <Label Text="Déjalo sin marcar salvo que hayas cambiado el PIN en la otra caja."
+                                   Style="{StaticResource Caption}"
+                                   TextColor="{StaticResource TextMuted}" />
+                        </VerticalStackLayout>
+
+                        <Button Text="{Binding TextoDelBotonAceptar}"
                                 Style="{StaticResource PrimaryButton}"
                                 Command="{Binding ConfirmarCommand}">
                             <Button.Behaviors>

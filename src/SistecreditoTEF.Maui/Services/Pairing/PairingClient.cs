@@ -27,7 +27,8 @@ public sealed record PairingResult(
     PairingOutcome Outcome,
     CashierRosterEnvelope? Envelope = null,
     int AttemptsRemaining = 0,
-    string? Tienda = null)
+    string? Tienda = null,
+    string? StoreId = null)
 {
     public bool Succeeded => Outcome == PairingOutcome.Succeeded && Envelope is not null;
 }
@@ -117,7 +118,7 @@ public sealed class PairingClient
             return envelope is null
                 ? new PairingResult(PairingOutcome.Unintelligible, Tienda: greeting.Tienda)
                 : new PairingResult(PairingOutcome.Succeeded, envelope,
-                    delivery.AttemptsRemaining, greeting.Tienda);
+                    delivery.AttemptsRemaining, greeting.Tienda, greeting.StoreId);
         }
         catch (OperationCanceledException)
         {

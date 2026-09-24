@@ -30,8 +30,39 @@ namespace SistecreditoTEF.Maui.Views;
 /// Todas las animaciones terminan en un estado final garantizado: una animación
 /// que muere a mitad no puede dejar una tarjeta a medio transparente en una caja.
 /// </summary>
+[QueryProperty(nameof(SoloCajeros), AppRoutes.Params.SoloCajeros)]
 public partial class ReplicacionPage : ContentPage
 {
+    /// <summary>
+    /// Modo ACTUALIZAR, puesto por la ruta.
+    ///
+    /// El modo viaja por parametro y no se deduce del estado de la caja a proposito:
+    /// "ya tiene PIN configurado" no distingue a un instalador que viene a
+    /// actualizar de uno que se equivoco de boton, y la diferencia entre los dos es
+    /// si se pisa el PIN de administrador.
+    ///
+    /// Shell entrega los parametros como texto cuando la navegacion viene de una
+    /// URI, asi que se acepta cualquier forma razonable de "si".
+    /// </summary>
+    public object? SoloCajeros
+    {
+        set
+        {
+            var pedido = value switch
+            {
+                bool b => b,
+                string s => bool.TryParse(s, out var b) && b,
+                _ => false
+            };
+
+            if (BindingContext is ReplicacionViewModel vm)
+                vm.SoloCajeros = pedido;
+
+            AppLogger.I("ReplicacionPage",
+                $"Modo de la pantalla: {(pedido ? "actualizar cajeros" : "copiar configuracion")}.");
+        }
+    }
+
     /// <summary>
     /// Cinco veces por segundo. El trabajo por tic es restar dos instantes y
     /// asignar propiedades observables, que no notifican si el valor no cambió:

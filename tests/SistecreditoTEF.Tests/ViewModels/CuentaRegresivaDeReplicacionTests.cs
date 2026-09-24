@@ -1,4 +1,5 @@
 using SistecreditoTEF.Maui.Models;
+using SistecreditoTEF.Maui.Services.Auth;
 using SistecreditoTEF.Maui.Services.Credinet;
 using SistecreditoTEF.Maui.Services.Platform;
 using SistecreditoTEF.Maui.ViewModels;
@@ -49,6 +50,7 @@ public class CuentaRegresivaDeReplicacionTests
         public Task GoToIngresoCajeroAsync()     => Ir(nameof(GoToIngresoCajeroAsync));
         public Task GoToAdminCajerosAsync()      => Ir(nameof(GoToAdminCajerosAsync));
         public Task GoToReplicacionAsync()       => Ir(nameof(GoToReplicacionAsync));
+        public Task GoToActualizarCajerosAsync() => Ir(nameof(GoToActualizarCajerosAsync));
     }
 
     private static (ReplicacionViewModel vm, InMemoryAuthStore store, NavSpy nav) Armar()
@@ -62,7 +64,7 @@ public class CuentaRegresivaDeReplicacionTests
             StoreName = "Tienda de prueba",
         };
 
-        return (new ReplicacionViewModel(store, config, nav), store, nav);
+        return (new ReplicacionViewModel(store, config, new SesionCajero(), nav), store, nav);
     }
 
     // ══════════════════════════════════════════════════════════════════════════

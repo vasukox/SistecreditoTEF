@@ -53,6 +53,7 @@ public class ConvivenciaDeModulosTests
         public Task GoToIngresoCajeroAsync()     => Ir(nameof(GoToIngresoCajeroAsync));
         public Task GoToAdminCajerosAsync()      => Ir(nameof(GoToAdminCajerosAsync));
         public Task GoToReplicacionAsync()       => Ir(nameof(GoToReplicacionAsync));
+        public Task GoToActualizarCajerosAsync() => Ir(nameof(GoToActualizarCajerosAsync));
     }
 
     /// <summary>

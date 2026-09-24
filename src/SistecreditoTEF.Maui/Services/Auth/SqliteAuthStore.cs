@@ -214,6 +214,54 @@ public class SqliteAuthStore : IAuthStore
         }
     }
 
+    public async Task<bool> ActualizarCajerosAsync(CashierRosterEnvelope sobre, bool incluirPinAdmin)
+    {
+        ArgumentNullException.ThrowIfNull(sobre);
+
+        try
+        {
+            var conn = await GetConnectionAsync();
+
+            // El PIN solo si lo pidieron. Ver la nota en [IAuthStore]: en el camino
+            // rutinario, pisar el PIN de administrador no puede ser el default.
+            if (incluirPinAdmin && !string.IsNullOrWhiteSpace(sobre.AdminPinHash))
+            {
+                await conn.InsertOrReplaceAsync(new AuthSettingRow
+                {
+                    Key = AdminPinKey,
+                    Value = sobre.AdminPinHash
+                });
+            }
+
+            // Completo, igual que en la importacion: el padron de la otra caja es el
+            // padron de la tienda. La diferencia con importar es lo que NO se toca.
+            await conn.DeleteAllAsync<CajeroRow>();
+
+            foreach (var c in sobre.Cajeros)
+            {
+                await conn.InsertOrReplaceAsync(new CajeroRow
+                {
+                    Id = c.Id,
+                    Usuario = c.Usuario,
+                    Nombre = c.Nombre,
+                    ClaveHash = c.ClaveHash,
+                    Activo = c.Activo,
+                    CreadoEn = c.CreadoEn
+                });
+            }
+
+            AppLogger.I("IAuthStore",
+                $"Cajeros actualizados desde otra caja: {sobre.Cajeros.Count} escritos. " +
+                $"PIN de administrador: {(incluirPinAdmin ? "tambien actualizado" : "sin tocar")}.");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            AppLogger.E("IAuthStore", "No se pudo actualizar el padron de cajeros.", ex);
+            return false;
+        }
+    }
+
     private static Cajero ToDomain(CajeroRow r) =>
         new(r.Id, r.Usuario, r.Nombre, r.ClaveHash, r.Activo, r.CreadoEn);
 

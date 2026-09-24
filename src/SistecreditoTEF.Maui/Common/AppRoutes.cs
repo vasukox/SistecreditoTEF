@@ -71,5 +71,11 @@ public static class AppRoutes
     {
         public const string Payment      = "payment";
         public const string Client       = "client";
+
+        /// <summary>
+        /// Abre [Replicacion] en modo ACTUALIZAR: solo el padron de cajeros, sin
+        /// tocar el PIN de administrador. Ver [INavigationService.GoToActualizarCajerosAsync].
+        /// </summary>
+        public const string SoloCajeros  = "soloCajeros";
     }
 }

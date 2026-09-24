@@ -71,8 +71,73 @@ namespace SistecreditoTEF.Maui.ViewModels;
 public partial class ReplicacionViewModel(
     IAuthStore store,
     ApiConfig config,
+    ISesionCajero sesion,
     INavigationService nav) : ObservableObject
 {
+    // ══════════════════════════════════════════════════════════════════════════
+    // DOS OPERACIONES EN LA MISMA PANTALLA
+    // ══════════════════════════════════════════════════════════════════════════
+    //
+    // COPIAR (default)   caja recien instalada: trae el PIN de administrador y el
+    //                    padron. Es lo que ya funcionaba y no se toco.
+    //
+    // ACTUALIZAR         caja que ya opera: trae SOLO el padron de cajeros. Se abre
+    //                    desde administracion, o sea detras del PIN.
+    //
+    // La caja que REPARTE no distingue las dos: manda el mismo sobre de siempre. Eso
+    // es a proposito — las cajas que ya tienen el APK instalado siguen sirviendo como
+    // emisoras sin actualizarlas—. Lo que cambia es que se escribe de este lado.
+
+    /// <summary>
+    /// Modo ACTUALIZAR: solo el padron, sin tocar el PIN de administrador.
+    /// Lo fija la ruta (ver [AppRoutes.Params.SoloCajeros]).
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(Titulo))]
+    [NotifyPropertyChangedFor(nameof(Explicacion))]
+    [NotifyPropertyChangedFor(nameof(TextoDelBotonTraer))]
+    [NotifyPropertyChangedFor(nameof(TextoDelBotonAceptar))]
+    [NotifyPropertyChangedFor(nameof(MuestraElSelectorDeModo))]
+    private bool soloCajeros;
+
+    public string Titulo => SoloCajeros
+        ? "Actualizar cajeros desde otra caja"
+        : "Copiar configuración de otra caja";
+
+    public string Explicacion => SoloCajeros
+        ? "Trae el padrón de cajeros de otra caja de esta misma tienda. No cambia " +
+          "nada más de esta caja."
+        : "Se copia el PIN de administrador y el padrón de cajeros. Las credenciales " +
+          "de Sistecrédito no: bajan solas desde HioPosCloud.";
+
+    public string TextoDelBotonTraer => SoloCajeros ? "Ver qué cambia" : "Traer configuración";
+
+    public string TextoDelBotonAceptar => SoloCajeros ? "Aplicar cambios" : "Aceptar y guardar";
+
+    /// <summary>
+    /// En modo actualizar no se ofrece compartir: quien entra por ahi viene a
+    /// recibir, y la mitad de compartir ya vive en administracion.
+    /// </summary>
+    public bool MuestraElSelectorDeModo => !SoloCajeros;
+
+    /// <summary>
+    /// Traer tambien el PIN de administrador al actualizar. APAGADO por defecto.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────────
+    /// POR QUE NO VA PRENDIDO
+    /// ─────────────────────────────────────────────────────────────────────────
+    /// El boton dice "actualizar cajeros" y tiene que hacer solo eso. El PIN de
+    /// administrador es lo unico que separa a un cajero de poder administrar la
+    /// caja: si se copiara en cada actualizacion, un PIN cambiado por error en UNA
+    /// caja se reparte a toda la tienda sin que nadie lo pida, y el que lo cambio
+    /// bien se queda afuera de las otras dos.
+    ///
+    /// Pero tampoco se deja sin salida: cuando de verdad hay que propagar un PIN
+    /// nuevo, esta casilla lo hace. Explicita, del operador, y visible.
+    /// </summary>
+    [ObservableProperty]
+    private bool incluirPinAdmin;
+
     /// <summary>Bajo este tiempo restante la ventana se muestra en ambar.</summary>
     private static readonly TimeSpan Apuro = TimeSpan.FromMinutes(3);
 
@@ -201,7 +266,11 @@ public partial class ReplicacionViewModel(
             // La fabrica es asincrona y se vuelve a llamar en CADA entrega: entre la
             // primera caja y la tercera el administrador pudo dar de alta un cajero,
             // y la tercera tiene que recibir el padron de verdad.
-            _host = new PairingHost(_ => store.ExportarPadronAsync(), config.StoreName);
+            // El StoreId se anuncia en el SALUDO, no en el sobre: sirve para que la
+            // caja receptora rechace un padron de otra tienda, y no se guarda de ese
+            // lado. Ver [PairingGreeting].
+            _host = new PairingHost(
+                _ => store.ExportarPadronAsync(), config.StoreName, storeId: config.StoreId);
             _host.Start();
 
             _discovery = new PairingDiscovery();
@@ -498,6 +567,9 @@ public partial class ReplicacionViewModel(
         _recibido = null;
         ResumenRecibido = null;
         TiendaRecibida = null;
+        DetalleDeBajas = null;
+        HayBajas = false;
+        NoHayCambios = false;
         OnPropertyChanged(nameof(HayAlgoPorConfirmar));
 
         // LA VALIDACION SE REPITE ACA A PROPOSITO. El CanExecute apaga el boton
@@ -522,21 +594,54 @@ public partial class ReplicacionViewModel(
 
             if (!resultado.Succeeded) return;
 
+            // ─────────────────────────────────────────────────────────────────
+            // AL ACTUALIZAR, LA TIENDA SE VERIFICA; NO SE MUESTRA Y YA
+            // ─────────────────────────────────────────────────────────────────
+            // En una caja que se monta, el operador esta mirando la pantalla y ve de
+            // que tienda viene el sobre. En una actualizacion rutinaria nadie lee.
+            //
+            // Y el escenario no es teorico: en un centro comercial hay otra KOAJ en
+            // la misma red. Un codigo tecleado en la caja equivocada reemplazaria el
+            // padron de esta tienda por el de la de al lado.
+            //
+            // Se compara el nombre de tienda que viaja en el saludo contra el de esta
+            // caja. Los dos salen de CloudLicense, asi que si son distintos son dos
+            // tiendas distintas. No se agrega nada al sobre: ver la nota de identidad
+            // en [CashierRosterEnvelope].
+            if (SoloCajeros && !EsLaMismaTienda(resultado))
+            {
+                ReceptorEnFalla = true;
+                EstadoReceptor =
+                    $"Esa caja es de otra tienda ({Nombrar(resultado.Tienda)}) y esta es de " +
+                    $"{Nombrar(config.StoreName)}. No se actualiza nada.";
+
+                AppLogger.W("ReplicacionViewModel",
+                    $"Actualizacion rechazada: origen tienda='{resultado.Tienda}' " +
+                    $"storeId='{resultado.StoreId ?? "(no lo manda)"}'; " +
+                    $"esta caja tienda='{config.StoreName}' storeId='{config.StoreId ?? "(sin configurar)"}'.");
+                return;
+            }
+
             _recibido = resultado.Envelope;
-
-            // Lo que el operador tiene que poder leer ANTES de aceptar: de donde
-            // viene y que va a quedar en esta caja.
-            var usuarios = string.Join(", ", _recibido!.Cajeros
-                .Where(c => c.Activo)
-                .Select(c => c.Usuario)
-                .Take(8));
-
             TiendaRecibida = resultado.Tienda;
 
-            ResumenRecibido =
-                $"Cajeros: {_recibido.Cajeros.Count} ({_recibido.CajerosActivos} activos)\n" +
-                (string.IsNullOrEmpty(usuarios) ? string.Empty : $"Usuarios: {usuarios}\n") +
-                "PIN de administrador: se copia el de esa caja";
+            if (SoloCajeros)
+            {
+                // Si no se pudo calcular el diferencial, NO se deja aplicar nada.
+                // Aplicar a ciegas es justo el caso que esta pantalla existe para
+                // evitar: el padron se reemplaza entero y las bajas no se ven.
+                if (!await PrepararDiferenciaAsync())
+                {
+                    _recibido = null;
+                    TiendaRecibida = null;
+                    OnPropertyChanged(nameof(HayAlgoPorConfirmar));
+                    return;
+                }
+            }
+            else
+            {
+                PrepararResumenCompleto();
+            }
 
             EstadoReceptor = null;
             OnPropertyChanged(nameof(HayAlgoPorConfirmar));
@@ -546,6 +651,121 @@ public partial class ReplicacionViewModel(
             Copiando = false;
         }
     }
+
+    /// <summary>
+    /// ¿El padron que llego es de ESTA tienda?
+    ///
+    /// ─────────────────────────────────────────────────────────────────────────
+    /// SE PREFIERE EL StoreId, Y NO ES UN DETALLE
+    /// ─────────────────────────────────────────────────────────────────────────
+    /// STORE_ID es obligatorio en CloudLicense —la configuracion no valida sin el—
+    /// mientras que STORE_NAME es opcional. Si se comparara solo por nombre y la
+    /// tienda no lo tuviera configurado, las dos cajas dirian "Permoda" y el control
+    /// pasaria SIEMPRE: una barrera que parece que protege y no discrimina nada es
+    /// peor que no tenerla, porque nadie la revisa.
+    ///
+    /// Por eso: si las dos cajas anuncian StoreId, mandan los StoreId. Si la otra no
+    /// lo manda —APK viejo, que tiene que seguir funcionando de emisor— se cae al
+    /// nombre y queda anotado en el log que no se pudo verificar en firme.
+    /// </summary>
+    private bool EsLaMismaTienda(PairingResult resultado)
+    {
+        var mio = config.StoreId?.Trim();
+        var suyo = resultado.StoreId?.Trim();
+
+        if (!string.IsNullOrEmpty(mio) && !string.IsNullOrEmpty(suyo))
+            return string.Equals(mio, suyo, StringComparison.OrdinalIgnoreCase);
+
+        AppLogger.W("ReplicacionViewModel",
+            $"No se pudo verificar la tienda por StoreId (esta caja: " +
+            $"'{mio ?? "(sin configurar)"}', la otra: '{suyo ?? "(no lo manda)"}'). " +
+            "Se compara por nombre de tienda.");
+
+        return !string.IsNullOrWhiteSpace(resultado.Tienda)
+            && !string.IsNullOrWhiteSpace(config.StoreName)
+            && string.Equals(
+                resultado.Tienda.Trim(), config.StoreName.Trim(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string Nombrar(string? tienda) =>
+        string.IsNullOrWhiteSpace(tienda) ? "sin nombre" : tienda.Trim();
+
+    /// <summary>Lo que ve el operador al MONTAR una caja: que va a quedar escrito.</summary>
+    private void PrepararResumenCompleto()
+    {
+        var usuarios = string.Join(", ", _recibido!.Cajeros
+            .Where(c => c.Activo)
+            .Select(c => c.Usuario)
+            .Take(8));
+
+        ResumenRecibido =
+            $"Cajeros: {_recibido.Cajeros.Count} ({_recibido.CajerosActivos} activos)\n" +
+            (string.IsNullOrEmpty(usuarios) ? string.Empty : $"Usuarios: {usuarios}\n") +
+            "PIN de administrador: se copia el de esa caja";
+    }
+
+    /// <summary>
+    /// Lo que ve el operador al ACTUALIZAR: que CAMBIA, no que hay.
+    ///
+    /// "7 cajeros" no deja ver que tres desaparecen. Ver [DiferenciaDePadron].
+    /// </summary>
+    /// <returns>
+    /// <c>false</c> si no se pudo calcular. El llamador entonces descarta el sobre:
+    /// sin diferencial a la vista, aplicar es exactamente lo que esta pantalla
+    /// existe para evitar.
+    /// </returns>
+    private async Task<bool> PrepararDiferenciaAsync()
+    {
+        IReadOnlyList<Cajero> actuales;
+        try
+        {
+            // Leer el padron local toca la BD cifrada, y eso puede fallar (SQLCipher,
+            // llave del Keystore). Sin este catch la excepcion sube por el comando y
+            // se lleva el proceso, en una caja que solo queria actualizar usuarios.
+            actuales = await store.GetCajerosAsync();
+        }
+        catch (Exception ex)
+        {
+            AppLogger.E("ReplicacionViewModel",
+                "No se pudo leer el padron actual para compararlo con el recibido.", ex);
+
+            ReceptorEnFalla = true;
+            EstadoReceptor =
+                "No se pudo leer el padron actual de esta caja, asi que no se puede " +
+                "mostrar que cambiaria. No se aplico nada; intenta de nuevo.";
+            return false;
+        }
+
+        var diferencia = DiferenciaDePadron.Entre(actuales, _recibido!.Cajeros);
+
+        ResumenRecibido = diferencia.Resumen;
+        HayBajas = diferencia.HayBajas;
+        DetalleDeBajas = diferencia.HayBajas
+            ? $"Se van a quitar: {diferencia.DetalleDeBajas}."
+            : null;
+        NoHayCambios = diferencia.SinCambios;
+
+        AppLogger.I("ReplicacionViewModel",
+            $"Diferencia del padron contra {Nombrar(TiendaRecibida)}: {diferencia.Resumen}");
+        return true;
+    }
+
+    /// <summary>
+    /// Hay cajeros que van a desaparecer. Es el unico cambio que el operador NO
+    /// pidio: viene de que la caja de origen tenga el padron mas viejo.
+    /// </summary>
+    [ObservableProperty]
+    private bool hayBajas;
+
+    [ObservableProperty]
+    private string? detalleDeBajas;
+
+    /// <summary>
+    /// El sobre trae exactamente lo mismo que ya hay. Decirlo evita que el operador
+    /// aplique "por las dudas" y se quede sin saber si funciono.
+    /// </summary>
+    [ObservableProperty]
+    private bool noHayCambios;
 
     /// <summary>
     /// PASO 3: recien aca se escribe, y se avisa.
@@ -569,30 +789,53 @@ public partial class ReplicacionViewModel(
         if (_recibido is null) return;
 
         var cantidad = _recibido.Cajeros.Count;
-        var ok = await store.ImportarPadronAsync(_recibido);
+
+        // ACA SE SEPARAN LAS DOS OPERACIONES, Y ES EL UNICO LUGAR DONDE IMPORTA.
+        //   copiar     -> escribe el PIN de administrador y el padron.
+        //   actualizar -> solo el padron, salvo que el operador pida lo contrario.
+        var ok = SoloCajeros
+            ? await store.ActualizarCajerosAsync(_recibido, IncluirPinAdmin)
+            : await store.ImportarPadronAsync(_recibido);
 
         if (!ok)
         {
             ReceptorEnFalla = true;
-            EstadoReceptor =
-                "No se pudo guardar la configuracion recibida. Configura la caja a mano.";
+            EstadoReceptor = SoloCajeros
+                ? "No se pudo actualizar el padron. La caja quedo como estaba."
+                : "No se pudo guardar la configuracion recibida. Configura la caja a mano.";
             return;
         }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // SE CIERRA LA SESION DEL CAJERO
+        // ─────────────────────────────────────────────────────────────────────
+        // El padron se reemplazo, asi que el que estaba operando pudo haber quedado
+        // dado de baja hace un segundo. Dejarlo adentro seria seguir cobrando con
+        // una identidad que la tienda acaba de revocar, y ese nombre viaja a
+        // Credinet en cada abono.
+        sesion.Cerrar();
 
         _recibido = null;
         ResumenRecibido = null;
         TiendaRecibida = null;
+        DetalleDeBajas = null;
+        HayBajas = false;
+        NoHayCambios = false;
         CodigoIngresado = string.Empty;
         OnPropertyChanged(nameof(HayAlgoPorConfirmar));
 
-        MensajeExito =
-            $"Configuracion importada correctamente: {cantidad} cajeros y el PIN de " +
-            "administrador quedaron en esta caja.";
+        MensajeExito = SoloCajeros
+            ? $"Cajeros actualizados: quedaron {cantidad} en esta caja." +
+              (IncluirPinAdmin ? " El PIN de administrador tambien se actualizo." : string.Empty)
+            : $"Configuracion importada correctamente: {cantidad} cajeros y el PIN de " +
+              "administrador quedaron en esta caja.";
+
         EstadoReceptor = null;
         ReceptorEnFalla = false;
 
         AppLogger.I("ReplicacionViewModel",
-            $"Padron importado desde otra caja ({cantidad} cajeros). Se navega al ingreso.");
+            $"{(SoloCajeros ? "Padron actualizado" : "Padron importado")} desde otra caja " +
+            $"({cantidad} cajeros). Se cierra la sesion y se navega al ingreso.");
 
         // Un respiro para que el mensaje se alcance a leer antes de cambiar de
         // pantalla. Sin esto el exito pasa tan rapido que parece que no paso nada.
@@ -624,6 +867,9 @@ public partial class ReplicacionViewModel(
         _recibido = null;
         ResumenRecibido = null;
         TiendaRecibida = null;
+        DetalleDeBajas = null;
+        HayBajas = false;
+        NoHayCambios = false;
         OnPropertyChanged(nameof(HayAlgoPorConfirmar));
 
         EstadoReceptor = "Se descarto lo recibido. No se cambio nada en esta caja.";

@@ -145,4 +145,16 @@ public sealed class ShellNavigationService : INavigationService
 
     /// <summary>Replicacion entre cajas. Push: el "atras" vuelve a administracion.</summary>
     public Task GoToReplicacionAsync() => IrAsync(AppRoutes.Replicacion);
+
+    /// <summary>
+    /// La misma pantalla, en modo ACTUALIZAR. El modo viaja como parametro de ruta
+    /// para que la pantalla no tenga que adivinarlo del estado de la caja: "ya hay
+    /// PIN configurado" no distingue a un instalador que viene a actualizar de uno
+    /// que se equivoco de boton.
+    /// </summary>
+    public Task GoToActualizarCajerosAsync() =>
+        IrAsync(AppRoutes.Replicacion, new Dictionary<string, object>
+        {
+            { AppRoutes.Params.SoloCajeros, true }
+        });
 }
