@@ -48,6 +48,38 @@
         con el boton de reintento: nunca una pantalla en blanco sin salida.
     -->
     <Grid>
+        <!--
+            ════════════════════════════════════════════════════════════════════
+            LA SALIDA A LA POS
+            ════════════════════════════════════════════════════════════════════
+            Esta pantalla es la raíz del Shell y el flujo de la POS se EMPUJA
+            encima, así que un "atrás" mal atendido cae acá. Sin contenido, el
+            cajero veía el fondo #333333 y nada más: una pantalla negra de la que
+            no se sale.
+
+            No se arregla haciendo que esta pantalla decida —eso mezclaría el
+            módulo de la POS con el de abonos, que tienen que vivir separados—
+            sino haciendo que deje de estar vacía.
+
+            Aparece con retardo (ver EsperaAntesDeOfrecerLaSalida): en un arranque
+            normal esta pantalla vive decenas de milisegundos y sin esa espera el
+            aviso destellaría en cada venta.
+        -->
+        <VerticalStackLayout VerticalOptions="Center" Padding="28,0" Spacing="16"
+                             IsVisible="{Binding TieneMensajeDeLaPos}">
+            <Label Text="{Binding MensajeDeLaPos}"
+                   TextColor="{StaticResource OnDark}"
+                   FontSize="16" FontAttributes="Bold"
+                   HorizontalTextAlignment="Center" />
+            <Label Text="Volvé a la POS para continuar con la venta."
+                   TextColor="{StaticResource OnDarkMuted}"
+                   FontSize="13"
+                   HorizontalTextAlignment="Center" />
+            <Button Text="Volver a la POS"
+                    Style="{StaticResource AccentButton}"
+                    Command="{Binding VolverALaPosCommand}" />
+        </VerticalStackLayout>
+
         <!-- Mensaje de error si la decision falla: nunca se queda en blanco. -->
         <VerticalStackLayout VerticalOptions="End" Padding="24,0,24,40" Spacing="12"
                              IsVisible="{Binding TieneError}">

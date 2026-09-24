@@ -130,6 +130,15 @@ public partial class ScaffoldView : ContentView
                        ?.Volver("ScaffoldView") == true)
                 return;   // ya se devolvio el control; la Activity se esta cerrando
 
+            // Mismo aviso que en [BackBarView]: el texto del boton se fija al dibujar
+            // la pantalla y la operacion de HioPos puede haberse terminado despues.
+            // Sin esta traza, el sintoma —"Volver a HioPos" aterriza en pagar
+            // credito"— no se parece en nada a su causa.
+            if (PermitirVolverAHiopos)
+                AppLogger.W("ScaffoldView",
+                    "Se pidio volver a HioPos pero no hay operacion viva que devolver: " +
+                    "se hace el 'atras' normal.");
+
             if (Shell.Current is not null)
                 await Shell.Current.GoToAsync("..");
         }

@@ -119,6 +119,23 @@ public partial class BackBarView : ContentView
                        ?.Volver("BackBarView") == true)
                 return;   // el control ya volvio al POS y la Activity se esta cerrando
 
+            // EL BOTON PUEDE DECIR "VOLVER A HIOPOS" Y NO PODER HACERLO.
+            //
+            // El texto se fija al dibujar la pantalla; la operacion de HioPos puede
+            // haberse terminado despues. Entonces cae en el pop de abajo, que en la
+            // primera pantalla del flujo lleva a la raiz del Shell, que resuelve
+            // destino y manda a abonos: el cajero toca "Volver a HioPos" y aterriza
+            // en pagar credito.
+            //
+            // El motivo de fondo —una Activity que se iba borrando el estado de la
+            // que llegaba— esta corregido en [MainActivity.OnDestroy]. Esta traza
+            // queda para que la proxima vez que pase se vea en el log en vez de
+            // deducirse de un sintoma que no se parece a la causa.
+            if (PermitirVolverAHiopos)
+                AppLogger.W("BackBarView",
+                    "Se pidio volver a HioPos pero no hay operacion viva que devolver: " +
+                    "se hace el 'atras' normal.");
+
             if (Shell.Current is not null)
                 await Shell.Current.GoToAsync("..");
         }

@@ -158,6 +158,41 @@ public class MainActivity : MauiAppCompatActivity
     }
 
     /// <summary>
+    /// Que instancia de esta Activity abrio la operacion de HioPos que hoy esta viva.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────────────
+    /// SIN ESTO, LA ACTIVITY QUE SE VA LE BORRA EL ESTADO A LA QUE LLEGA
+    /// ─────────────────────────────────────────────────────────────────────────────
+    /// Cuando Android REEMPLAZA una Activity, el orden del ciclo de vida es:
+    ///
+    ///     nueva.OnCreate -> nueva.OnStart -> nueva.OnResume -> vieja.OnStop
+    ///                                                       -> vieja.OnDestroy
+    ///
+    /// O sea que el OnDestroy de la que se va corre DESPUES de que la nueva ya
+    /// atendio su intent. La limpieza de "venta abandonada" encontraba entonces la
+    /// bandera de la venta NUEVA en true, la daba por abandonada y le borraba el
+    /// estado a una operacion que recien empezaba.
+    ///
+    /// El sintoma en caja no se parecia en nada a la causa: el boton seguia diciendo
+    /// "Volver a HioPos" —su texto se fija al dibujar la pantalla— pero al tocarlo ya
+    /// no habia operacion viva que devolver, asi que hacia el "atras" normal. Ese pop
+    /// cae en la raiz del Shell, que resuelve destino y manda a pagar credito. El
+    /// cajero tocaba "Volver a HioPos" y aterrizaba en abonos.
+    ///
+    /// Con el dueno anotado, la Activity que se va solo limpia lo suyo.
+    ///
+    /// Weak a proposito: esto es estatico y vive lo que vive el proceso; una
+    /// referencia fuerte a una Activity destruida es una fuga de la ventana entera.
+    /// </summary>
+    private static WeakReference<MainActivity>? _duenoDeLaOperacion;
+
+    /// <summary>¿Fue ESTA instancia la que abrio la operacion viva?</summary>
+    private bool EsDuenoDeLaOperacion =>
+        _duenoDeLaOperacion is not null
+        && _duenoDeLaOperacion.TryGetTarget(out var dueno)
+        && ReferenceEquals(dueno, this);
+
+    /// <summary>
     /// Cuando esta Activity se cierra SIN haberle respondido al POS, la venta deja
     /// de estar viva aunque nadie haya bajado la bandera.
     ///
@@ -178,9 +213,16 @@ public class MainActivity : MauiAppCompatActivity
     /// abandonada —documento, cliente, credito elegido— no pueden sobrevivir a la
     /// pantalla que los mostraba.
     ///
-    /// Solo cuando <c>IsFinishing</c>. Si Android esta recreando la Activity (memoria,
-    /// cambio de configuracion no declarado), la venta sigue en pie y borrarla seria
-    /// peor que el problema.
+    /// Dos condiciones, y las dos hacen falta:
+    ///
+    ///   · <c>IsFinishing</c>: si Android esta recreando la Activity (memoria, cambio
+    ///     de configuracion no declarado), la venta sigue en pie y borrarla seria peor
+    ///     que el problema.
+    ///
+    ///   · [EsDuenoDeLaOperacion]: la venta viva tiene que ser LA NUESTRA. Sin esto, la
+    ///     Activity que se va le borraba el estado a la que acababa de llegar —el
+    ///     OnDestroy corre despues del OnResume de la nueva— y el cajero terminaba en
+    ///     pagar credito al tocar "Volver a HioPos".
     /// </summary>
     protected override void OnDestroy()
     {
@@ -192,13 +234,24 @@ public class MainActivity : MauiAppCompatActivity
                     is ITransactionStateStore state
                 && state.HioposTransactionActive)
             {
-                Log.Warn("MainActivity",
-                    "La Activity se cierra sin haberle respondido al POS: la venta se da " +
-                    "por abandonada y se limpia el estado.");
+                if (!EsDuenoDeLaOperacion)
+                {
+                    // Otra instancia ya tomo el relevo: lo que esta vivo es de ella.
+                    Log.Info("MainActivity",
+                        "Se cierra una Activity anterior con una operacion de HioPos viva " +
+                        "que NO es suya: no se toca el estado.");
+                }
+                else
+                {
+                    Log.Warn("MainActivity",
+                        "La Activity se cierra sin haberle respondido al POS: la venta se da " +
+                        "por abandonada y se limpia el estado.");
 
-                state.Clear();
-                (services.GetService(typeof(IStandaloneModeTracker))
-                    as IStandaloneModeTracker)?.Reset();
+                    state.Clear();
+                    (services.GetService(typeof(IStandaloneModeTracker))
+                        as IStandaloneModeTracker)?.Reset();
+                    _duenoDeLaOperacion = null;
+                }
             }
         }
         catch (Exception ex)
@@ -320,10 +373,6 @@ public class MainActivity : MauiAppCompatActivity
             Log.Info("MainActivity", "LAUNCHER action: app abierta desde icono (standalone).");
             var serviceProvider = IPlatformApplication.Current?.Services;
             serviceProvider?.GetRequiredService<IStandaloneModeTracker>().IsStandalone = true;
-
-            // Esta Activity no va a navegar por este intent: la raiz tiene el mando.
-            var launchDelIcono = serviceProvider?.GetService<ILaunchContext>();
-            if (launchDelIcono is not null) launchDelIcono.NavegacionConsumida = true;
             return;
         }
 
@@ -746,6 +795,11 @@ public class MainActivity : MauiAppCompatActivity
         // pisar la venta que HioPos está esperando.
         stateStore.HioposTransactionActive = true;
 
+        // Y se anota QUIEN la abrio. Lo lee [OnDestroy] para no limpiar el estado de
+        // una operacion que ya es de otra instancia: el OnDestroy de la Activity que
+        // se va corre DESPUES del OnResume de la que llega.
+        _duenoDeLaOperacion = new WeakReference<MainActivity>(this);
+
         // BUG-FIX (no bloquear facturacion): el throttle de OTP es SINGLETON y
         // persiste entre transacciones. Si una factura agoto los reenvios, la
         // SIGUIENTE quedaba con "reenviar no disponible" y no se podia facturar.
@@ -938,16 +992,7 @@ public class MainActivity : MauiAppCompatActivity
         //    re-lanzamiento CALIENTE que quedo en una pantalla profunda.
         //    state.Clear() (arriba) ya limpio los datos; el Finish lo hacen
         //    ConfirmacionPage / ReciboPagoPage via ITransactionResultHandler.
-        var launch = services.GetService<ILaunchContext>();
-
-        if (Shell.Current is null)
-        {
-            // Sin Shell no hay a donde navegar, asi que nadie mas va a hacerlo: se
-            // le devuelve el mando a la raiz para que no quede esperando a un
-            // MainActivity que ya termino. Ver [ILaunchContext.NavegacionConsumida].
-            if (launch is not null) launch.NavegacionConsumida = true;
-            return;
-        }
+        if (Shell.Current is null) return;
 
         MainThread.BeginInvokeOnMainThread(async () =>
         {
@@ -968,15 +1013,6 @@ public class MainActivity : MauiAppCompatActivity
                 // en vez de perder la app.
                 AppLogger.E("MainActivity",
                     "Error navegando al iniciar la TRANSACTION.", ex);
-            }
-            finally
-            {
-                // A PARTIR DE ACA, VOLVER A LA RAIZ ES UN CAJERO QUE SE SALIO.
-                //
-                // Va en el finally, no en el camino feliz: si la navegacion fallo, la
-                // raiz tiene que poder decidir igual. Dejarla muda ante un fallo de
-                // navegacion es la pantalla negra por otro camino.
-                if (launch is not null) launch.NavegacionConsumida = true;
             }
         });
     }

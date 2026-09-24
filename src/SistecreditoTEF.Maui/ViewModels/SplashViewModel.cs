@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using SistecreditoTEF.Maui.Common;
 using SistecreditoTEF.Maui.Services.Auth;
+using SistecreditoTEF.Maui.Services.Hiopos;
 using SistecreditoTEF.Maui.Services.Platform;
 
 namespace SistecreditoTEF.Maui.ViewModels;
@@ -18,6 +19,23 @@ namespace SistecreditoTEF.Maui.ViewModels;
 ///
 /// Ahora la raiz es una pantalla de marca —neutra, no un modulo— y el destino se
 /// resuelve desde aca. Nunca se ve un modulo que no corresponde.
+///
+/// ─────────────────────────────────────────────────────────────────────────────
+/// LOS DOS MODULOS NO SE MEZCLAN, Y ESTA PANTALLA ES DONDE PODRIAN
+/// ─────────────────────────────────────────────────────────────────────────────
+/// El que entra por la POS es de la POS; el que se abre a mano es de abonos. Esta
+/// raiz es el unico lugar comun de los dos, asi que es el unico lugar donde se
+/// pueden juntar por accidente.
+///
+/// La regla, entonces, es dura: mientras la POS tenga una operacion viva, ACA NO SE
+/// DECIDE NADA. Ni se navega, ni se cambia de modo, ni se limpia estado.
+///
+/// Ya se intento una version mas lista —que distinguia "MainActivity todavia no
+/// navego" de "el cajero volvio atras"— y salio mal: depende de CUANDO el framework
+/// entrega el evento de aparicion de la pagina, y cuando llega tarde esta pantalla
+/// decide en plena venta y le borra el estado. El sintoma en caja fue que el boton
+/// "Volver a la POS" aterrizaba en pagar credito. Una regla que depende del orden de
+/// un evento del framework no es una regla.
 /// </summary>
 public partial class SplashViewModel(
     AuthService auth,
@@ -25,6 +43,7 @@ public partial class SplashViewModel(
     IStandaloneModeTracker standalone,
     ITransactionStateStore state,
     ILaunchContext launch,
+    IHioposExit salida,
     INavigationService nav) : ObservableObject
 {
     [ObservableProperty]
@@ -34,41 +53,48 @@ public partial class SplashViewModel(
 
     partial void OnErrorMessageChanged(string? value) => OnPropertyChanged(nameof(TieneError));
 
+    /// <summary>
+    /// Aviso y salida cuando esta pantalla queda a la vista con la POS al mando.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────────
+    /// LA PANTALLA NEGRA
+    /// ─────────────────────────────────────────────────────────────────────────
+    /// Esta pagina es la raiz del Shell y el flujo de la POS se EMPUJA encima, asi
+    /// que un "atras" mal atendido cae aca. Y aca no hay nada: fondo #333333 y un
+    /// aviso de error que esta oculto mientras no haya error. En un terminal eso se
+    /// ve como una pantalla negra de la que no se sale.
+    ///
+    /// La respuesta NO es que esta pantalla decida —eso mezcla los dos modulos—
+    /// sino que deje de estar vacia: si el cajero termina aca con la POS al mando,
+    /// tiene que ver que pasa y poder volver a la POS.
+    /// </summary>
+    [ObservableProperty]
+    private string? mensajeDeLaPos;
+
+    public bool TieneMensajeDeLaPos => !string.IsNullOrEmpty(MensajeDeLaPos);
+
+    partial void OnMensajeDeLaPosChanged(string? value) =>
+        OnPropertyChanged(nameof(TieneMensajeDeLaPos));
+
     /// <summary>Evita que dos llamadas simultaneas decidan a la vez.</summary>
     private bool _decidiendo;
 
     /// <summary>
+    /// Cuanto se espera antes de mostrar la salida a la POS.
+    ///
+    /// En un arranque normal esta pantalla vive decenas de milisegundos, asi que sin
+    /// esta espera el aviso destellaria en CADA venta. Si al cumplirse el plazo la
+    /// POS sigue al mando, es que el cajero de verdad se quedo aca.
+    /// </summary>
+    private static readonly TimeSpan EsperaAntesDeOfrecerLaSalida = TimeSpan.FromMilliseconds(1200);
+
+    /// <summary>
     /// Resuelve el destino y navega.
     ///
-    /// ─────────────────────────────────────────────────────────────────────────────
-    /// LA PANTALLA NEGRA QUE ESTO ARREGLA
-    /// ─────────────────────────────────────────────────────────────────────────────
-    /// Sintoma reportado desde la tienda: el cajero esta facturando, elige
-    /// Sistecredito, el modulo abre en "consultar cliente", el cajero SE SALE, y a
-    /// partir de ahi el icono del TEF ya no abre los abonos: queda una pantalla
-    /// negra sin nada.
-    ///
-    /// Eran dos cosas encadenadas, y esta pantalla es las dos:
-    ///
-    ///   1. Esta es la RAIZ del Shell, y el flujo de HioPos se empuja encima. El
-    ///      "atras" desde la captura de cliente, entonces, vuelve ACA. Y aca no hay
-    ///      nada: el fondo es [NavSurface] (#333333) y el unico contenido es el
-    ///      aviso de error, oculto mientras no haya error. En un terminal eso se ve
-    ///      exactamente como una pantalla negra.
-    ///
-    ///   2. La decision se tomaba UNA sola vez (<c>_yaDecidio</c>). Al volver, esta
-    ///      pantalla no volvia a decidir nada, asi que la pantalla negra no se iba
-    ///      nunca: ni tocando el icono, porque el Shell ya estaba aca.
-    ///
-    /// Y encima se preguntaba por <c>state.HioposTransactionActive</c>, que sigue
-    /// encendido en una venta que el cajero abandono —solo lo apaga la entrega del
-    /// resultado al POS, que nunca ocurrio—. Con esa bandera pegada en true, el
-    /// arranque desde el icono tambien se iba por la rama "no decido nada" y
-    /// terminaba en la misma pantalla negra, ahora ya sin relacion con HioPos.
-    ///
-    /// Ahora la raiz se calla SOLO mientras MainActivity todavia tiene que navegar
-    /// por la accion actual ([ILaunchContext.NavegacionConsumida]). En cuanto navego,
-    /// volver aca es un cajero que se salio, y entonces esta pantalla decide.
+    /// Se ejecuta en CADA aparicion de la pagina, no una sola vez. Antes decidia una
+    /// unica vez en la vida de la app: al volver a la raiz no volvia a decidir nada y
+    /// la pantalla negra no se iba nunca. El unico guard que queda es contra dos
+    /// llamadas simultaneas.
     /// </summary>
     public async Task DecidirYNavegarAsync()
     {
@@ -78,57 +104,34 @@ public partial class SplashViewModel(
         try
         {
             // ─────────────────────────────────────────────────────────────────
-            // MIENTRAS HIOPOS TENGA QUE NAVEGAR, ACA NO SE DECIDE NADA
+            // SI LA POS ESTA AL MANDO, ACA NO SE DECIDE NADA
             // ─────────────────────────────────────────────────────────────────
-            // Se pregunta por [ILaunchContext] y no por HioposTransactionActive.
-            // Ese flag se enciende en HandleTransaction, que corre en OnResume, o
-            // sea DESPUES de que esta pantalla ya aparecio: preguntarlo aca daba
-            // "no hay transaccion" incluso en una venta, y el modulo terminaba
-            // pidiendo la clave del cajero en medio de una factura.
+            // Las dos condiciones cubren dos momentos distintos y las dos hacen
+            // falta:
             //
-            // Tampoco se toca IsStandalone en ese caso: marcar el modo standalone
-            // durante una venta corrompe el cierre (se esperaria FinishAffinity en
-            // vez de devolverle el resultado al POS).
+            //   [EsDeHiopos]              el arranque. Esta pantalla aparece ANTES de
+            //                             que MainActivity navegue, cuando la bandera
+            //                             de transaccion todavia no se encendio.
+            //                             Decidir ahi hacia que el modulo pidiera la
+            //                             clave del cajero en medio de una factura.
             //
-            // La condicion lleva [NavegacionConsumida] a proposito. Sin ella, la
-            // rama se quedaba callada TAMBIEN cuando el cajero volvia atras desde la
-            // primera pantalla del flujo, y ahi callarse es la pantalla negra: el
-            // "atras" cae en esta raiz, que no tiene contenido.
+            //   [HioposTransactionActive]  la operacion en curso, ya encendida.
             //
-            // Y con ella, un relanzamiento CALIENTE desde HioPos —que resetea el
-            // Shell a esta raiz antes de empujar la pantalla nueva— sigue quedandose
-            // quieto, porque el intent nuevo apago la bandera al llegar.
-            if (launch.EsDeHiopos && !launch.NavegacionConsumida)
+            // Tampoco se toca IsStandalone: marcar el modo standalone durante una
+            // venta corrompe el cierre —[ReciboPagoViewModel] elige entre devolverle
+            // el resultado al POS o cerrar con FinishAffinity segun ese modo—.
+            if (launch.EsDeHiopos || state.HioposTransactionActive)
             {
                 AppLogger.I("SplashViewModel",
-                    $"Arranque de HioPos (action={launch.Action}): la navegacion la maneja MainActivity.");
+                    $"La POS esta al mando (action={launch.Action}, " +
+                    $"operacionViva={state.HioposTransactionActive}): la navegacion la " +
+                    "maneja MainActivity.");
+
+                OfrecerLaSalidaSiSeQuedaAca();
                 return;
             }
 
-            // ─────────────────────────────────────────────────────────────────
-            // EL CAJERO SE SALIO DE LA OPERACION DE HIOPOS
-            // ─────────────────────────────────────────────────────────────────
-            // Volver a la raiz con una operacion de HioPos viva significa que el
-            // cajero abandono la venta. Se suelta ACA, y no mas adelante, por una
-            // razon de plata: [ReciboPagoViewModel] elige como cerrar segun el modo
-            // —al POS o con FinishAffinity—, y una venta viva mal soltada haria que
-            // un ABONO se le devuelva a HioPos como si fuera el cobro de la factura.
-            //
-            // Soltar incluye [state.Clear]: los datos de esa venta (documento,
-            // cliente, credito) no pueden seguir vivos en lo que el cajero haga
-            // despues.
-            //
-            // HioPos se entera cuando la app cierre: recibe RESULT_CANCELED y
-            // deselecciona el medio de pago, que es lo que significa abandonarla.
-            if (state.HioposTransactionActive)
-            {
-                AppLogger.W("SplashViewModel",
-                    "Se volvio a la raiz con una operacion de HioPos viva: el cajero la " +
-                    "abandono. Se suelta el estado de la venta y se sigue como abonos.");
-                state.Clear();
-                standalone.Reset();
-            }
-
+            MensajeDeLaPos = null;
             standalone.IsStandalone = true;
 
             var destino =
@@ -156,6 +159,43 @@ public partial class SplashViewModel(
         {
             _decidiendo = false;
         }
+    }
+
+    /// <summary>
+    /// Si al cabo de un momento la POS sigue al mando, esta pantalla dejo de ser un
+    /// paso de arranque y paso a ser donde el cajero se quedo. Se le muestra que
+    /// pasa y como volver.
+    /// </summary>
+    private void OfrecerLaSalidaSiSeQuedaAca() =>
+        Fire.AndForget(async () =>
+        {
+            await Task.Delay(EsperaAntesDeOfrecerLaSalida);
+
+            if (!launch.EsDeHiopos && !state.HioposTransactionActive) return;
+
+            MensajeDeLaPos = state.HioposTransactionActive
+                ? "La POS tiene una operacion abierta en este modulo."
+                : "Este modulo lo abrio la POS.";
+        }, "SplashViewModel");
+
+    /// <summary>
+    /// Devuelve el control a la POS. Es la salida de emergencia de esta pantalla, y
+    /// NO cruza a abonos: los dos modulos se mantienen separados.
+    ///
+    /// Si no hay nada que devolverle a la POS, entonces la POS ya no esta al mando y
+    /// se resuelve el destino normalmente.
+    /// </summary>
+    [RelayCommand]
+    private async Task VolverALaPosAsync()
+    {
+        if (salida.Volver("SplashPage")) return;
+
+        AppLogger.W("SplashViewModel",
+            "No habia operacion que devolverle a la POS; se resuelve el destino.");
+
+        MensajeDeLaPos = null;
+        launch.Action = null;
+        await DecidirYNavegarAsync();
     }
 
     private enum Destino { Configuracion, Ingreso, Cobrar }

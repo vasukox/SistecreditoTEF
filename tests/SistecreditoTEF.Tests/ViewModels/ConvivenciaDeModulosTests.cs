@@ -9,33 +9,28 @@ using Xunit;
 namespace SistecreditoTEF.Tests.ViewModels;
 
 /// <summary>
-/// Los dos modulos conviviendo: la venta que abre HioPos y los abonos que abre el
-/// icono.
+/// Los dos modulos, separados: el que entra por la POS es de la POS, y el que se
+/// abre a mano desde el icono es de abonos. No se juntan nunca.
 ///
 /// ─────────────────────────────────────────────────────────────────────────────────
-/// LA PANTALLA NEGRA QUE REPORTO LA TIENDA
+/// DONDE SE JUNTABAN
 /// ─────────────────────────────────────────────────────────────────────────────────
-/// "Estoy facturando con Sistecredito en HioPos, selecciono el medio de pago y me
-/// lleva bien a consultar cliente. Pero si el cajero se sale y deja el modulo ahi, y
-/// despues selecciona el TEF a mano para entrar al otro modulo —ingresar y pagar
-/// credito—, no se puede: aparece una pantalla negra."
+/// [SplashPage] es la RAIZ del Shell y los dos flujos se empujan encima de ella, asi
+/// que es el unico lugar comun — y por lo tanto el unico donde se pueden mezclar por
+/// accidente.
 ///
-/// Eran dos defectos encadenados, y los dos se reproducen aca sin terminal:
+/// Se probo una version que distinguia "MainActivity todavia no navego" de "el cajero
+/// volvio atras" para poder decidir en el segundo caso. Salio mal: esa distincion
+/// depende de CUANDO el framework entrega el evento de aparicion de la pagina, y
+/// cuando llega tarde la raiz decide EN PLENA VENTA y le borra el estado.
 ///
-///   1. [SplashPage] es la RAIZ del Shell y el flujo de HioPos se empuja encima, asi
-///      que el "atras" desde consultar cliente cae en ella. Esa pantalla no tiene
-///      contenido —fondo #333333 y un aviso oculto mientras no hay error—, y ademas
-///      decidia UNA sola vez: al volver no volvia a decidir. Pantalla negra sin
-///      salida.
+/// El sintoma en caja: el cajero tocaba "Volver a la POS" y aterrizaba en pagar
+/// credito. La causa: sin operacion viva, el boton hace el "atras" normal, y ese pop
+/// cae en la raiz, que resuelve destino y manda a abonos.
 ///
-///   2. <c>HioposTransactionActive</c> solo se apaga al entregarle el resultado al
-///      POS. Un cajero que se sale con "atras" nunca pasa por ahi, pero el proceso
-///      —y con el los singletons— sigue vivo. La bandera quedaba pegada en true, y
-///      entonces [HioposIntentGuard] descartaba el intent del icono y la raiz
-///      tampoco decidia. El modulo de abonos se volvia inalcanzable hasta matar la
-///      app.
-///
-/// El orden de las pruebas sigue el recorrido del cajero.
+/// La regla que quedo es dura y no depende de ningun orden de eventos: mientras la
+/// POS este al mando, la raiz no decide NADA. Y para que no decidir no signifique
+/// pantalla negra, la raiz muestra una salida a la POS.
 /// </summary>
 public class ConvivenciaDeModulosTests
 {
@@ -60,6 +55,25 @@ public class ConvivenciaDeModulosTests
         public Task GoToReplicacionAsync()       => Ir(nameof(GoToReplicacionAsync));
     }
 
+    /// <summary>
+    /// Doble de la salida a la POS. Anota si se la llamo y devuelve lo mismo que la
+    /// real: true solo si habia una operacion viva que devolver.
+    /// </summary>
+    private sealed class SalidaSpy(ITransactionStateStore state) : IHioposExit
+    {
+        public int Llamadas { get; private set; }
+
+        public bool Disponible => state.HioposTransactionActive;
+
+        public bool Volver(string origen)
+        {
+            Llamadas++;
+            if (!state.HioposTransactionActive) return false;
+            state.Clear();
+            return true;
+        }
+    }
+
     private sealed class Escenario
     {
         public InMemoryAuthStore Store { get; } = new();
@@ -68,9 +82,12 @@ public class ConvivenciaDeModulosTests
         public TransactionStateStore Estado { get; } = new();
         public LaunchContext Arranque { get; } = new();
         public NavSpy Nav { get; } = new();
+        public SalidaSpy Salida { get; }
+
+        public Escenario() => Salida = new SalidaSpy(Estado);
 
         public SplashViewModel Raiz() => new(
-            new AuthService(Store), Sesion, Standalone, Estado, Arranque, Nav);
+            new AuthService(Store), Sesion, Standalone, Estado, Arranque, Salida, Nav);
 
         /// <summary>Deja la caja configurada y con un cajero dado de alta.</summary>
         public async Task<Cajero> DarDeAltaUnCajeroAsync()
@@ -88,60 +105,76 @@ public class ConvivenciaDeModulosTests
             return this;
         }
 
-        /// <summary>HioPos lanza el modulo para cobrar una factura.</summary>
-        public void HioposAbreUnaVenta()
+        /// <summary>La POS lanza el modulo para cobrar una factura.</summary>
+        public void LaPosAbreUnaVenta()
         {
             Arranque.Action = HioposActions.Transaction;
             Estado.HioposTransactionActive = true;
             Standalone.Reset();
         }
 
-        /// <summary>MainActivity ya navego a consultar cliente.</summary>
-        public void MainActivityYaNavego() => Arranque.NavegacionConsumida = true;
-
         /// <summary>El cajero toca el icono del TEF.</summary>
         public void ElCajeroTocaElIcono() => Arranque.Action = HioposIntentGuard.LauncherAction;
     }
 
     // ══════════════════════════════════════════════════════════════════════════════
-    // EL ARRANQUE DE UNA VENTA NO SE TOCA
+    // MIENTRAS LA POS ESTE AL MANDO, LA RAIZ NO TOCA NADA
     // ══════════════════════════════════════════════════════════════════════════════
 
     /// <summary>
-    /// La raiz aparece ANTES de que MainActivity navegue. Si decidiera ahi, el modulo
-    /// pediria la clave del cajero en medio de una factura: eso ya paso una vez y es
-    /// lo que esta rama protege.
+    /// El arranque de una venta. La raiz aparece ANTES de que MainActivity navegue:
+    /// si decidiera ahi, el modulo pediria la clave del cajero en medio de una
+    /// factura. Ya paso una vez.
     /// </summary>
     [Fact]
-    public async Task Cuando_HioPos_abre_una_venta_la_raiz_no_navega()
+    public async Task Cuando_la_POS_abre_una_venta_la_raiz_no_navega()
     {
         var e = await new Escenario().ConCajaListaAsync();
-        e.HioposAbreUnaVenta();   // MainActivity todavia no navego
+        e.LaPosAbreUnaVenta();
 
         await e.Raiz().DecidirYNavegarAsync();
 
         Assert.Empty(e.Nav.Visitadas);
         Assert.False(e.Standalone.IsStandalone);
-        Assert.True(e.Estado.HioposTransactionActive);
     }
 
     /// <summary>
-    /// Relanzamiento CALIENTE: HioPos manda otra venta mientras el modulo esta
-    /// abierto, y MainActivity resetea el Shell a la raiz antes de empujar la
-    /// pantalla nueva. Ese reseteo hace aparecer esta pantalla otra vez.
+    /// LA REGRESION QUE ESTO FIJA.
     ///
-    /// Si la raiz decidiera ahi, le pisaria la navegacion a la venta NUEVA. El intent
-    /// nuevo apaga [NavegacionConsumida] justamente para eso.
+    /// Aunque la pantalla aparezca de nuevo —un reseteo del Shell, un "atras", el
+    /// evento de aparicion entregado tarde—, con una operacion viva la raiz no puede
+    /// tocar el estado. Borrarlo dejaba al boton "Volver a la POS" haciendo un pop
+    /// que aterrizaba en pagar credito.
     /// </summary>
     [Fact]
-    public async Task Un_relanzamiento_caliente_de_HioPos_no_deja_que_la_raiz_decida()
+    public async Task Con_una_operacion_viva_la_raiz_nunca_borra_el_estado_de_la_venta()
     {
         var e = await new Escenario().ConCajaListaAsync();
-        e.HioposAbreUnaVenta();
-        e.MainActivityYaNavego();
+        e.LaPosAbreUnaVenta();
+        e.Estado.SetActiveDocument(new SaleDocument());
 
-        // Llega la venta siguiente: al asignar la accion, la bandera se apaga sola.
-        e.HioposAbreUnaVenta();
+        var raiz = e.Raiz();
+        await raiz.DecidirYNavegarAsync();
+        await raiz.DecidirYNavegarAsync();   // la pagina volvio a aparecer
+        await raiz.DecidirYNavegarAsync();
+
+        Assert.True(e.Estado.HioposTransactionActive);
+        Assert.NotNull(e.Estado.ActiveDocument);
+        Assert.False(e.Standalone.IsStandalone);
+        Assert.Empty(e.Nav.Visitadas);
+    }
+
+    /// <summary>
+    /// Ni siquiera si el intent que llego fue el del ICONO: lo que manda es que la
+    /// POS tenga una operacion viva. Cruzar ahi a abonos es exactamente juntar los
+    /// dos modulos.
+    /// </summary>
+    [Fact]
+    public async Task El_icono_no_se_mete_en_una_operacion_viva_de_la_POS()
+    {
+        var e = await new Escenario().ConCajaListaAsync();
+        e.LaPosAbreUnaVenta();
+        e.ElCajeroTocaElIcono();
 
         await e.Raiz().DecidirYNavegarAsync();
 
@@ -150,99 +183,63 @@ public class ConvivenciaDeModulosTests
     }
 
     // ══════════════════════════════════════════════════════════════════════════════
-    // EL CAJERO SE SALE: ACA ESTABA LA PANTALLA NEGRA
+    // NO DECIDIR NO PUEDE SIGNIFICAR PANTALLA NEGRA
     // ══════════════════════════════════════════════════════════════════════════════
 
     /// <summary>
-    /// El "atras" desde consultar cliente cae en la raiz. Antes esta pantalla se
-    /// quedaba callada —ya habia decidido una vez— y el cajero se quedaba mirando el
-    /// fondo #333333 sin un solo control.
+    /// Si el cajero termina en la raiz con la POS al mando, la salida es VOLVER A LA
+    /// POS — no cruzar a abonos.
     /// </summary>
     [Fact]
-    public async Task Volver_atras_desde_la_venta_lleva_a_los_abonos_y_no_a_una_pantalla_negra()
+    public async Task La_salida_de_la_raiz_devuelve_el_control_a_la_POS()
     {
         var e = await new Escenario().ConCajaListaAsync();
-        e.HioposAbreUnaVenta();
-        e.MainActivityYaNavego();
+        e.LaPosAbreUnaVenta();
 
-        await e.Raiz().DecidirYNavegarAsync();
+        var raiz = e.Raiz();
+        await raiz.DecidirYNavegarAsync();
+        await raiz.VolverALaPosCommand.ExecuteAsync(null);
+
+        Assert.Equal(1, e.Salida.Llamadas);
+        Assert.Empty(e.Nav.Visitadas);   // no se cruzo a abonos
+    }
+
+    /// <summary>
+    /// Y si ya no hay nada que devolverle a la POS, entonces la POS dejo de estar al
+    /// mando: recien ahi se resuelve el destino normal.
+    /// </summary>
+    [Fact]
+    public async Task Si_la_POS_ya_no_espera_nada_la_salida_resuelve_el_destino()
+    {
+        var e = await new Escenario().ConCajaListaAsync();
+        e.LaPosAbreUnaVenta();
+
+        var raiz = e.Raiz();
+        await raiz.DecidirYNavegarAsync();
+
+        // La venta se cerro por otro lado mientras el cajero miraba esta pantalla.
+        e.Estado.Clear();
+
+        await raiz.VolverALaPosCommand.ExecuteAsync(null);
 
         Assert.Contains("GoToCreditosActivosAsync", e.Nav.Visitadas);
     }
 
-    /// <summary>
-    /// Salirse de la venta la ABANDONA, y abandonarla tiene que limpiar su estado.
-    ///
-    /// No es prolijidad: [ReciboPagoViewModel] elige como cerrar segun el modo —al POS
-    /// o con FinishAffinity—. Con la venta mal soltada, un ABONO se le devolveria a
-    /// HioPos como si fuera el cobro de la factura.
-    /// </summary>
-    [Fact]
-    public async Task Salirse_de_la_venta_suelta_el_estado_y_pasa_a_modo_abonos()
-    {
-        var e = await new Escenario().ConCajaListaAsync();
-        e.HioposAbreUnaVenta();
-        e.Estado.SetActiveDocument(new SaleDocument());
-        e.MainActivityYaNavego();
-
-        await e.Raiz().DecidirYNavegarAsync();
-
-        Assert.False(e.Estado.HioposTransactionActive);
-        Assert.Null(e.Estado.ActiveDocument);
-        Assert.True(e.Standalone.IsStandalone);
-
-        // El POS no espera un setResult de un abono hecho despues de abandonar.
-        Assert.False(e.Standalone.IsRefundFromHioPos);
-    }
-
     // ══════════════════════════════════════════════════════════════════════════════
-    // EL ICONO DEL TEF DESPUES DE UNA VENTA ABANDONADA
+    // EL MODULO MANUAL, POR SU LADO
     // ══════════════════════════════════════════════════════════════════════════════
 
-    /// <summary>
-    /// EL SINTOMA REPORTADO, EN UNA LINEA.
-    ///
-    /// La bandera de venta viva quedaba pegada en true porque nadie le respondio al
-    /// POS. Con ella encendida, la raiz se iba por la rama "no decido nada" aunque la
-    /// app la hubiera abierto el ICONO —o sea, ya sin ninguna relacion con HioPos— y
-    /// el cajero volvia a quedarse en la pantalla negra.
-    /// </summary>
     [Fact]
-    public async Task Una_venta_abandonada_no_bloquea_el_arranque_desde_el_icono()
+    public async Task El_icono_sin_operacion_de_la_POS_abre_abonos()
     {
         var e = await new Escenario().ConCajaListaAsync();
-        e.HioposAbreUnaVenta();
-
-        // El cajero se salio; nadie le respondio al POS, asi que la bandera sigue
-        // encendida. Despues toca el icono del TEF.
         e.ElCajeroTocaElIcono();
 
         await e.Raiz().DecidirYNavegarAsync();
 
         Assert.Contains("GoToCreditosActivosAsync", e.Nav.Visitadas);
-        Assert.False(e.Estado.HioposTransactionActive);
         Assert.True(e.Standalone.IsStandalone);
     }
-
-    /// <summary>
-    /// El guard es la otra mitad del bloqueo: con la bandera pegada descartaba el
-    /// intent del icono. Apagada, el icono abre los abonos como corresponde.
-    /// </summary>
-    [Fact]
-    public void Con_la_venta_ya_soltada_el_guard_deja_pasar_el_icono()
-    {
-        var bloqueado = HioposIntentGuard.Evaluate(
-            HioposIntentGuard.LauncherAction, hioposTransactionActive: true, isStandalone: false);
-        Assert.True(bloqueado.Discard);
-
-        var libre = HioposIntentGuard.Evaluate(
-            HioposIntentGuard.LauncherAction, hioposTransactionActive: false, isStandalone: false);
-        Assert.False(libre.Discard);
-    }
-
-    // ══════════════════════════════════════════════════════════════════════════════
-    // EL ICONO EN UNA CAJA SIN CONFIGURAR
-    // ══════════════════════════════════════════════════════════════════════════════
 
     [Fact]
     public async Task Sin_PIN_de_administrador_el_icono_lleva_a_la_configuracion_inicial()
@@ -268,13 +265,9 @@ public class ConvivenciaDeModulosTests
         Assert.Contains("GoToIngresoCajeroAsync", e.Nav.Visitadas);
     }
 
-    // ══════════════════════════════════════════════════════════════════════════════
-    // REENTRANCIA
-    // ══════════════════════════════════════════════════════════════════════════════
-
     /// <summary>
-    /// La raiz puede aparecer varias veces —el cajero entra y sale del flujo— y tiene
-    /// que decidir CADA vez. Lo que no puede es decidir dos veces a la vez.
+    /// La raiz decide CADA vez que aparece. Antes decidia una sola vez en la vida de
+    /// la app: al volver no volvia a decidir y la pantalla se quedaba vacia.
     /// </summary>
     [Fact]
     public async Task La_raiz_decide_cada_vez_que_aparece()
@@ -287,5 +280,25 @@ public class ConvivenciaDeModulosTests
         await raiz.DecidirYNavegarAsync();
 
         Assert.Equal(2, e.Nav.Visitadas.Count(d => d == "GoToCreditosActivosAsync"));
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════════
+    // EL GUARD DEL INTENT
+    // ══════════════════════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// La otra mitad de la separacion: con una venta viva, el intent del icono se
+    /// descarta. Sin venta viva, pasa.
+    /// </summary>
+    [Fact]
+    public void El_guard_separa_el_icono_de_una_venta_viva()
+    {
+        var conVenta = HioposIntentGuard.Evaluate(
+            HioposIntentGuard.LauncherAction, hioposTransactionActive: true, isStandalone: false);
+        Assert.True(conVenta.Discard);
+
+        var sinVenta = HioposIntentGuard.Evaluate(
+            HioposIntentGuard.LauncherAction, hioposTransactionActive: false, isStandalone: false);
+        Assert.False(sinVenta.Discard);
     }
 }
