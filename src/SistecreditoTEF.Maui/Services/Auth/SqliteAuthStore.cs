@@ -178,30 +178,11 @@ public class SqliteAuthStore : IAuthStore
         {
             var conn = await GetConnectionAsync();
 
-            // El PIN primero: si algo falla despues, la caja queda sin cajeros pero
-            // con administrador, y se puede terminar a mano. Al reves —cajeros sin
-            // PIN— la pantalla de administracion no se puede abrir para arreglarlo.
-            await conn.InsertOrReplaceAsync(new AuthSettingRow
-            {
-                Key = AdminPinKey,
-                Value = sobre.AdminPinHash ?? string.Empty
-            });
-
-            // Completo, no mezclado. Ver la nota en [IAuthStore.ImportarPadronAsync].
-            await conn.DeleteAllAsync<CajeroRow>();
-
-            foreach (var c in sobre.Cajeros)
-            {
-                await conn.InsertOrReplaceAsync(new CajeroRow
-                {
-                    Id = c.Id,
-                    Usuario = c.Usuario,
-                    Nombre = c.Nombre,
-                    ClaveHash = c.ClaveHash,
-                    Activo = c.Activo,
-                    CreadoEn = c.CreadoEn
-                });
-            }
+            // TODO O NADA. Ver [EscribirPadronAsync]: antes esto borraba y despues
+            // insertaba en llamadas sueltas, asi que un fallo a la mitad dejaba la
+            // caja con medio padron —o sin ninguno— mientras la pantalla decia que
+            // habia quedado como estaba.
+            await EscribirPadronAsync(conn, sobre.Cajeros, sobre.AdminPinHash);
 
             AppLogger.I("IAuthStore",
                 $"Padron recibido de otra caja: {sobre.Cajeros.Count} cajeros escritos.");
@@ -214,32 +195,49 @@ public class SqliteAuthStore : IAuthStore
         }
     }
 
-    public async Task<bool> ActualizarCajerosAsync(CashierRosterEnvelope sobre, bool incluirPinAdmin)
+    /// <summary>
+    /// Reemplaza el padron entero —y opcionalmente el PIN— en UNA transaccion.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────────────
+    /// POR QUE TIENE QUE SER TODO O NADA
+    /// ─────────────────────────────────────────────────────────────────────────────
+    /// La version anterior hacia <c>DeleteAllAsync</c> y despues un
+    /// <c>InsertOrReplaceAsync</c> por cajero, cada uno en su propia transaccion
+    /// implicita. Entre el borrado y el ultimo insert hay una ventana real: en un
+    /// POS la BD esta cifrada y compartida con la idempotencia, y cualquier cosa
+    /// que interrumpa ahi —un bloqueo, un cierre de la app, una fila mala— deja la
+    /// caja con PARTE del padron. O con ninguno.
+    ///
+    /// Y lo peor no era perderlo, era lo que se le decia al operador: el catch
+    /// devolvia false y la pantalla mostraba "no se pudo actualizar el padron, la
+    /// caja quedo como estaba". No habia quedado como estaba. Se habia quedado sin
+    /// cajeros, y nadie iba a buscar ahi.
+    ///
+    /// Dentro de la transaccion se usa la conexion SINCRONA que expone sqlite-net:
+    /// es la unica forma de que el borrado y los inserts compartan transaccion.
+    /// </summary>
+    private static async Task EscribirPadronAsync(
+        SQLiteAsyncConnection conn,
+        IReadOnlyList<ReplicatedCajero> cajeros,
+        string? adminPinHash)
     {
-        ArgumentNullException.ThrowIfNull(sobre);
-
-        try
+        await conn.RunInTransactionAsync(tx =>
         {
-            var conn = await GetConnectionAsync();
-
-            // El PIN solo si lo pidieron. Ver la nota en [IAuthStore]: en el camino
-            // rutinario, pisar el PIN de administrador no puede ser el default.
-            if (incluirPinAdmin && !string.IsNullOrWhiteSpace(sobre.AdminPinHash))
+            if (!string.IsNullOrWhiteSpace(adminPinHash))
             {
-                await conn.InsertOrReplaceAsync(new AuthSettingRow
+                tx.InsertOrReplace(new AuthSettingRow
                 {
                     Key = AdminPinKey,
-                    Value = sobre.AdminPinHash
+                    Value = adminPinHash
                 });
             }
 
-            // Completo, igual que en la importacion: el padron de la otra caja es el
-            // padron de la tienda. La diferencia con importar es lo que NO se toca.
-            await conn.DeleteAllAsync<CajeroRow>();
+            // Completo, no mezclado. Ver la nota en [IAuthStore.ImportarPadronAsync].
+            tx.DeleteAll<CajeroRow>();
 
-            foreach (var c in sobre.Cajeros)
+            foreach (var c in cajeros)
             {
-                await conn.InsertOrReplaceAsync(new CajeroRow
+                tx.InsertOrReplace(new CajeroRow
                 {
                     Id = c.Id,
                     Usuario = c.Usuario,
@@ -249,6 +247,44 @@ public class SqliteAuthStore : IAuthStore
                     CreadoEn = c.CreadoEn
                 });
             }
+        });
+
+        // ─────────────────────────────────────────────────────────────────────
+        // Y SE COMPRUEBA QUE QUEDO ESCRITO
+        // ─────────────────────────────────────────────────────────────────────
+        // La transaccion garantiza que no quede a medias, no que haya entrado lo
+        // que se esperaba: dos cajeros con el mismo Id en el sobre se colapsan en
+        // uno solo —InsertOrReplace— y la caja terminaria con menos gente de la
+        // que el operador acaba de ver en el resumen, sin un solo error.
+        //
+        // Es una consulta de conteo sobre una tabla de decenas de filas. El costo
+        // es irrelevante al lado de descubrirlo con un cajero que no puede entrar.
+        var escritos = await conn.Table<CajeroRow>().CountAsync();
+        if (escritos != cajeros.Count)
+        {
+            throw new InvalidOperationException(
+                $"El padron quedo con {escritos} cajeros y el sobre traia {cajeros.Count}. " +
+                "Probablemente hay Ids repetidos en el origen.");
+        }
+    }
+
+    public async Task<bool> ActualizarCajerosAsync(CashierRosterEnvelope sobre, bool incluirPinAdmin)
+    {
+        ArgumentNullException.ThrowIfNull(sobre);
+
+        try
+        {
+            var conn = await GetConnectionAsync();
+
+            // Completo, igual que en la importacion: el padron de la otra caja es el
+            // padron de la tienda. La diferencia con importar es lo que NO se toca
+            // —el PIN de administrador solo si lo pidieron, porque en el camino
+            // rutinario pisarlo no puede ser el default— y que esto tambien va en
+            // una sola transaccion. Ver [EscribirPadronAsync].
+            await EscribirPadronAsync(
+                conn,
+                sobre.Cajeros,
+                incluirPinAdmin ? sobre.AdminPinHash : null);
 
             AppLogger.I("IAuthStore",
                 $"Cajeros actualizados desde otra caja: {sobre.Cajeros.Count} escritos. " +

@@ -303,8 +303,31 @@ public class AuthService(IAuthStore store)
     {
         var todos = await store.GetCajerosAsync();
 
-        var porUsuario = todos.FirstOrDefault(c =>
-            string.Equals(c.UsuarioNormalizado, usuarioNormalizado, StringComparison.Ordinal));
+        // ─────────────────────────────────────────────────────────────────────
+        // SI HAY VARIOS CON EL MISMO USUARIO, GANA EL ACTIVO
+        // ─────────────────────────────────────────────────────────────────────
+        // Que haya dos no es un dato corrupto: el alta solo exige que el usuario
+        // sea unico entre los ACTIVOS, asi que dar de baja a "jperez" y volver a
+        // crearlo deja dos filas con ese usuario —una inactiva y una activa—, y es
+        // el comportamiento querido: el historico del que se fue no se borra.
+        //
+        // Lo que estaba mal era elegir con [FirstOrDefault] a secas. El orden de
+        // [GetCajerosAsync] es el de las filas en la tabla, no uno definido, asi
+        // que podia salir primero la INACTIVA. Y [IngresarAsync] corta ahi mismo:
+        // ve que no esta activa y devuelve "cajero desactivado" sin llegar a mirar
+        // la otra. El cajero existe, su clave es correcta, y no puede entrar.
+        //
+        // Donde se nota es justo despues de REPLICAR. El padron se escribe
+        // borrando y volviendo a insertar, asi que el orden de las filas cambia:
+        // la misma persona entraba en la caja de origen y dejaba de entrar en la
+        // que acababa de recibir el padron. Mismo usuario, misma clave, mismos
+        // datos — y "se replican pero no los estamos tomando bien".
+        var candidatos = todos
+            .Where(c => string.Equals(
+                c.UsuarioNormalizado, usuarioNormalizado, StringComparison.Ordinal))
+            .ToList();
+
+        var porUsuario = candidatos.FirstOrDefault(c => c.Activo) ?? candidatos.FirstOrDefault();
 
         if (porUsuario is not null) return porUsuario;
 

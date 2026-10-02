@@ -137,6 +137,33 @@ public sealed record CashierRosterEnvelope(
                 if (string.IsNullOrWhiteSpace(c.ClaveHash)) return null;
             }
 
+            // ─────────────────────────────────────────────────────────────────
+            // NI IDS REPETIDOS NI DOS ACTIVOS CON EL MISMO USUARIO
+            // ─────────────────────────────────────────────────────────────────
+            // Los dos se escriben sin un solo error y se descubren con un cajero
+            // que no puede entrar:
+            //
+            //   · Ids repetidos: la caja receptora guarda con InsertOrReplace por
+            //     Id, asi que el segundo PISA al primero. El operador acepta un
+            //     resumen que dice 9 cajeros y la caja termina con 8.
+            //
+            //   · Dos ACTIVOS con el mismo usuario: el ingreso busca por usuario y
+            //     tendria que elegir entre dos, con dos claves distintas. Una de
+            //     las dos personas no entra, y cual depende del orden de las filas.
+            //
+            // Que un usuario aparezca dos veces NO es de por si un error: dar de
+            // baja a alguien y volver a crearlo deja la fila vieja inactiva, y eso
+            // es deliberado —los abonos que hizo siguen teniendo a quien referirse—.
+            // Lo que no puede haber es DOS ACTIVOS.
+            var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var usuariosActivos = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var c in envelope.Cajeros)
+            {
+                if (!ids.Add(c.Id.Trim())) return null;
+                if (c.Activo && !usuariosActivos.Add(c.Usuario.Trim())) return null;
+            }
+
             return envelope;
         }
         catch (JsonException)
