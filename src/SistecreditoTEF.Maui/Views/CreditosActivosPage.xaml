@@ -83,7 +83,25 @@
                                 <Grid ColumnDefinitions="*,Auto">
                                     <Label Grid.Column="0" Text="{Binding CreditNumber, StringFormat='Crédito #{0}'}"
                                            Style="{StaticResource CardTitle}" VerticalOptions="Center" />
-                                    <Label Grid.Column="1" Text="{Binding StoreName}" Style="{StaticResource Caption}" VerticalOptions="Center" />
+                                    <!--
+                                        ACA ESTABA EL storeName DE CREDINET, Y ENGANABA.
+
+                                        Un nombre de tienda suelto al lado del numero de
+                                        credito se lee como "este credito es de aca". No lo
+                                        es: se reporto desde una tienda de Suba un credito
+                                        abierto ALLI que mostraba "037 Tienda Koaj Cll 18
+                                        Montevideo", o sea la tienda de la consulta y no la
+                                        del credito. El cajero concluia que el cliente lo
+                                        habia sacado en otra parte.
+
+                                        La fecha de apertura si es un dato del credito, no
+                                        de quien pregunta, y le sirve al cajero para
+                                        ubicarlo con el cliente ("el de marzo").
+                                    -->
+                                    <Label Grid.Column="1"
+                                           Text="{Binding CreateDateDisplay, StringFormat='Abierto el {0}'}"
+                                           IsVisible="{Binding TieneFechaDeApertura}"
+                                           Style="{StaticResource Caption}" VerticalOptions="Center" />
                                 </Grid>
                                 <Label Text="SALDO PENDIENTE" Style="{StaticResource FieldLabel}" />
                                 <Label Text="{Binding Balance, StringFormat='$ {0:N0}'}" Style="{StaticResource MoneyLarge}" />

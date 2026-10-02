@@ -16,7 +16,8 @@ namespace SistecreditoTEF.Maui.ViewModels;
 /// </summary>
 public partial class ConfigurarAdminViewModel(
     AuthService auth,
-    INavigationService nav) : ObservableObject
+    INavigationService nav,
+    ITiendaEnOperacion tienda) : ObservableObject
 {
     /// <summary>
     /// Trae la configuracion de otra caja de la misma tienda, en vez de crearla.
@@ -48,6 +49,27 @@ public partial class ConfigurarAdminViewModel(
         }
     }
 
+    /// <summary>
+    /// Abre la eleccion de tienda. Sin PIN de por medio: esta pantalla es la de un
+    /// terminal recien instalado, donde todavia no hay PIN que pedir, y dejar la
+    /// caja sin tienda es lo que hace que los creditos terminen a nombre de otra.
+    /// Desde administracion la misma pantalla si queda detras del PIN.
+    /// </summary>
+    [RelayCommand]
+    private async Task ElegirTiendaAsync()
+    {
+        ErrorMessage = null;
+        try
+        {
+            await nav.GoToTiendaAsync();
+        }
+        catch (Exception ex)
+        {
+            AppLogger.E("ConfigurarAdminViewModel", "Error abriendo la eleccion de tienda.", ex);
+            ErrorMessage = "No se pudo abrir la pantalla de tiendas.";
+        }
+    }
+
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(GuardarCommand))]
     private string pin = string.Empty;
@@ -73,6 +95,38 @@ public partial class ConfigurarAdminViewModel(
     /// version que ve HioPos esta fija por contrato.
     /// </summary>
     public string Build => BuildInfo.Descripcion;
+
+    // ─────────────────────────────────────────────────────────────────────
+    // CON QUE TIENDA QUEDA ESTA CAJA
+    // ─────────────────────────────────────────────────────────────────────
+    // Esta pantalla la ve el instalador, una vez por terminal, y es el mejor
+    // momento para comprobar que la caja quedo provisionada como la tienda que
+    // es. El StoreId se coteja contra la hoja STOREID-SISTECREDITO antes de
+    // cobrar la primera venta, en vez de descubrirlo conciliando meses despues.
+    //
+    // Ver el por que en [TextoDeTienda].
+    public string Tienda => tienda.Linea;
+
+    public string AvisoTienda => tienda.Aviso;
+
+    public bool MostrarAvisoTienda => !string.IsNullOrEmpty(AvisoTienda);
+
+    /// <summary>
+    /// Vuelve a leer la tienda y avisa a la pantalla.
+    ///
+    /// Las tres propiedades de arriba son CALCULADAS: leen la configuracion en cada
+    /// acceso, pero MAUI las evalua al armar el enlace y no las vuelve a mirar. Sin
+    /// esto, el instalador elige la tienda, vuelve, ve lo mismo de antes y concluye
+    /// que no se guardo — se reporto exactamente asi desde la terminal.
+    ///
+    /// Lo llama [ConfigurarAdminPage.OnAppearing].
+    /// </summary>
+    public void RefrescarTienda()
+    {
+        OnPropertyChanged(nameof(Tienda));
+        OnPropertyChanged(nameof(AvisoTienda));
+        OnPropertyChanged(nameof(MostrarAvisoTienda));
+    }
 
     public string Ayuda =>
         $"Minimo {PasswordHasher.MinLength} digitos. Con este PIN se administran los " +

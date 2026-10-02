@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    PASO 2 DEL MONTAJE: ¿como se configura esta caja?
+
+    Una sola pregunta y dos respuestas. Nada que llenar: ver el por que en
+    [ConfiguracionInicioViewModel].
+-->
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:SistecreditoTEF.Maui.ViewModels"
+             xmlns:beh="clr-namespace:SistecreditoTEF.Maui.Common.Behaviors"
+             xmlns:ctrl="clr-namespace:SistecreditoTEF.Maui.Views.Controls"
+             x:Class="SistecreditoTEF.Maui.Views.ConfiguracionInicioPage"
+             x:DataType="vm:ConfiguracionInicioViewModel"
+             Shell.NavBarIsVisible="False"
+             Title="Configurar esta caja">
+
+    <ctrl:ScaffoldView x:Name="Chrome"
+                       EyebrowText="PASO 2 DE 2"
+                       TitleText="Configurar esta caja"
+                       SubtitleText="Elige cómo quieres dejarla lista"
+                       ShowBack="False">
+
+        <VerticalStackLayout Spacing="16" Padding="20,22,20,28"
+                             MaximumWidthRequest="820" HorizontalOptions="Center">
+
+            <!-- ============ LO QUE QUEDO DEL PASO 1 ============ -->
+            <Border Style="{StaticResource Card}" Padding="16,14">
+                <Border.Behaviors>
+                    <beh:EntranceBehavior />
+                </Border.Behaviors>
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14">
+                    <Border Grid.Column="0" BackgroundColor="{StaticResource SuccessSoft}"
+                            WidthRequest="40" HeightRequest="40"
+                            StrokeShape="RoundRectangle 20" Stroke="Transparent"
+                            VerticalOptions="Center">
+                        <Label Text="✓" FontSize="19" FontAttributes="Bold"
+                               TextColor="{StaticResource Success}"
+                               HorizontalOptions="Center" VerticalOptions="Center">
+                            <Label.Behaviors>
+                                <beh:PopInBehavior DelayMs="120" />
+                            </Label.Behaviors>
+                        </Label>
+                    </Border>
+                    <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                        <Label Text="TIENDA DE ESTA CAJA" Style="{StaticResource FieldLabel}" />
+                        <Label Text="{Binding Tienda}" Style="{StaticResource CardTitle}" />
+                    </VerticalStackLayout>
+                </Grid>
+            </Border>
+
+            <!-- ============ OPCION 1: COPIAR ============ -->
+            <!--
+                Va primero porque es el caso frecuente: de las tres cajas de un
+                local, dos se montan copiando.
+            -->
+            <Border Style="{StaticResource Card}">
+                <Border.Behaviors>
+                    <beh:EntranceBehavior DelayMs="70" />
+                </Border.Behaviors>
+                <VerticalStackLayout Spacing="12">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14">
+                        <Border Grid.Column="0" BackgroundColor="{StaticResource PrimaryTint}"
+                                WidthRequest="52" HeightRequest="52"
+                                StrokeShape="RoundRectangle 26" Stroke="Transparent"
+                                VerticalOptions="Start">
+                            <Label Text="⧉" FontSize="23" FontAttributes="Bold"
+                                   TextColor="{StaticResource PrimaryDark}"
+                                   HorizontalOptions="Center" VerticalOptions="Center" />
+                        </Border>
+                        <VerticalStackLayout Grid.Column="1" Spacing="4" VerticalOptions="Center">
+                            <Label Text="Ya hay otra caja configurada"
+                                   Style="{StaticResource CardTitle}" />
+                            <Label Style="{StaticResource Caption}"
+                                   Text="Trae el PIN y los cajeros de la otra caja de esta tienda con un código de 6 dígitos. No hay que crear nada." />
+                        </VerticalStackLayout>
+                    </Grid>
+
+                    <Button Text="Copiar de la otra caja"
+                            Style="{StaticResource PrimaryButton}"
+                            Command="{Binding CopiarDeOtraCajaCommand}">
+                        <Button.Behaviors>
+                            <beh:PressableBehavior />
+                        </Button.Behaviors>
+                    </Button>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- ============ OPCION 2: DESDE CERO ============ -->
+            <Border Style="{StaticResource Card}">
+                <Border.Behaviors>
+                    <beh:EntranceBehavior DelayMs="140" />
+                </Border.Behaviors>
+                <VerticalStackLayout Spacing="12">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14">
+                        <Border Grid.Column="0" BackgroundColor="{StaticResource SurfaceAlt}"
+                                WidthRequest="52" HeightRequest="52"
+                                StrokeShape="RoundRectangle 26" Stroke="Transparent"
+                                VerticalOptions="Start">
+                            <Label Text="+" FontSize="26" FontAttributes="Bold"
+                                   TextColor="{StaticResource TextSecondary}"
+                                   HorizontalOptions="Center" VerticalOptions="Center" />
+                        </Border>
+                        <VerticalStackLayout Grid.Column="1" Spacing="4" VerticalOptions="Center">
+                            <Label Text="Configurar esta caja de cero"
+                                   Style="{StaticResource CardTitle}" />
+                            <Label Style="{StaticResource Caption}"
+                                   Text="Es lo que hace la primera caja de la tienda: crear el PIN de administrador y dar de alta a los cajeros." />
+                        </VerticalStackLayout>
+                    </Grid>
+
+                    <Button Text="Configurar de cero"
+                            Style="{StaticResource SecondaryButton}"
+                            Command="{Binding ConfigurarDesdeCeroCommand}">
+                        <Button.Behaviors>
+                            <beh:PressableBehavior />
+                        </Button.Behaviors>
+                    </Button>
+                </VerticalStackLayout>
+            </Border>
+
+            <!--
+                La correccion del paso anterior. Sin esto, una tienda mal elegida
+                solo se arregla detras del PIN de administrador... que en una caja
+                nueva todavia no existe.
+            -->
+            <Button Text="Cambiar la tienda"
+                    Style="{StaticResource OutlineButton}"
+                    Command="{Binding CambiarLaTiendaCommand}">
+                <Button.Behaviors>
+                    <beh:PressableBehavior />
+                </Button.Behaviors>
+            </Button>
+
+            <Border IsVisible="{Binding TieneError}" BackgroundColor="{StaticResource WarningSoft}"
+                    Stroke="Transparent" StrokeShape="RoundRectangle 12" Padding="14,12">
+                <Label Text="{Binding ErrorMessage}" TextColor="{StaticResource Warning}"
+                       FontSize="13" HorizontalTextAlignment="Center" />
+            </Border>
+
+            <Label Text="{Binding Build}" Style="{StaticResource Caption}"
+                   TextColor="{StaticResource TextMuted}"
+                   FontSize="11"
+                   HorizontalTextAlignment="Center" />
+
+        </VerticalStackLayout>
+    </ctrl:ScaffoldView>
+</ContentPage>

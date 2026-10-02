@@ -128,21 +128,28 @@ public partial class ReciboPagoViewModel(
         FechaComprobante.ToString("dd/MM/yyyy HH:mm", CultureInfo.InvariantCulture);
 
     /// <summary>
-    /// Nombre de la tienda para el comprobante.
+    /// Nombre de la tienda para el comprobante: LA DE ESTA CAJA.
     ///
-    /// Se prefiere el que devuelve Credinet en el crédito seleccionado
-    /// (<c>getactivecredits</c> → <c>storeName</c>): es el nombre real de la tienda
-    /// donde está el crédito. El de configuración queda como respaldo, porque hoy
-    /// vale "Permoda" mientras los parámetros de CloudLicense no lleguen.
+    /// ─────────────────────────────────────────────────────────────────────────
+    /// ANTES SALIA LA TIENDA EQUIVOCADA, Y EN UN PAPEL QUE SE LLEVA EL CLIENTE
+    /// ─────────────────────────────────────────────────────────────────────────
+    /// Esto tomaba <c>storeName</c> del crédito seleccionado
+    /// (<c>getactivecredits</c>), con el comentario de que era "el nombre real de
+    /// la tienda donde está el crédito". No lo es: se reportó desde una tienda de
+    /// Suba un crédito abierto ALLÍ que llegaba con "037 Tienda Koaj Cll 18
+    /// Montevideo". Ese campo no describe al crédito.
+    ///
+    /// Pero aunque lo describiera, seguiría siendo el dato incorrecto para ESTE
+    /// documento: un comprobante de pago dice dónde se recibió la plata, no dónde
+    /// nació la deuda. Un abono cobrado en Suba imprimiéndose como Calle 18 es
+    /// plata atribuida a la tienda que no la recibió, y solo se descubre al
+    /// conciliar.
+    ///
+    /// Ahora sale de la configuración de la caja (<c>STORE_NAME</c> de
+    /// CloudLicense, que ICG provisiona por terminal). Si no llegara, queda el
+    /// genérico "Permoda": impreciso, pero nunca falso.
     /// </summary>
-    private string Tienda
-    {
-        get
-        {
-            var deCredinet = state.SelectedCredit?.StoreName;
-            return string.IsNullOrWhiteSpace(deCredinet) ? config.StoreName : deCredinet;
-        }
-    }
+    private string Tienda => config.StoreName;
 
     /// <summary>
     /// Nombre del cliente. Lo carga [CreditosActivosViewModel] en modo best-effort;

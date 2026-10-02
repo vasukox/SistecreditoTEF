@@ -59,13 +59,20 @@
   </ItemGroup>
 
   <ItemGroup Label="Codigo de produccion (capa pura, sin Android)">
-    <!-- Common: se excluyen los helpers de UI que dependen de MAUI. -->
+    <!--
+      Common: se excluyen los helpers de UI que dependen de MAUI.
+
+      [AppRoutes] SI entra, aunque su nombre suene a navegacion: son constantes de
+      cadena y nada mas. Lo necesita [GuionDeLaVitrina], que decide que ve el
+      cliente en la segunda pantalla a partir de la ruta; si el guion se probara
+      contra literales sueltos, renombrar una ruta dejaria al cliente mirando la
+      marca en silencio y la prueba seguiria en verde.
+    -->
     <Compile Include="$(SrcDir)\Common\**\*.cs"
              Exclude="$(SrcDir)\Common\Behaviors\**\*.cs;
                       $(SrcDir)\Common\EnumToBoolConverter.cs;
                       $(SrcDir)\Common\StringNotEmptyConverter.cs;
-                      $(SrcDir)\Common\InvertedBoolConverter.cs;
-                      $(SrcDir)\Common\AppRoutes.cs" />
+                      $(SrcDir)\Common\InvertedBoolConverter.cs" />
 
     <Compile Include="$(SrcDir)\Enums\**\*.cs" />
     <Compile Include="$(SrcDir)\Models\**\*.cs" />
@@ -73,6 +80,16 @@
     <Compile Include="$(SrcDir)\Mappers\**\*.cs" />
     <Compile Include="$(SrcDir)\Services\Credinet\**\*.cs" />
     <Compile Include="$(SrcDir)\Services\Hiopos\**\*.cs" />
+
+    <!--
+      Catalogo de tiendas y resolucion del StoreId. Entra ENTERA: es la regla que
+      decide a nombre de que tienda queda cada credito, y es exactamente el defecto
+      que se vivio en produccion (creditos de Suba registrados en la 037). Toda la
+      carpeta es pura — la persistencia esta aparte, en
+      Services\Platform\TiendaDeLaCajaEnPreferencias.cs, justamente para que esto
+      se pueda probar sin una terminal.
+    -->
+    <Compile Include="$(SrcDir)\Services\Tiendas\**\*.cs" />
 
     <!--
       Replicacion del padron entre cajas. Entra ENTERA a proposito: todo menos las
@@ -91,6 +108,20 @@
       SQLite queda fuera (toca SQLCipher y el Keystore de Android) y lo cubre el
       build del APK.
     -->
+    <!--
+      Pantalla del cliente (la de 11" del terminal). Entran el contrato y el guion,
+      que son puros; la implementacion que busca el display y dibuja vive en
+      Platforms\ y la valida el build del APK.
+
+      Esta es la parte que importa probar: que en la pantalla publica NUNCA
+      aparezca la cedula, el telefono ni el codigo OTP, y que una ruta desconocida
+      caiga en la marca. Eso no se puede verificar mirando un terminal, porque el
+      fallo seria justamente mostrar de mas sin que nadie lo note.
+    -->
+    <Compile Include="$(SrcDir)\Services\PantallaCliente\VitrinaCliente.cs" />
+    <Compile Include="$(SrcDir)\Services\PantallaCliente\IPantallaCliente.cs" />
+    <Compile Include="$(SrcDir)\Services\PantallaCliente\GuionDeLaVitrina.cs" />
+
     <Compile Include="$(SrcDir)\Services\Auth\PasswordHasher.cs" />
     <Compile Include="$(SrcDir)\Services\Auth\Cajero.cs" />
     <Compile Include="$(SrcDir)\Services\Auth\IAuthStore.cs" />
@@ -130,6 +161,17 @@
     <Compile Include="$(SrcDir)\Services\Platform\AuditActions.cs" />
     <Compile Include="$(SrcDir)\Services\Platform\OtpRequestThrottle.cs" />
     <Compile Include="$(SrcDir)\Services\Platform\ITokenStore.cs" />
+    <!-- Con que tienda opera la caja, para mostrarla en pantalla. Puro: solo
+         lee IApiConfigSource y formatea. Ver [TextoDeTienda]. -->
+    <Compile Include="$(SrcDir)\Services\Platform\TiendaEnOperacion.cs" />
+    <!--
+      El semaforo del modulo. Entra porque decide si una caja PUEDE OPERAR: si
+      Credinet rechaza la tienda, ni la venta ni el recaudo deben salir. Es logica
+      pura; lo unico de plataforma es leer si hay wifi, que esta detras de
+      [IEstadoDeRed] y se sustituye en las pruebas.
+    -->
+    <Compile Include="$(SrcDir)\Services\Platform\IEstadoDeRed.cs" />
+    <Compile Include="$(SrcDir)\Services\Platform\EstadoDeLaConexion.cs" />
     <Compile Include="$(SrcDir)\Services\Platform\ITransactionResultHandler.cs" />
     <Compile Include="$(SrcDir)\Services\Platform\INavigationService.cs" />
     <Compile Include="$(SrcDir)\Services\Platform\IRequestLogCapture.cs" />
@@ -167,6 +209,21 @@
       operar la caja y quien firma cada abono. Los tres son logica pura (solo
       CommunityToolkit y las interfaces de servicios), asi que entran tal cual.
     -->
+    <!--
+      La pantalla que elige la tienda de la caja. Entra porque decide a nombre de
+      que tienda quedan los creditos, y porque su parte mas delicada —resolver un
+      conflicto entre lo que dice HioPosCloud y lo que dice la caja— tiene que
+      poder ejercitarse sin una terminal.
+    -->
+    <Compile Include="$(SrcDir)\ViewModels\TiendaViewModel.cs" />
+
+    <!--
+      Las dos preguntas del montaje, cada una en su pantalla. La del paso 2 entra
+      aqui porque decide a cual de los dos caminos va una caja nueva, y equivocarse
+      ahi es lo que hacia que el instalador creara un PIN que dos minutos despues
+      quedaba pisado al copiar de la otra caja.
+    -->
+    <Compile Include="$(SrcDir)\ViewModels\ConfiguracionInicioViewModel.cs" />
     <Compile Include="$(SrcDir)\ViewModels\ConfigurarAdminViewModel.cs" />
     <Compile Include="$(SrcDir)\ViewModels\AdminCajerosViewModel.cs" />
     <Compile Include="$(SrcDir)\ViewModels\IngresoCajeroViewModel.cs" />

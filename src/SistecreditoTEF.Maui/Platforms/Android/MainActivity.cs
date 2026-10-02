@@ -264,10 +264,48 @@ public class MainActivity : MauiAppCompatActivity
         base.OnDestroy();
     }
 
+    /// <summary>
+    /// Al pasar a segundo plano se SUELTA la pantalla del cliente.
+    ///
+    /// Sin esto, el ultimo cartel —"¡Compra aprobada!"— se quedaria mirando al
+    /// salon de ventas despues de que le devolvemos el control a HioPos, encima de
+    /// lo que el POS quiera mostrar ahi y mientras el asesor ya atiende a la
+    /// persona siguiente. La pantalla del cliente es de quien esta al frente.
+    /// </summary>
+    protected override void OnPause()
+    {
+        try
+        {
+            (IPlatformApplication.Current?.Services
+                .GetService(typeof(SistecreditoTEF.Maui.Services.PantallaCliente.VitrinaCoordinador))
+                as SistecreditoTEF.Maui.Services.PantallaCliente.VitrinaCoordinador)?.Soltar();
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("MainActivity", $"No se pudo soltar la pantalla del cliente: {ex.Message}");
+        }
+
+        base.OnPause();
+    }
+
     protected override void OnResume()
     {
         base.OnResume();
         Log.Info("MainActivity", $"After OnResume: Current={IPlatformApplication.Current != null}, Services={IPlatformApplication.Current?.Services != null}");
+
+        // Y al volver al frente se vuelve a pedir. Va ACA ARRIBA, antes del guard
+        // de intents: aunque este intent se descarte, la app quedo visible y el
+        // cliente tiene que ver algo nuestro y no el cartel que quedo de antes.
+        try
+        {
+            (IPlatformApplication.Current?.Services
+                .GetService(typeof(SistecreditoTEF.Maui.Services.PantallaCliente.VitrinaCoordinador))
+                as SistecreditoTEF.Maui.Services.PantallaCliente.VitrinaCoordinador)?.Refrescar();
+        }
+        catch (Exception ex)
+        {
+            Log.Warn("MainActivity", $"No se pudo refrescar la pantalla del cliente: {ex.Message}");
+        }
         // OnResume se invoca DESPUES de que toda la cadena de
         // inicializacion de MAUI (Application.OnCreate -> MauiApp build
         // -> ServiceProvider) termino. Aca IPlatformApplication.Current.Services
@@ -521,6 +559,29 @@ public class MainActivity : MauiAppCompatActivity
                     "La app opera con la configuracion embebida (sandbox).");
             }
         }
+        else
+        {
+            // ─────────────────────────────────────────────────────────────────
+            // EL SILENCIO QUE NO DEJABA VER EL PROBLEMA
+            // ─────────────────────────────────────────────────────────────────
+            // Antes esto era un if sin else: si HioPos mandaba el INITIALIZE SIN
+            // el extra Parameters, no quedaba ni una linea. Y el APK productivo
+            // trae adentro key, URL, ambiente Y StoreId, asi que opera perfecto
+            // sin recibir un solo parametro: vende, cobra e imprime.
+            //
+            // Lo unico que cambia es a nombre de QUE TIENDA quedan los creditos
+            // —el StoreId embebido es el de la 037— y eso no se ve hasta conciliar.
+            // O sea que el modo de fallo mas caro del modulo era, literalmente,
+            // que no pasara nada.
+            AppLogger.W("MainActivity",
+                "INITIALIZE SIN el extra 'Parameters': CloudLicense no mando ninguna " +
+                "configuracion para este terminal. La app opera con la que trae el APK, " +
+                "incluido el StoreId — revisar que la tienda este provisionada en HioPosCloud.");
+
+            services.GetService<IAuditLogger>()?.Log(
+                "CONFIG_ERROR",
+                "INITIALIZE sin Parameters: la terminal opera con el StoreId embebido en el APK.");
+        }
 
         // QA M-2: reconstruir la configuracion AHORA, con los parametros recien
         // persistidos. Antes ApiConfig era un singleton que se armaba la primera
@@ -770,6 +831,42 @@ public class MainActivity : MauiAppCompatActivity
                         "Avisa al area de sistemas antes de continuar (revisar parametros de " +
                         "CloudLicense).",
                         "Configuracion invalida"));
+            return;
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // SEGUNDA BARRERA: LA TIENDA QUE CREDINET YA RECHAZO
+        // ─────────────────────────────────────────────────────────────────────
+        // [Validate] comprueba que HAYA una tienda elegida. Esto comprueba algo
+        // distinto y que solo se sabe operando: que Sistecredito la acepte. Si en
+        // alguna llamada anterior contestaron 225 (StoreNotFound), esta caja esta
+        // mandando un identificador que para ellos no existe.
+        //
+        // Dejarla vender igual es el modo de fallo caro del modulo: la venta sale
+        // bien en el POS, el cajero entrega la mercancia, y el credito queda sin
+        // tienda o a nombre de otra. Se descubre conciliando, semanas despues. Se
+        // frena aqui.
+        //
+        // Un transitorio NO frena: sin red o sin respuesta se deja pasar, porque
+        // esos se arreglan reintentando y bloquear ahi dejaria la tienda sin
+        // vender por un corte de wifi. Ver [IEstadoDeLaConexion].
+        var salud = services.GetService<IEstadoDeLaConexion>();
+        if (salud is { PuedeOperar: false })
+        {
+            var detalle =
+                $"Credinet rechazo la tienda de esta caja " +
+                $"({Services.Tiendas.CatalogoDeTiendas.Describir(config.Tienda.StoreId)}).";
+
+            AppLogger.E("MainActivity", $"TRANSACTION rechazada: {detalle}");
+            services.GetService<IAuditLogger>()?.Log("CONFIG_ERROR", detalle);
+
+            services.GetRequiredService<ITransactionResultHandler>()
+                .FinishWithResult(services.GetRequiredService<HioposResultBuilder>()
+                    .BuildTransactionFailed(
+                        "Sistecredito no reconoce la tienda configurada en esta caja, asi que " +
+                        "la venta NO se puede registrar a su nombre. Avisa al area de sistemas: " +
+                        "hay que revisar el StoreId de esta tienda.",
+                        "Tienda no registrada"));
             return;
         }
 

@@ -17,9 +17,22 @@ public partial class ScaffoldView : ContentView
     public static readonly BindableProperty EyebrowTextProperty =
         BindableProperty.Create(nameof(EyebrowText), typeof(string), typeof(ScaffoldView), string.Empty);
     public static readonly BindableProperty TrailingTextProperty =
-        BindableProperty.Create(nameof(TrailingText), typeof(string), typeof(ScaffoldView), string.Empty);
+        BindableProperty.Create(nameof(TrailingText), typeof(string), typeof(ScaffoldView), string.Empty,
+            propertyChanged: (b, _, _) => (b as ScaffoldView)?.ActualizarBoton());
     public static readonly BindableProperty ShowBackProperty =
-        BindableProperty.Create(nameof(ShowBack), typeof(bool), typeof(ScaffoldView), true);
+        BindableProperty.Create(nameof(ShowBack), typeof(bool), typeof(ScaffoldView), true,
+            propertyChanged: (b, _, _) => (b as ScaffoldView)?.ActualizarBoton());
+
+    /// <summary>
+    /// Si la cabecera muestra la franja con la tienda de esta caja y el estado de
+    /// la red. Por defecto SI: es el dato que distingue a esta caja de las otras
+    /// 1.535, y esconderlo es como quedo el defecto que lo hizo necesario.
+    ///
+    /// Se apaga solo donde la caja todavia no tiene tienda que mostrar: la pantalla
+    /// de marca y el primer paso de la configuracion.
+    /// </summary>
+    public static readonly BindableProperty MostrarEstadoProperty =
+        BindableProperty.Create(nameof(MostrarEstado), typeof(bool), typeof(ScaffoldView), true);
 
     /// <summary>
     /// Si esta pantalla puede ofrecer "Volver a HioPos" cuando el modulo esta
@@ -41,6 +54,13 @@ public partial class ScaffoldView : ContentView
     public string EyebrowText  { get => (string)GetValue(EyebrowTextProperty);  set => SetValue(EyebrowTextProperty, value); }
     public string TrailingText { get => (string)GetValue(TrailingTextProperty); set => SetValue(TrailingTextProperty, value); }
     public bool   ShowBack     { get => (bool)GetValue(ShowBackProperty);       set => SetValue(ShowBackProperty, value); }
+
+    /// <inheritdoc cref="MostrarEstadoProperty" />
+    public bool MostrarEstado
+    {
+        get => (bool)GetValue(MostrarEstadoProperty);
+        set => SetValue(MostrarEstadoProperty, value);
+    }
 
     /// <inheritdoc cref="PermitirVolverAHioposProperty" />
     public bool PermitirVolverAHiopos
@@ -79,29 +99,36 @@ public partial class ScaffoldView : ContentView
     /// pero al tocarla te sacaba a HioPos igual, porque el click si lee la propiedad
     /// tarde. Un control que dice una cosa y hace otra.
     ///
-    /// Dentro de una operacion de HioPos la flecha sola no alcanza: el cajero que
-    /// entro desde una venta necesita ver que ese boton lo devuelve al POS, no que lo
+    /// Dentro de una operacion de HioPos "Volver" no alcanza: el cajero que entro
+    /// desde una venta necesita ver que ese boton lo devuelve al POS, no que lo
     /// mueve una pantalla atras.
     /// </summary>
     private void ActualizarBoton()
     {
-        if (GetTemplateChild("PART_Back") is not Button back) return;
+        if (GetTemplateChild("PART_Back") is Button back)
+            back.Text = OfreceSalidaAHiopos ? "Volver a HioPos" : "Volver";
 
-        if (OfreceSalidaAHiopos)
+        // La fila que comparten el boton y la marca se oculta ENTERA cuando no hay
+        // ninguno de los dos: dejarla puesta abria un hueco de 40dp bajo la franja
+        // de estado y la cabecera se veia desarmada.
+        if (GetTemplateChild("PART_FilaAccion") is View fila)
+            fila.IsVisible = ShowBack || !string.IsNullOrWhiteSpace(TrailingText);
+    }
+
+    /// <summary>
+    /// Vuelve a leer la tienda y la red. Lo llama la pagina en <c>OnAppearing</c>:
+    /// la tienda se elige en OTRA pantalla, y al volver la cabecera tiene que decir
+    /// la nueva y no la de cuando se dibujo.
+    /// </summary>
+    public void RefrescarEstado()
+    {
+        try
         {
-            back.Text            = "←  Volver a HioPos";
-            back.FontSize        = 14;
-            back.Padding         = new Thickness(14, 0);
-            back.BackgroundColor = Color.FromArgb("#33FFFFFF");
+            (GetTemplateChild("PART_Estado") as EstadoDeLaCajaView)?.Refrescar();
         }
-        else
+        catch (Exception ex)
         {
-            // Se restaura la flecha sola: sin esto, una pantalla que deja de ofrecer
-            // la salida se quedaria con la pastilla puesta.
-            back.Text            = "←";
-            back.FontSize        = 26;
-            back.Padding         = new Thickness(0);
-            back.BackgroundColor = Colors.Transparent;
+            AppLogger.W("ScaffoldView", $"No se pudo refrescar el estado de la caja: {ex.Message}");
         }
     }
 

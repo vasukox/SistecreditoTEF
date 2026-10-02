@@ -25,9 +25,13 @@ public static class RouteRegistrar
         Routing.RegisterRoute(AppRoutes.ReciboPago,        typeof(ReciboPagoPage));
 
         // Ingreso de cajeros: solo aplica al flujo de abonos.
+        Routing.RegisterRoute(AppRoutes.ConfiguracionInicio, typeof(ConfiguracionInicioPage));
         Routing.RegisterRoute(AppRoutes.ConfigurarAdmin,   typeof(ConfigurarAdminPage));
         Routing.RegisterRoute(AppRoutes.IngresoCajero,     typeof(IngresoCajeroPage));
         Routing.RegisterRoute(AppRoutes.AdminCajeros,      typeof(AdminCajerosPage));
         Routing.RegisterRoute(AppRoutes.Replicacion,       typeof(ReplicacionPage));
+
+        // Que tienda es esta caja. Se llega al instalar y desde administracion.
+        Routing.RegisterRoute(AppRoutes.Tienda,            typeof(TiendaPage));
     }
 }

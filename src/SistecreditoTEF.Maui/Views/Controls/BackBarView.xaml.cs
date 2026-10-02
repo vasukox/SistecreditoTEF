@@ -47,6 +47,22 @@ public partial class BackBarView : ContentView
         BindableProperty.Create(nameof(PermitirVolverAHiopos), typeof(bool), typeof(BackBarView), false,
             propertyChanged: (b, _, _) => (b as BackBarView)?.ActualizarBoton());
 
+    /// <summary>
+    /// Si se muestra la franja con la tienda de esta caja y el estado de la red.
+    /// Por defecto SI, y en las pantallas del flujo con mas motivo: ahi es donde se
+    /// cobra, y es el momento en que importa que la caja este operando como la
+    /// tienda correcta.
+    /// </summary>
+    public static readonly BindableProperty MostrarEstadoProperty =
+        BindableProperty.Create(nameof(MostrarEstado), typeof(bool), typeof(BackBarView), true);
+
+    /// <inheritdoc cref="MostrarEstadoProperty" />
+    public bool MostrarEstado
+    {
+        get => (bool)GetValue(MostrarEstadoProperty);
+        set => SetValue(MostrarEstadoProperty, value);
+    }
+
     /// <inheritdoc cref="PermitirVolverAHioposProperty" />
     public bool PermitirVolverAHiopos
     {
@@ -97,8 +113,24 @@ public partial class BackBarView : ContentView
     {
         if (GetTemplateChild("PART_Back") is not Button boton) return;
 
-        boton.Text = OfreceSalidaAHiopos ? "←  Volver a HioPos" : "←  Atras";
+        boton.Text = OfreceSalidaAHiopos ? "Volver a HioPos" : "Volver";
         boton.IsVisible = PuedeVolver;
+    }
+
+    /// <summary>
+    /// Vuelve a leer la tienda y la red. Mismo motivo que en
+    /// [ScaffoldView.RefrescarEstado]: la tienda se elige en otra pantalla.
+    /// </summary>
+    public void RefrescarEstado()
+    {
+        try
+        {
+            (GetTemplateChild("PART_Estado") as EstadoDeLaCajaView)?.Refrescar();
+        }
+        catch (Exception ex)
+        {
+            AppLogger.W("BackBarView", $"No se pudo refrescar el estado de la caja: {ex.Message}");
+        }
     }
 
     /// <summary>

@@ -90,6 +90,10 @@ public partial class ReplicacionPage : ContentPage
 
         _vm.PropertyChanged += OnCambioDelViewModel;
 
+        // La franja de estado de la cabecera: esta pantalla copia el StoreId entre
+        // cajas, asi que ver con que tienda esta operando esta no es decorativo.
+        Chrome.RefrescarEstado();
+
         _cuentaRegresiva = Dispatcher.CreateTimer();
         _cuentaRegresiva.Interval = Tic;
         _cuentaRegresiva.Tick += OnTic;

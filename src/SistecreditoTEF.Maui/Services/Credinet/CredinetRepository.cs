@@ -21,6 +21,15 @@ public class CredinetRepository : ICredinetRepository
     private readonly IApiConfigSource _configSource;
 
     /// <summary>
+    /// Donde se anota como le fue a cada llamada, para el semaforo de la cabecera.
+    ///
+    /// OPCIONAL a proposito: este repositorio se construye tambien en pruebas, y
+    /// el semaforo es un adorno de la interfaz. Que falte no puede cambiar lo que
+    /// el repositorio hace ni impedir que se lo pueda probar.
+    /// </summary>
+    private readonly Platform.IEstadoDeLaConexion? _estado;
+
+    /// <summary>
     /// Recibe una FUENTE de configuracion, no una instancia. El repositorio es
     /// singleton, asi que capturar el ApiConfig del arranque dejaria el
     /// <c>StoreId</c> congelado: si ICG lo entrega por CloudLicense despues de la
@@ -39,12 +48,16 @@ public class CredinetRepository : ICredinetRepository
     ///
     /// Para configuracion fija (tests) se inyecta [StaticApiConfigSource].
     /// </summary>
-    public CredinetRepository(ICredinetApi api, IApiConfigSource configSource)
+    public CredinetRepository(
+        ICredinetApi api,
+        IApiConfigSource configSource,
+        Platform.IEstadoDeLaConexion? estado = null)
     {
         ArgumentNullException.ThrowIfNull(api);
         ArgumentNullException.ThrowIfNull(configSource);
         _api = api;
         _configSource = configSource;
+        _estado = estado;
     }
 
     private ApiConfig _config => _configSource.Current;
@@ -148,10 +161,27 @@ public class CredinetRepository : ICredinetRepository
     {
         try
         {
+            // ─────────────────────────────────────────────────────────────────
+            // EL storeId TAMBIEN VA EN EL ABONO
+            // ─────────────────────────────────────────────────────────────────
+            // Faltaba, y era la unica de las siete llamadas que no lo mandaba: el
+            // campo existe en [PayCreditRequest] desde siempre, con default null,
+            // y nadie se lo pasaba. O sea que TODOS los recaudos salian sin
+            // tienda y Credinet los atribuia donde tuviera por defecto —no donde
+            // se cobraron—.
+            //
+            // No se veia desde la caja: el abono respondia OK, el comprobante
+            // salia y el saldo bajaba. La unica senal estaba en la plataforma de
+            // Sistecredito, conciliando, y ahi aparecia a nombre de otra tienda.
+            //
+            // En sandbox sigue viajando null, igual que el resto de las llamadas:
+            // el ambiente de pruebas no conoce las tiendas de la hoja y responde
+            // StoreNotFound a cualquiera que lleve una. Ver [ApiConfig.StoreId].
             var request = new PayCreditRequest(
                 CreditId: creditId,
                 TotalValuePaid: totalValuePaid,
-                UserName: userName);
+                UserName: userName,
+                StoreId: _config.StoreId);
             var body = await _api.PayCreditAsync(request);
             return ProcessResponse(body).Map(dto => dto.ToDomain());
         }
@@ -179,8 +209,13 @@ public class CredinetRepository : ICredinetRepository
     /// Convierte ApiResponse de CREDINET a ApiResult del dominio.
     /// Reglas: errorCode != 0 o data == null => ApiError.Business; si no, Ok.
     /// </summary>
-    private static ApiResult<T> ProcessResponse<T>(ApiResponse<T> body)
+    private ApiResult<T> ProcessResponse<T>(ApiResponse<T> body)
     {
+        // Credinet contesto. Eso ya dice dos cosas: que la linea funciona, y —si
+        // el codigo es 225— que la tienda con la que opera esta caja no existe
+        // para ellos. Ver [IEstadoDeLaConexion].
+        _estado?.RegistrarRespuesta(body.ErrorCode);
+
         if (body.ErrorCode != 0 || body.Data is null)
         {
             return new ApiResult<T>.Failure<T>(
@@ -196,13 +231,21 @@ public class CredinetRepository : ICredinetRepository
     /// Traduce una excepcion HTTP/red lanzada por el ApiClient al tipo
     /// Failure&lt;T&gt; correspondiente. DRY: usado por los 7 endpoints.
     /// </summary>
-    private static ApiResult<T> HandleApiException<T>(CredinetApiClient.ApiException ex) => ex switch
+    private ApiResult<T> HandleApiException<T>(CredinetApiClient.ApiException ex)
     {
-        CredinetApiClient.ApiException.NetworkException n
-            => new ApiResult<T>.Failure<T>(new ApiError.Network(n.Cause)),
-        CredinetApiClient.ApiException.HttpException h
-            => new ApiResult<T>.Failure<T>(new ApiError.Http(h.Code, h.Message)),
-        _ => new ApiResult<T>.Failure<T>(
-            new ApiError.Http(500, ex.Message))
-    };
+        // No se llego a Credinet, o contesto algo que no es una respuesta suya.
+        // El semaforo de la cabecera tiene que decirlo: es exactamente el caso en
+        // que el terminal tiene wifi y el modulo no puede operar.
+        _estado?.RegistrarFalloDeRed();
+
+        return ex switch
+        {
+            CredinetApiClient.ApiException.NetworkException n
+                => new ApiResult<T>.Failure<T>(new ApiError.Network(n.Cause)),
+            CredinetApiClient.ApiException.HttpException h
+                => new ApiResult<T>.Failure<T>(new ApiError.Http(h.Code, h.Message)),
+            _ => new ApiResult<T>.Failure<T>(
+                new ApiError.Http(500, ex.Message))
+        };
+    }
 }

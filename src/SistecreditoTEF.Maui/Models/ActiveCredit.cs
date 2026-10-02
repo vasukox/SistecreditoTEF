@@ -29,6 +29,20 @@ public record ActiveCredit(
             : (DueDate ?? "-");
 
     /// <summary>
+    /// Fecha en que se abrio el credito, en dd/MM/yyyy. Cadena vacia si Credinet
+    /// no la manda o no se puede interpretar: preferimos no mostrar la fila antes
+    /// que mostrar un guion.
+    /// </summary>
+    public string CreateDateDisplay =>
+        DateTime.TryParse(CreateDate, System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None, out var d)
+            ? d.ToString("dd/MM/yyyy", System.Globalization.CultureInfo.InvariantCulture)
+            : string.Empty;
+
+    /// <summary>¿Se puede mostrar la fecha de apertura?</summary>
+    public bool TieneFechaDeApertura => CreateDateDisplay.Length > 0;
+
+    /// <summary>
     /// True si el credito esta en mora. Se expone para la UI: es un dato que
     /// cambia la decision del cajero y explica por que el pago minimo puede no
     /// coincidir con la cuota.

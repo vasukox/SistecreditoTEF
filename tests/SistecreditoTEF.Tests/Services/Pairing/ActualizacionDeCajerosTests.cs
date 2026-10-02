@@ -300,20 +300,111 @@ public class ActualizacionDeCajerosTests
     }
 
     /// <summary>
-    /// El StoreId viaja en el saludo, que se usa y se tira. En el SOBRE —que es lo
-    /// que se escribe en la caja receptora— sigue sin haber identidad de tienda: ahi
-    /// un valor prestado pisaria lo que CloudLicense le asigno a ese terminal.
+    /// EL SOBRE SIGUE SIN LLEVAR IDENTIDAD DE LA *CAJA*.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────────
+    /// POR QUE ESTE TEST CAMBIO, Y QUE SIGUE PROTEGIENDO
+    /// ─────────────────────────────────────────────────────────────────────────
+    /// Antes exigia que NO hubiera <c>StoreId</c> tampoco. Esa regla se escribio
+    /// cuando la tienda bajaba de CloudLicense y llegaba sola a cada terminal; hoy
+    /// se ELIGE en la caja, asi que sin copiarla habria que elegirla tres veces por
+    /// local.
+    ///
+    /// El enunciado original de la regla era "si es de la TIENDA se copia, si es de
+    /// la CAJA no", y el StoreId es de la tienda: la hoja de Sistecredito lo dice
+    /// ("dato especifico por tienda") y las tres cajas de un local comparten el
+    /// mismo. Copiarlo cumple la regla en vez de romperla.
+    ///
+    /// Lo que NO puede aparecer nunca es un identificador de TERMINAL: dos cajas
+    /// con el mismo id firman igual sus operaciones y el descuadre se descubre
+    /// semanas despues. Eso es lo que este test sigue cuidando.
     /// </summary>
     [Fact]
-    public void El_sobre_sigue_sin_llevar_identidad_de_tienda()
+    public void El_sobre_sigue_sin_llevar_identidad_de_la_caja()
     {
         var nombres = typeof(CashierRosterEnvelope)
             .GetProperties()
             .Select(p => p.Name)
             .ToList();
 
-        Assert.DoesNotContain("StoreId", nombres, StringComparer.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Tienda", nombres, StringComparer.OrdinalIgnoreCase);
         Assert.DoesNotContain("TerminalId", nombres, StringComparer.OrdinalIgnoreCase);
+        Assert.DoesNotContain("CajaId", nombres, StringComparer.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Source", nombres, StringComparer.OrdinalIgnoreCase);
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    // LA TIENDA VIAJA EN EL SOBRE (montaje de una caja nueva)
+    // ══════════════════════════════════════════════════════════════════════
+
+    [Fact]
+    public void El_sobre_lleva_la_tienda_del_local()
+    {
+        var sobre = new CashierRosterEnvelope(
+            "hash-del-pin",
+            [new ReplicatedCajero("1", "marcela4321", "", "h", true, DateTime.UtcNow)],
+            StoreId: "607af8e38c91f70001436058");
+
+        var vuelta = CashierRosterEnvelope.FromJson(sobre.ToJson());
+
+        Assert.Equal("607af8e38c91f70001436058", vuelta!.StoreId);
+    }
+
+    /// <summary>
+    /// CONVIVENCIA CON EL APK ANTERIOR, EN LOS DOS SENTIDOS.
+    ///
+    /// Las tiendas no se actualizan todas el mismo dia. Una caja nueva se va a
+    /// encontrar cajas con el APK viejo, que emiten sobres SIN tienda, y esos
+    /// tienen que seguir sirviendo para montar: por eso el campo es opcional y la
+    /// version del sobre NO subio. (Al reves tambien funciona: un APK viejo que
+    /// reciba un sobre nuevo ignora la propiedad que no conoce.)
+    /// </summary>
+    /// <summary>
+    /// LA REGLA QUE SEPARA LAS DOS OPERACIONES.
+    ///
+    /// "Actualizar cajeros" no puede mover la tienda. Es un botón que dice cajeros:
+    /// si además cambiara a nombre de qué tienda se venden los créditos, nadie lo
+    /// vería hasta conciliar. Montar una caja nueva sí la aplica — ese es todo el
+    /// punto de copiarla.
+    /// </summary>
+    [Fact]
+    public void Al_actualizar_cajeros_la_tienda_NO_se_toca()
+    {
+        var delLocal = "607af8e38c91f70001436058";
+
+        Assert.Null(SistecreditoTEF.Maui.ViewModels.ReplicacionViewModel
+            .TiendaAAplicar(soloCajeros: true, storeIdDelSobre: delLocal));
+
+        var alMontar = SistecreditoTEF.Maui.ViewModels.ReplicacionViewModel
+            .TiendaAAplicar(soloCajeros: false, storeIdDelSobre: delLocal);
+
+        Assert.NotNull(alMontar);
+        Assert.Equal("037", alMontar!.Codigo);
+    }
+
+    [Theory]
+    [InlineData(null)]                             // APK anterior: no la manda
+    [InlineData("")]
+    [InlineData("000000000000000000000000")]       // hoja mas nueva que este APK
+    public void Una_tienda_que_no_se_reconoce_no_se_aplica(string? storeId)
+    {
+        Assert.Null(SistecreditoTEF.Maui.ViewModels.ReplicacionViewModel
+            .TiendaAAplicar(soloCajeros: false, storeIdDelSobre: storeId));
+    }
+
+    [Fact]
+    public void Un_sobre_sin_tienda_del_APK_anterior_se_sigue_aceptando()
+    {
+        // JSON exacto que emite el APK anterior: sin el campo StoreId.
+        const string viejo = """
+            {"v":1,"AdminPinHash":"hash-del-pin","Cajeros":[
+              {"Id":"1","Usuario":"marcela4321","Nombre":"","ClaveHash":"h",
+               "Activo":true,"CreadoEn":"2026-09-01T00:00:00Z"}]}
+            """;
+
+        var sobre = CashierRosterEnvelope.FromJson(viejo);
+
+        Assert.NotNull(sobre);
+        Assert.Null(sobre!.StoreId);
+        Assert.Single(sobre.Cajeros);
     }
 }

@@ -7,9 +7,21 @@
              xmlns:ctrl="clr-namespace:SistecreditoTEF.Maui.Views.Controls"
              x:Class="SistecreditoTEF.Maui.Views.ReplicacionPage"
              x:DataType="vm:ReplicacionViewModel"
+             Shell.NavBarIsVisible="False"
              Title="Copiar configuración">
-    <ScrollView>
-        <VerticalStackLayout Spacing="16" Padding="20,20,20,28">
+
+    <!--
+        Misma cabecera que el resto: la tienda de esta caja a la vista y un boton
+        que dice "Volver" en vez de la flecha del sistema. Aqui la tienda importa
+        el doble, porque lo que esta pantalla copia entre cajas INCLUYE el StoreId
+        (ver [CashierRosterEnvelope]).
+    -->
+    <ctrl:ScaffoldView x:Name="Chrome"
+                       EyebrowText="ENTRE CAJAS DE LA MISMA TIENDA"
+                       TitleText="Copiar configuración"
+                       ShowBack="True">
+        <VerticalStackLayout Spacing="16" Padding="20,20,20,28"
+                             MaximumWidthRequest="820" HorizontalOptions="Center">
 
             <!-- ==================================================================
                  QUÉ VIENE A HACER QUIEN ESTÁ PARADO ACÁ
@@ -19,8 +31,15 @@
                  mitades una debajo de la otra y tenían que leer los dos formularios
                  para darse cuenta de cuál les tocaba.
             -->
-            <Border Style="{StaticResource Card}" Padding="6"
-                    IsVisible="{Binding MuestraElSelectorDeModo}">
+            <!--
+                El sentido se elige SIEMPRE, también al actualizar. El padrón al día
+                lo puede tener cualquiera de las tres cajas: el que acaba de dar de
+                alta a un cajero está parado frente a la suya, y desde ahí lo normal
+                es querer enviarlo, no traerlo. Obligarlo a recibir lo manda a
+                caminar hasta la otra caja — o, peor, a traerse el padrón VIEJO
+                encima del suyo.
+            -->
+            <Border Style="{StaticResource Card}" Padding="6">
                 <Border.Behaviors>
                     <beh:EntranceBehavior />
                 </Border.Behaviors>
@@ -32,7 +51,7 @@
                     estaba elegido no se leía como algo que se pudiera tocar.
                 -->
                 <Grid ColumnDefinitions="*,*" ColumnSpacing="6">
-                    <Button Grid.Column="0" Text="Traer a esta caja"
+                    <Button Grid.Column="0" Text="{Binding TextoModoRecibir}"
                             FontSize="13.5" HeightRequest="48" CornerRadius="24"
                             FontAttributes="Bold"
                             BackgroundColor="Transparent"
@@ -49,7 +68,7 @@
                         </Button.Triggers>
                     </Button>
 
-                    <Button Grid.Column="1" Text="Compartir desde aquí"
+                    <Button Grid.Column="1" Text="{Binding TextoModoCompartir}"
                             FontSize="13.5" HeightRequest="48" CornerRadius="24"
                             FontAttributes="Bold"
                             BackgroundColor="Transparent"
@@ -134,18 +153,15 @@
                             <CollectionView.ItemTemplate>
                                 <DataTemplate x:DataType="pair:CajaEncontrada">
                                     <Border Style="{StaticResource FieldCard}" Padding="12,10" Margin="0,3">
-                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                                            <VerticalStackLayout Grid.Column="0" Spacing="2">
-                                                <Label Text="{Binding Tienda}" FontAttributes="Bold"
-                                                       TextColor="{StaticResource TextPrimary}" />
-                                                <Label Text="{Binding Address}"
-                                                       Style="{StaticResource Caption}"
-                                                       TextColor="{StaticResource TextMuted}" />
-                                            </VerticalStackLayout>
-                                            <Label Grid.Column="1" Text="›" FontSize="22"
-                                                   TextColor="{StaticResource TextMuted}"
-                                                   VerticalOptions="Center" />
-                                        </Grid>
+                                        <!-- Sin galon: la fila entera se toca y el
+                                             seleccionado se marca solo. -->
+                                        <VerticalStackLayout Spacing="2">
+                                            <Label Text="{Binding Tienda}" FontAttributes="Bold"
+                                                   TextColor="{StaticResource TextPrimary}" />
+                                            <Label Text="{Binding Address}"
+                                                   Style="{StaticResource Caption}"
+                                                   TextColor="{StaticResource TextMuted}" />
+                                        </VerticalStackLayout>
                                     </Border>
                                 </DataTemplate>
                             </CollectionView.ItemTemplate>
@@ -413,9 +429,8 @@
                 <Border Style="{StaticResource Card}"
                         IsVisible="{Binding VentanaAbierta, Converter={StaticResource InvertedBoolConverter}}">
                     <VerticalStackLayout Spacing="12">
-                        <Label Text="COMPARTIR A OTRA CAJA" Style="{StaticResource FieldLabel}" />
-                        <Label Style="{StaticResource Caption}"
-                               Text="Se genera un código de 6 dígitos que dura 10 minutos. Sirve para todas las cajas que alcances a configurar dentro de ese rato." />
+                        <Label Text="{Binding TituloDeCompartir}" Style="{StaticResource FieldLabel}" />
+                        <Label Style="{StaticResource Caption}" Text="{Binding ExplicacionDelCodigo}" />
                         <Button Text="Generar código"
                                 Style="{StaticResource PrimaryButton}"
                                 Command="{Binding AbrirVentanaCommand}">
@@ -567,9 +582,9 @@
 
                 <Label Style="{StaticResource Caption}"
                        TextColor="{StaticResource TextMuted}"
-                       Text="En la otra caja: abre esta misma pantalla, deja «Traer a esta caja», escanea la red y escribe el código." />
+                       Text="{Binding PistaParaLaOtraCaja}" />
             </VerticalStackLayout>
 
         </VerticalStackLayout>
-    </ScrollView>
+    </ctrl:ScaffoldView>
 </ContentPage>

@@ -4,12 +4,26 @@
              xmlns:vm="clr-namespace:SistecreditoTEF.Maui.ViewModels"
              xmlns:auth="clr-namespace:SistecreditoTEF.Maui.Services.Auth"
              xmlns:beh="clr-namespace:SistecreditoTEF.Maui.Common.Behaviors"
+             xmlns:ctrl="clr-namespace:SistecreditoTEF.Maui.Views.Controls"
              x:Class="SistecreditoTEF.Maui.Views.AdminCajerosPage"
              x:DataType="vm:AdminCajerosViewModel"
              Shell.FlyoutBehavior="Flyout"
+             Shell.NavBarIsVisible="False"
              Title="Administración">
-    <ScrollView>
-        <VerticalStackLayout Spacing="18" Padding="20,24,20,28">
+
+    <!--
+        La barra del Shell se oculta y la reemplaza [ScaffoldView]: asi esta
+        pantalla tiene la misma cabecera que el resto —con la tienda de la caja y
+        el estado de la red siempre a la vista— y un boton que dice "Volver" en
+        lugar de la flecha del sistema.
+    -->
+    <ctrl:ScaffoldView x:Name="Chrome"
+                       EyebrowText="ADMINISTRACIÓN"
+                       TitleText="Cajeros de esta caja"
+                       SubtitleText="Quién puede cobrar en este terminal"
+                       ShowBack="True">
+        <VerticalStackLayout Spacing="18" Padding="20,22,20,28"
+                             MaximumWidthRequest="820" HorizontalOptions="Center">
 
             <!-- ============ PUERTA: el PIN ============ -->
             <Border Style="{StaticResource Card}" IsVisible="{Binding Desbloqueado, Converter={StaticResource InvertedBoolConverter}}">
@@ -140,6 +154,32 @@
                        TextColor="{StaticResource TextMuted}"
                        HorizontalTextAlignment="Center" />
 
+                <!--
+                    TIENDA DE ESTA CAJA
+                    Detras del PIN, y con mas motivo que el alta de cajeros: de esto
+                    depende a nombre de que tienda queda cada credito en Sistecredito.
+                    Esta aqui ademas de en la configuracion inicial porque las cajas
+                    que YA estan montadas no vuelven a ver aquella pantalla, y son
+                    justamente las que pueden estar reportando a la tienda equivocada.
+                -->
+                <Border Style="{StaticResource Card}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="TIENDA DE ESTA CAJA" Style="{StaticResource FieldLabel}" />
+                        <Label Text="{Binding Tienda}" FontSize="15" FontAttributes="Bold"
+                               TextColor="{StaticResource TextPrimary}" />
+                        <Label Text="{Binding AvisoTienda}" Style="{StaticResource Caption}"
+                               TextColor="{StaticResource Error}"
+                               IsVisible="{Binding MostrarAvisoTienda}" />
+                        <Button Text="Cambiar la tienda"
+                                Command="{Binding TiendaCommand}"
+                                Style="{StaticResource OutlineButton}">
+                            <Button.Behaviors>
+                                <beh:PressableBehavior />
+                            </Button.Behaviors>
+                        </Button>
+                    </VerticalStackLayout>
+                </Border>
+
                 <!-- PIN admin -->
                 <Border Style="{StaticResource Card}">
                     <VerticalStackLayout Spacing="12">
@@ -167,7 +207,7 @@
                     <VerticalStackLayout Spacing="10">
                         <Label Text="OTRAS CAJAS DE ESTA TIENDA" Style="{StaticResource FieldLabel}" />
                         <Label Style="{StaticResource Caption}"
-                               Text="Esta caja ya está configurada: puede pasarle el PIN y los cajeros a las demás con un código de 6 dígitos, sin volver a teclear nada." />
+                               Text="«Compartir» le pasa el PIN y los cajeros a una caja NUEVA que se está montando. «Actualizar cajeros» solo pone el padrón al día entre cajas que ya trabajan, y va en los dos sentidos." />
                         <Button Text="Compartir con otra caja"
                                 Command="{Binding ReplicarCommand}"
                                 Style="{StaticResource SecondaryButton}">
@@ -177,14 +217,19 @@
                         </Button>
 
                         <!--
-                            LA OPERACIÓN INVERSA, Y MÁS ANGOSTA.
-                            Trae el padrón de otra caja SIN tocar el PIN de
-                            administrador ni nada más de esta caja. Vive acá —detrás
-                            del PIN— porque solo tiene sentido en una caja que ya está
-                            configurada y opera: la caja recién instalada usa
-                            "Copiar configuración" desde la pantalla de primer uso.
+                            LA OPERACIÓN MÁS ANGOSTA: solo el padrón de cajeros, sin
+                            tocar el PIN de administrador ni nada más.
+
+                            Va en los DOS sentidos y el operador elige adentro: el
+                            padrón al día lo puede tener cualquiera de las tres cajas,
+                            y el que acaba de dar de alta a un cajero está parado
+                            frente a la suya.
+
+                            Vive acá —detrás del PIN— porque solo tiene sentido en una
+                            caja que ya está configurada y opera: la recién instalada
+                            usa "Copiar configuración" desde la pantalla de primer uso.
                         -->
-                        <Button Text="Actualizar cajeros desde otra caja"
+                        <Button Text="Actualizar cajeros"
                                 Command="{Binding ActualizarCajerosCommand}"
                                 Style="{StaticResource OutlineButton}">
                             <Button.Behaviors>
@@ -207,6 +252,19 @@
                    TextColor="{StaticResource Primary}"
                    HorizontalTextAlignment="Center" />
 
+            <!--
+                Qué build tiene esta caja y contra qué ambiente apunta.
+
+                Estaba solo en la pantalla de primer uso, o sea que se veía UNA vez
+                en la vida de la caja. Y es el dato que hay que poder mirar DESPUÉS:
+                los dos APK se llaman igual, se ven igual, y la versión que ve HioPos
+                está fija por contrato. Acá se llega siempre, así que acá va.
+            -->
+            <Label Text="{Binding Build}" Style="{StaticResource Caption}"
+                   TextColor="{StaticResource TextMuted}"
+                   FontSize="11"
+                   HorizontalTextAlignment="Center" />
+
         </VerticalStackLayout>
-    </ScrollView>
+    </ctrl:ScaffoldView>
 </ContentPage>

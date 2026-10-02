@@ -6,9 +6,20 @@
              xmlns:ctrl="clr-namespace:SistecreditoTEF.Maui.Views.Controls"
              x:Class="SistecreditoTEF.Maui.Views.OtpPage"
              x:DataType="vm:OtpViewModel"
+             Shell.NavBarIsVisible="False"
              Title="Verificación">
-    <ScrollView>
-        <VerticalStackLayout Spacing="20" Padding="20,28,20,28">
+
+    <!--
+        "Volver" normal, NO "Volver a HioPos": el codigo ya se envio al cliente y
+        lo que corresponde si algo salio mal es retroceder un paso dentro del
+        flujo, no cerrar la venta desde aqui.
+    -->
+    <ctrl:ScaffoldView EyebrowText="COMPRAR A CRÉDITO"
+                       TitleText="Verificación"
+                       SubtitleText="Código enviado al cliente"
+                       ShowBack="True">
+        <VerticalStackLayout Spacing="20" Padding="20,24,20,28"
+                             MaximumWidthRequest="820" HorizontalOptions="Center">
 
             <ctrl:HeroCardView>
                 <ctrl:HeroCardView.Behaviors>
@@ -111,5 +122,5 @@
                                Color="{StaticResource Primary}" HeightRequest="36" />
 
         </VerticalStackLayout>
-    </ScrollView>
+    </ctrl:ScaffoldView>
 </ContentPage>

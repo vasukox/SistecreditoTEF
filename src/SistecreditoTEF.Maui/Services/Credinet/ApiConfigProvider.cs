@@ -23,13 +23,24 @@ public sealed class ApiConfigProvider : IApiConfigSource
 {
     private readonly IConfiguration _configuration;
     private readonly ICloudConfig _cloud;
+    private readonly Tiendas.ITiendaDeLaCaja? _tiendaDeLaCaja;
     private readonly object _gate = new();
     private ApiConfig? _current;
 
-    public ApiConfigProvider(IConfiguration configuration, ICloudConfig cloud)
+    /// <summary>
+    /// <paramref name="tiendaDeLaCaja"/> es opcional para no romper a quien
+    /// construya el proveedor sin ella (tests). En la app va siempre registrada:
+    /// es la mitad local de la resolucion de tienda, y sin ella una caja que
+    /// HioPosCloud no provisiono no tendria forma de operar.
+    /// </summary>
+    public ApiConfigProvider(
+        IConfiguration configuration,
+        ICloudConfig cloud,
+        Tiendas.ITiendaDeLaCaja? tiendaDeLaCaja = null)
     {
         _configuration = configuration;
         _cloud = cloud;
+        _tiendaDeLaCaja = tiendaDeLaCaja;
     }
 
     /// <summary>Configuración vigente. Se construye al primer acceso.</summary>
@@ -39,7 +50,16 @@ public sealed class ApiConfigProvider : IApiConfigSource
         {
             lock (_gate)
             {
-                return _current ??= Build();
+                if (_current is not null) return _current;
+
+                _current = Build();
+
+                // Tambien aca, y no solo en [Reload]: si HioPos nunca manda el
+                // INITIALIZE, Reload no corre y sin esto no quedaria ninguna linea
+                // diciendo a nombre de que tienda opera la caja. Ese es justamente
+                // el caso que hay que poder ver.
+                LogValidation(_current);
+                return _current;
             }
         }
     }
@@ -69,15 +89,41 @@ public sealed class ApiConfigProvider : IApiConfigSource
         }
     }
 
-    private ApiConfig Build() => ApiConfig.FromConfiguration(_configuration, _cloud);
+    /// <summary>
+    /// La tienda de la caja se LEE EN CADA BUILD, no se captura en el constructor:
+    /// el instalador la elige con la app ya corriendo, y sin esto la pantalla
+    /// seguiria diciendo "sin tienda" hasta reiniciar el proceso.
+    /// </summary>
+    private ApiConfig Build() =>
+        ApiConfig.FromConfiguration(_configuration, _cloud, LeerTiendaDeLaCaja());
+
+    private string? LeerTiendaDeLaCaja()
+    {
+        try
+        {
+            return _tiendaDeLaCaja?.StoreId;
+        }
+        catch (Exception ex)
+        {
+            // Si no se puede leer, la caja queda a lo que diga HioPosCloud. Nunca
+            // se inventa una tienda.
+            AppLogger.W("ApiConfigProvider",
+                $"No se pudo leer la tienda configurada en la caja: {ex.Message}");
+            return null;
+        }
+    }
 
     /// <summary>
     /// QA C-3: deja constancia explícita de una configuración incoherente. No
     /// aborta aquí (la decisión de rechazar la transacción es de
     /// [MainActivity]), pero garantiza que quede registrado.
     /// </summary>
-    private static void LogValidation(ApiConfig config)
+    private void LogValidation(ApiConfig config)
     {
+        // Va SIEMPRE, válida o no: es la única línea que dice a nombre de qué
+        // tienda va a operar esta caja. Ver [DescribirTienda].
+        AppLogger.I("ApiConfigProvider", DescribirTienda(config));
+
         var problems = config.Validate();
         if (problems.Count == 0)
         {
@@ -89,6 +135,42 @@ public sealed class ApiConfigProvider : IApiConfigSource
 
         foreach (var problem in problems)
             AppLogger.E("ApiConfigProvider", $"CONFIGURACION INVALIDA: {problem}");
+    }
+
+    /// <summary>
+    /// QUE TIENDA ES ESTA CAJA, Y DE DONDE SALIO ESE DATO.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────────
+    /// LO QUE FALTABA PARA VER EL PROBLEMA DESDE UNA TIENDA
+    /// ─────────────────────────────────────────────────────────────────────────
+    /// El StoreId solo se registraba cuando CAMBIABA respecto al anterior, y aun
+    /// asi enmascarado como "(definido)". En un arranque en frio no hay anterior,
+    /// asi que no se registraba nunca. Resultado: una caja podia estar creando
+    /// creditos a nombre de otra tienda y no habia UNA sola linea en el log que
+    /// permitiera notarlo — habia que deducirlo conciliando en la plataforma de
+    /// Sistecredito, semanas despues.
+    ///
+    /// El ORIGEN es lo que resuelve la pregunta cuando algo no cuadra: dice si la
+    /// tienda la puso HioPosCloud, si la eligio el instalador, si coinciden, o si
+    /// se contradicen.
+    ///
+    /// Y se NOMBRA la tienda ("037 · MULTIMARCA PUNTO CALLE 18") en vez de escribir
+    /// el ObjectId: quien lee el log sabe de que tienda se habla sin ir a cotejar
+    /// contra la hoja, y el identificador crudo solo aparece cuando NO figura en
+    /// ella — que es justo el caso que hay que poder ver. Ver [ResolucionDeTienda.ParaElLog].
+    /// </summary>
+    private static string DescribirTienda(ApiConfig config)
+    {
+        // Se dice explicitamente si el identificador VIAJA o no. En sandbox no se
+        // manda —Credinet de pruebas no conoce las tiendas de la hoja y responde
+        // StoreNotFound— y sin esta linea alguien podria pasar una tarde buscando
+        // por que el storeId "no llega".
+        var viaja = string.IsNullOrWhiteSpace(config.StoreId)
+            ? "NO se envia a Credinet (sandbox)"
+            : "se envia a Credinet";
+
+        return $"{config.Tienda.ParaElLog()} nombre='{config.StoreName}', " +
+               $"env={config.Environment}, storeId {viaja}.";
     }
 
     private static bool HasMeaningfulChange(ApiConfig a, ApiConfig b) =>

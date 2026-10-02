@@ -59,9 +59,17 @@ public static class MauiProgram
 #if ANDROID
         builder.Services.AddSingleton<ITransactionResultHandler, Platforms.Android.AndroidTransactionResultHandler>();
         builder.Services.AddSingleton<IAuditLogger, Platforms.Android.BroadcastAuditLogger>();
+
+        // La segunda pantalla del terminal, la que ve el cliente. Va como singleton
+        // porque mantiene abierta una ventana sobre ese display; una instancia por
+        // consumidor abriria un cartel encima del otro.
+        builder.Services.AddSingleton<Services.PantallaCliente.IPantallaCliente,
+                                      Platforms.Android.PantallaClienteAndroid>();
 #else
         builder.Services.AddSingleton<ITransactionResultHandler, NoOpTransactionResultHandler>();
         builder.Services.AddSingleton<IAuditLogger, NoOpAuditLogger>();
+        builder.Services.AddSingleton<Services.PantallaCliente.IPantallaCliente,
+                                      Services.PantallaCliente.PantallaClienteNula>();
 #endif
         // Standalone arranca en false; MainActivity lo pone true si el cajero
         // abre por el ícono del launcher (abonos sin venta HI-POS abierta).

@@ -7,6 +7,7 @@ using SistecreditoTEF.Maui.Services.Auth;
 using SistecreditoTEF.Maui.Services.Credinet;
 using SistecreditoTEF.Maui.Services.Pairing;
 using SistecreditoTEF.Maui.Services.Platform;
+using SistecreditoTEF.Maui.Services.Tiendas;
 
 namespace SistecreditoTEF.Maui.ViewModels;
 
@@ -72,7 +73,9 @@ public partial class ReplicacionViewModel(
     IAuthStore store,
     ApiConfig config,
     ISesionCajero sesion,
-    INavigationService nav) : ObservableObject
+    INavigationService nav,
+    ITiendaDeLaCaja tiendaDeLaCaja,
+    ApiConfigProvider configuracion) : ObservableObject
 {
     // ══════════════════════════════════════════════════════════════════════════
     // DOS OPERACIONES EN LA MISMA PANTALLA
@@ -95,30 +98,71 @@ public partial class ReplicacionViewModel(
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(Titulo))]
     [NotifyPropertyChangedFor(nameof(Explicacion))]
+    [NotifyPropertyChangedFor(nameof(TextoModoRecibir))]
+    [NotifyPropertyChangedFor(nameof(TextoModoCompartir))]
     [NotifyPropertyChangedFor(nameof(TextoDelBotonTraer))]
     [NotifyPropertyChangedFor(nameof(TextoDelBotonAceptar))]
-    [NotifyPropertyChangedFor(nameof(MuestraElSelectorDeModo))]
+    [NotifyPropertyChangedFor(nameof(TituloDeCompartir))]
+    [NotifyPropertyChangedFor(nameof(ExplicacionDelCodigo))]
+    [NotifyPropertyChangedFor(nameof(PistaParaLaOtraCaja))]
     private bool soloCajeros;
 
     public string Titulo => SoloCajeros
-        ? "Actualizar cajeros desde otra caja"
+        ? "Actualizar cajeros"
         : "Copiar configuración de otra caja";
 
-    public string Explicacion => SoloCajeros
-        ? "Trae el padrón de cajeros de otra caja de esta misma tienda. No cambia " +
-          "nada más de esta caja."
-        : "Se copia el PIN de administrador y el padrón de cajeros. Las credenciales " +
-          "de Sistecrédito no: bajan solas desde HioPosCloud.";
+    /// <summary>
+    /// ─────────────────────────────────────────────────────────────────────────
+    /// LA ACTUALIZACION VA EN LOS DOS SENTIDOS
+    /// ─────────────────────────────────────────────────────────────────────────
+    /// La primera version daba por hecho que quien abria esta pantalla venia a
+    /// RECIBIR. Pero el padron al dia lo puede tener cualquiera de las tres cajas:
+    /// el que dio de alta al cajero nuevo esta parado frente a la suya, y desde ahi
+    /// lo normal es querer pasarlo, no traerlo.
+    ///
+    /// Obligarlo a recibir lo manda a caminar hasta la otra caja para generar un
+    /// codigo —o peor, a traerse el padron VIEJO encima del suyo, que es
+    /// exactamente la baja silenciosa que el diferencial vino a evitar—.
+    ///
+    /// Asi que el sentido se elige, y se elige primero.
+    /// </summary>
+    public string Explicacion => (SoloCajeros, ModoCompartir) switch
+    {
+        (true, false) =>
+            "Trae el padrón de cajeros de otra caja de esta misma tienda. No cambia " +
+            "nada más de esta caja.",
+
+        (true, true) =>
+            "Esta caja le pasa su padrón de cajeros a otra. Acá no cambia nada: los " +
+            "cambios los aplica la otra caja, y ahí se ve antes qué cambia.",
+
+        _ =>
+            "Se copia el PIN de administrador y el padrón de cajeros. Las credenciales " +
+            "de Sistecrédito no: bajan solas desde HioPosCloud.",
+    };
+
+    public string TextoModoRecibir => SoloCajeros ? "Traer cajeros" : "Traer a esta caja";
+
+    public string TextoModoCompartir => SoloCajeros ? "Enviar mis cajeros" : "Compartir desde aquí";
 
     public string TextoDelBotonTraer => SoloCajeros ? "Ver qué cambia" : "Traer configuración";
 
     public string TextoDelBotonAceptar => SoloCajeros ? "Aplicar cambios" : "Aceptar y guardar";
 
-    /// <summary>
-    /// En modo actualizar no se ofrece compartir: quien entra por ahi viene a
-    /// recibir, y la mitad de compartir ya vive en administracion.
-    /// </summary>
-    public bool MuestraElSelectorDeModo => !SoloCajeros;
+    public string TituloDeCompartir => SoloCajeros ? "ENVIAR MIS CAJEROS" : "COMPARTIR A OTRA CAJA";
+
+    public string ExplicacionDelCodigo => SoloCajeros
+        ? "Se genera un código de 6 dígitos que dura 10 minutos. Sirve para todas las " +
+          "cajas que alcances a actualizar en ese rato."
+        : "Se genera un código de 6 dígitos que dura 10 minutos. Sirve para todas las " +
+          "cajas que alcances a configurar dentro de ese rato.";
+
+    /// <summary>Que tiene que hacer el de la otra caja. Cambia con el sentido.</summary>
+    public string PistaParaLaOtraCaja => SoloCajeros
+        ? "En la otra caja: Administración → Actualizar cajeros → «Traer cajeros», " +
+          "escanear la red y escribir el código."
+        : "En la otra caja: abre esta misma pantalla, deja «Traer a esta caja», " +
+          "escanea la red y escribe el código.";
 
     /// <summary>
     /// Traer tambien el PIN de administrador al actualizar. APAGADO por defecto.
@@ -157,7 +201,14 @@ public partial class ReplicacionViewModel(
 
     public bool ModoRecibir => !ModoCompartir;
 
-    partial void OnModoCompartirChanged(bool value) => OnPropertyChanged(nameof(ModoRecibir));
+    partial void OnModoCompartirChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ModoRecibir));
+
+        // La explicacion depende del sentido: al enviar hay que decir que ACA no
+        // cambia nada, o el operador teme estar pisandose su propio padron.
+        OnPropertyChanged(nameof(Explicacion));
+    }
 
     [RelayCommand]
     private void VerRecibir() => ModoCompartir = false;
@@ -269,8 +320,28 @@ public partial class ReplicacionViewModel(
             // El StoreId se anuncia en el SALUDO, no en el sobre: sirve para que la
             // caja receptora rechace un padron de otra tienda, y no se guarda de ese
             // lado. Ver [PairingGreeting].
+            //
+            // Va la tienda ELEGIDA ([ApiConfig.Tienda]) y no [ApiConfig.StoreId]: ese
+            // ultimo es el que viaja a Credinet, y en sandbox es null a proposito
+            // (ver [ApiConfig.StoreId]). Con el, la verificacion entre cajas se caia
+            // a comparar por NOMBRE en todo el ambiente de pruebas — justo la barrera
+            // debil que el comentario de [EsLaMismaTienda] advierte que no sirve.
+            //
+            // El sobre ADEMAS lleva la tienda, para que una caja nueva quede asociada
+            // sola. Se sella aca y no en [IAuthStore]: el padron es de la base de
+            // cajeros y la tienda es de la configuracion; mezclarlas obligaria al
+            // store a conocer el catalogo. La caja receptora solo la aplica cuando se
+            // esta MONTANDO, nunca al actualizar cajeros. Ver [CashierRosterEnvelope].
             _host = new PairingHost(
-                _ => store.ExportarPadronAsync(), config.StoreName, storeId: config.StoreId);
+                async _ =>
+                {
+                    var padron = await store.ExportarPadronAsync();
+                    return padron is null
+                        ? null
+                        : padron with { StoreId = config.Tienda.StoreId };
+                },
+                config.StoreName,
+                storeId: config.Tienda.StoreId);
             _host.Start();
 
             _discovery = new PairingDiscovery();
@@ -618,7 +689,8 @@ public partial class ReplicacionViewModel(
                 AppLogger.W("ReplicacionViewModel",
                     $"Actualizacion rechazada: origen tienda='{resultado.Tienda}' " +
                     $"storeId='{resultado.StoreId ?? "(no lo manda)"}'; " +
-                    $"esta caja tienda='{config.StoreName}' storeId='{config.StoreId ?? "(sin configurar)"}'.");
+                    $"esta caja tienda='{config.StoreName}' " +
+                    $"storeId='{config.Tienda.StoreId ?? "(sin elegir)"}'.");
                 return;
             }
 
@@ -670,7 +742,9 @@ public partial class ReplicacionViewModel(
     /// </summary>
     private bool EsLaMismaTienda(PairingResult resultado)
     {
-        var mio = config.StoreId?.Trim();
+        // La tienda ELEGIDA en el terminal, no la que viaja a Credinet: esa ultima
+        // es null en sandbox a proposito. Ver el saludo mas arriba.
+        var mio = config.Tienda.StoreId?.Trim();
         var suyo = resultado.StoreId?.Trim();
 
         if (!string.IsNullOrEmpty(mio) && !string.IsNullOrEmpty(suyo))
@@ -690,6 +764,83 @@ public partial class ReplicacionViewModel(
     private static string Nombrar(string? tienda) =>
         string.IsNullOrWhiteSpace(tienda) ? "sin nombre" : tienda.Trim();
 
+    /// <summary>
+    /// QUE TIENDA CORRESPONDE APLICAR AL RECIBIR UN SOBRE. Null = ninguna.
+    ///
+    /// Es la regla, separada del efecto, para poder ejercitarla sin levantar un
+    /// socket ni montar una caja. Decide tres cosas:
+    ///
+    ///   · En "actualizar cajeros" NO se aplica NUNCA. Esa operacion es
+    ///     deliberadamente angosta: toca el padron y nada mas. Si moviera la tienda,
+    ///     un boton que dice "cajeros" estaria cambiando a nombre de quien se venden
+    ///     los creditos, y eso no se veria hasta conciliar.
+    ///
+    ///   · Un sobre sin tienda (APK anterior en la caja emisora) no aplica nada: se
+    ///     elige a mano y la pantalla lo dice.
+    ///
+    ///   · Una tienda que no figura en el catalogo de ESTE APK tampoco se aplica.
+    ///     Seria dejar la caja operando con una tienda que no puede ni nombrar en
+    ///     pantalla; lo correcto es actualizar el APK.
+    /// </summary>
+    public static TiendaDelCatalogo? TiendaAAplicar(bool soloCajeros, string? storeIdDelSobre) =>
+        soloCajeros ? null : CatalogoDeTiendas.PorStoreId(storeIdDelSobre);
+
+    /// <summary>
+    /// Deja esta caja asociada a la tienda que vino en el sobre. Devuelve como se
+    /// llama esa tienda, o null si no se aplico nada.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────────
+    /// POR QUE ESTO AHORRA DOS TERCIOS DE LOS ERRORES
+    /// ─────────────────────────────────────────────────────────────────────────
+    /// Sin esto hay que elegir la tienda en las tres cajas de cada local: tres
+    /// oportunidades de equivocarse donde alcanza con una. Y el error no se ve —la
+    /// caja vende igual— hasta que alguien concilia y encuentra creditos a nombre
+    /// de otra tienda.
+    ///
+    /// NUNCA LANZA. Si algo falla, la caja queda sin tienda y el mensaje de exito
+    /// lo dice: eso es recuperable tocando un boton. Tumbar la app a mitad del
+    /// montaje, no.
+    /// </summary>
+    private string? AplicarTiendaRecibida()
+    {
+        var id = _recibido?.StoreId;
+        var delCatalogo = TiendaAAplicar(SoloCajeros, id);
+
+        if (delCatalogo is null)
+        {
+            AppLogger.W("ReplicacionViewModel",
+                string.IsNullOrWhiteSpace(id)
+                    // Sobre de un APK anterior. No es un fallo: se elige a mano.
+                    ? "El sobre no trae tienda (APK anterior en la caja emisora): " +
+                      "hay que elegirla en esta caja."
+                    // La otra caja tiene una hoja de tiendas mas nueva que este APK.
+                    // Aceptar un id que no se reconoce dejaria la caja operando con
+                    // una tienda que ni siquiera puede nombrar en pantalla.
+                    : $"La tienda recibida ({id}) no figura en el catalogo de este APK. " +
+                      "No se aplica: hay que actualizar el APK o elegirla a mano.");
+            return null;
+        }
+
+        try
+        {
+            tiendaDeLaCaja.Fijar(delCatalogo);
+
+            // Se recarga para que la configuracion vigente ya refleje la tienda
+            // nueva: la pantalla siguiente la lee de ahi.
+            configuracion.Reload();
+
+            AppLogger.I("ReplicacionViewModel",
+                $"Esta caja queda asociada a {delCatalogo.Etiqueta} (copiada de la otra caja).");
+
+            return delCatalogo.Etiqueta;
+        }
+        catch (Exception ex)
+        {
+            AppLogger.E("ReplicacionViewModel", "No se pudo aplicar la tienda recibida.", ex);
+            return null;
+        }
+    }
+
     /// <summary>Lo que ve el operador al MONTAR una caja: que va a quedar escrito.</summary>
     private void PrepararResumenCompleto()
     {
@@ -698,10 +849,21 @@ public partial class ReplicacionViewModel(
             .Select(c => c.Usuario)
             .Take(8));
 
+        // La tienda se nombra ANTES de aceptar, y no despues.
+        //
+        // Es el dato que decide a nombre de quien quedan los creditos de esta caja,
+        // asi que el operador tiene que verlo mientras todavia puede cancelar. Un
+        // sobre de APK viejo no la trae: ahi se dice que hay que elegirla, en vez de
+        // callar y dejar la caja sin tienda sin que nadie se entere.
+        var tienda = string.IsNullOrWhiteSpace(_recibido.StoreId)
+            ? "Tienda: esa caja no la manda (APK anterior). Hay que elegirla en esta."
+            : $"Tienda: {CatalogoDeTiendas.Describir(_recibido.StoreId)}";
+
         ResumenRecibido =
             $"Cajeros: {_recibido.Cajeros.Count} ({_recibido.CajerosActivos} activos)\n" +
             (string.IsNullOrEmpty(usuarios) ? string.Empty : $"Usuarios: {usuarios}\n") +
-            "PIN de administrador: se copia el de esa caja";
+            "PIN de administrador: se copia el de esa caja\n" +
+            tienda;
     }
 
     /// <summary>
@@ -806,6 +968,12 @@ public partial class ReplicacionViewModel(
             return;
         }
 
+        // La tienda SOLO al montar una caja nueva. "Actualizar cajeros" es la
+        // operacion angosta: toca el padron y nada mas. Si cambiara la tienda, un
+        // boton que dice "cajeros" estaria moviendo a nombre de quien se venden los
+        // creditos — justo el tipo de efecto invisible que este modulo ya pago caro.
+        var tiendaAplicada = SoloCajeros ? null : AplicarTiendaRecibida();
+
         // ─────────────────────────────────────────────────────────────────────
         // SE CIERRA LA SESION DEL CAJERO
         // ─────────────────────────────────────────────────────────────────────
@@ -828,7 +996,10 @@ public partial class ReplicacionViewModel(
             ? $"Cajeros actualizados: quedaron {cantidad} en esta caja." +
               (IncluirPinAdmin ? " El PIN de administrador tambien se actualizo." : string.Empty)
             : $"Configuracion importada correctamente: {cantidad} cajeros y el PIN de " +
-              "administrador quedaron en esta caja.";
+              "administrador quedaron en esta caja." +
+              (tiendaAplicada is null
+                  ? " Falta elegir la tienda de esta caja."
+                  : $" Esta caja queda como {tiendaAplicada}.");
 
         EstadoReceptor = null;
         ReceptorEnFalla = false;

@@ -254,16 +254,24 @@ public class ReplicacionEntreCajasTests
     // ==================================================================
 
     /// <summary>
-    /// El sobre NO lleva identidad de la caja ni de la tienda, y no es un olvido:
-    /// todo eso lo asigna CloudLicense por terminal en el INITIALIZE. Copiarlo seria
-    /// pisar con un valor prestado algo que la central ya definio.
+    /// El sobre NO lleva identidad de la CAJA ni credenciales, y no es un olvido.
     ///
-    /// Se verifica por reflexion para que nadie lo agregue "por conveniencia"
+    /// Las credenciales y el endpoint los asigna CloudLicense; copiarlos seria
+    /// pisar con un valor prestado algo que la central ya definio. Y un
+    /// identificador de TERMINAL es peor todavia: dos cajas con el mismo id firman
+    /// igual sus operaciones y el descuadre se descubre semanas despues.
+    ///
+    /// <c>StoreId</c> salio de esta lista a proposito —ver
+    /// [CashierRosterEnvelope]—. La regla es "si es de la TIENDA se copia, si es de
+    /// la CAJA no", y la tienda es del local: las tres cajas comparten la misma, y
+    /// desde que se elige en el terminal (y ya no baja de CloudLicense) copiarla es
+    /// lo que evita tener que acertarla tres veces por local.
+    ///
+    /// Se verifica por reflexion para que nadie agregue el resto "por conveniencia"
     /// dentro de seis meses.
     /// </summary>
     [Theory]
     [InlineData("TerminalId")]
-    [InlineData("StoreId")]
     [InlineData("SubscriptionKey")]
     [InlineData("BaseUrl")]
     [InlineData("Source")]

@@ -7,25 +7,26 @@
              x:Class="SistecreditoTEF.Maui.Views.IngresoCajeroPage"
              x:DataType="vm:IngresoCajeroViewModel"
              Shell.FlyoutBehavior="Flyout"
+             Shell.NavBarIsVisible="False"
              Title="Ingreso">
-    <ScrollView>
-        <VerticalStackLayout Spacing="20" Padding="20,24,20,28">
 
-            <ctrl:HeroCardView>
-                <ctrl:HeroCardView.Behaviors>
-                    <beh:EntranceBehavior />
-                </ctrl:HeroCardView.Behaviors>
-                <VerticalStackLayout Spacing="6">
-                    <Grid ColumnDefinitions="*,Auto">
-                        <Label Grid.Column="0" Text="Pago de crédito" TextColor="{StaticResource White}"
-                               FontSize="18" FontAttributes="Bold" VerticalOptions="Center" />
-                        <Label Grid.Column="1" Text="sistecrédito" TextColor="#99FFFFFF"
-                               FontSize="12" FontAttributes="Bold,Italic" />
-                    </Grid>
-                    <Label Text="Ingresa con tu usuario y clave para registrar abonos."
-                           TextColor="{StaticResource OnHeroMuted}" FontSize="12" />
-                </VerticalStackLayout>
-            </ctrl:HeroCardView>
+    <!--
+        La tarjeta azul del titulo se fue: la cabecera del [ScaffoldView] dice lo
+        mismo y ademas trae la franja de estado —que tienda es esta caja y si hay
+        red—, que es justo lo que el cajero quiere saber antes de empezar a cobrar.
+        Dos cabeceras apiladas empujaban el formulario fuera de la primera pantalla.
+
+        Sin boton de volver: esta es la puerta del modulo de abonos y detras no hay
+        nada a donde volver.
+    -->
+    <ctrl:ScaffoldView x:Name="Chrome"
+                       EyebrowText="PAGO DE CRÉDITO"
+                       TitleText="Ingreso del cajero"
+                       SubtitleText="Entra con tu usuario y clave para registrar abonos"
+                       TrailingText="Sistecrédito"
+                       ShowBack="False">
+        <VerticalStackLayout Spacing="20" Padding="20,24,20,28"
+                             MaximumWidthRequest="820" HorizontalOptions="Center">
 
             <!--
                 Panel de ingreso. Reemplazó la lista de cajeros para elegir: esa
@@ -76,10 +77,19 @@
                        FontSize="13" HorizontalTextAlignment="Center" />
             </Border>
 
+            <!--
+                La entrada a administracion. Es el unico acceso que queda ahora que
+                esta pantalla no muestra la barra del Shell, y es suficiente: la
+                pantalla destino pide el PIN de administrador antes de mostrar nada.
+            -->
             <Button Text="Administración"
                     Command="{Binding IrAAdministracionCommand}"
-                    Style="{StaticResource OutlineButton}" />
+                    Style="{StaticResource OutlineButton}">
+                <Button.Behaviors>
+                    <beh:PressableBehavior />
+                </Button.Behaviors>
+            </Button>
 
         </VerticalStackLayout>
-    </ScrollView>
+    </ctrl:ScaffoldView>
 </ContentPage>

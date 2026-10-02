@@ -135,7 +135,15 @@ public static class CloudConfigStore
             if (string.Equals(key, ICloudConfig.SubscriptionKey, StringComparison.OrdinalIgnoreCase))
                 SetSubscriptionKey(value);
             else
-                Preferences.Set(Prefix + key, value);
+            {
+                // Una caja provisionada con la capitalizacion que mandaba ICG
+                // antes de [Clave] puede tener el MISMO parametro guardado bajo
+                // dos claves ("cloudparam_Store_Id" y "cloudparam_STORE_ID").
+                // Se va la vieja: si no, y HioPos deja de mandar ese parametro,
+                // la caja seguiria operando con un valor que ICG ya retiro.
+                BorrarClavesLegacy(key);
+                Preferences.Set(Prefix + Clave(key), value);
+            }
         }
 
         // No se loguean los valores: uno de ellos es la credencial de APIM.
@@ -150,9 +158,92 @@ public static class CloudConfigStore
         if (string.Equals(key, ICloudConfig.SubscriptionKey, StringComparison.OrdinalIgnoreCase))
             return GetSubscriptionKey();
 
-        var v = Preferences.Get(Prefix + key, string.Empty);
-        return string.IsNullOrWhiteSpace(v) ? null : v;
+        var canonica = Prefix + Clave(key);
+        var v = Preferences.Get(canonica, string.Empty);
+        if (!string.IsNullOrWhiteSpace(v)) return v;
+
+        // ─────────────────────────────────────────────────────────────────
+        // MIGRACION DE LAS CAJAS YA PROVISIONADAS
+        // ─────────────────────────────────────────────────────────────────
+        // Una caja que provisiono antes de la normalizacion puede tener el
+        // parametro guardado con la forma en que lo escribio ICG. Este camino la
+        // encuentra y la reescribe con el nombre canonico, para que la caja no
+        // dependa de que HioPos mande un INITIALIZE nuevo para dejar de operar
+        // con el StoreId del APK.
+        //
+        // Sin esto, actualizar el APK NO arregla nada por si solo: el parametro
+        // viejo sigue ahi, nadie lo lee, y el StoreId efectivo sigue siendo el
+        // horneado — el mismo defecto que se vino a corregir.
+        foreach (var heredada in VariantesHeredadas(canonica))
+        {
+            var valor = Preferences.Get(heredada, string.Empty);
+            if (string.IsNullOrWhiteSpace(valor)) continue;
+
+            Preferences.Set(canonica, valor);
+            AppLogger.W("CloudConfigStore",
+                $"Migrado '{heredada}' a '{canonica}': el parametro estaba guardado con otro " +
+                "nombre y no lo encontraba nadie. La caja operaba con el valor del APK.");
+
+            return valor;
+        }
+
+        return null;
     }
+
+    /// <summary>
+    /// Variantes heredadas de una clave, en las que un parametro pudo quedar
+    /// guardado antes de la normalizacion.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────────
+    /// POR QUE NO SE ENUMERAN LAS CLAVES DE Preferences
+    /// ─────────────────────────────────────────────────────────────────────────
+    /// La idea obvia —listar las claves guardadas y buscar la que "se parece"— no
+    /// se puede hacer: <c>IPreferences</c> no expone <c>Keys</c>. Y leer el XML de
+    /// <c>shared_prefs</c> por dentro ataria esta clase a la plataforma justo en el
+    /// punto que hay que poder probar.
+    ///
+    /// Asi que en vez de adivinar, se prueban las dos formas en que una persona
+    /// escribe un nombre de parametro y que NO coinciden con la canonica:
+    /// pegado ("StoreId" -> "STOREID") y separado ("Store Id" -> "STORE ID"). Son
+    /// dos accesos, no un recorrido.
+    ///
+    /// Y el caso comun no necesita siquiera esto: en cuanto HioPos manda un
+    /// INITIALIZE, [SaveFromXml] reescribe el parametro con el nombre canonico.
+    /// Esto solo cubre la ventana entre instalar el APK nuevo y que llegue ese
+    /// primer INITIALIZE.
+    /// </summary>
+    private static IEnumerable<string> VariantesHeredadas(string canonica)
+    {
+        var sufijo = canonica[Prefix.Length..];
+
+        var pegada = sufijo.Replace("_", string.Empty, StringComparison.Ordinal);
+        if (!pegada.Equals(sufijo, StringComparison.Ordinal))
+            yield return Prefix + pegada;
+
+        var separada = sufijo.Replace("_", " ", StringComparison.Ordinal);
+        if (!separada.Equals(sufijo, StringComparison.Ordinal))
+            yield return Prefix + separada;
+    }
+
+    /// <summary>Borra las claves heredadas de un parámetro que se acaba de escribir.</summary>
+    private static void BorrarClavesLegacy(string key)
+    {
+        var canonica = Prefix + Clave(key);
+        foreach (var heredada in VariantesHeredadas(canonica))
+            Preferences.Remove(heredada);
+    }
+
+    /// <summary>
+    /// Nombre con el que se guarda y se lee un parámetro.
+    ///
+    /// La normalización vive en <see cref="CloudConfigParser.NombreCanonico"/> —
+    /// que es puro y está cubierto por pruebas — porque la regla que decide a
+    /// nombre de qué tienda vende la caja no puede depender de que cada extremo
+    /// del almacenamiento se acuerde de normalizar.
+    ///
+    /// Ver ahi el detalle completo del defecto.
+    /// </summary>
+    private static string Clave(string key) => CloudConfigParser.NombreCanonico(key);
 
     // ------------------------------------------------------------------
     // SUBSCRIPTION_KEY en SecureStorage (QA A-3)
@@ -227,7 +318,7 @@ public static class CloudConfigStore
                      ICloudConfig.TimeoutSeconds, ICloudConfig.OtpMaxResends, ICloudConfig.StoreName
                  })
         {
-            Preferences.Remove(Prefix + key);
+            Preferences.Remove(Prefix + Clave(key));
         }
 
         lock (_gate)

@@ -37,4 +37,27 @@ public interface INavigationService
     /// escribe el PIN de administrador y la otra no.
     /// </summary>
     Task GoToActualizarCajerosAsync();
+
+    /// <summary>
+    /// Elegir que tienda es esta caja. Se llega desde la configuracion inicial
+    /// (al montar el terminal) y desde administracion (detras del PIN).
+    /// </summary>
+    Task GoToTiendaAsync();
+
+    /// <summary>
+    /// La misma pantalla de tiendas, pero como PRIMER PASO del montaje: al elegir
+    /// se confirma, y al confirmar se sigue al paso siguiente.
+    ///
+    /// Destino aparte y no una bandera del llamador, por el mismo motivo que
+    /// [GoToActualizarCajerosAsync]: son dos operaciones que se parecen en
+    /// pantalla y se diferencian en lo unico que importa —una encadena hacia
+    /// adelante y la otra devuelve a donde estabas—.
+    /// </summary>
+    Task GoToElegirTiendaAsistenteAsync();
+
+    /// <summary>
+    /// Segundo paso del montaje: copiar de otra caja o configurar desde cero.
+    /// Ver [AppRoutes.ConfiguracionInicio].
+    /// </summary>
+    Task GoToConfiguracionInicioAsync();
 }

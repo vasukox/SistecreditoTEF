@@ -3,11 +3,22 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:SistecreditoTEF.Maui.ViewModels"
              xmlns:beh="clr-namespace:SistecreditoTEF.Maui.Common.Behaviors"
+             xmlns:ctrl="clr-namespace:SistecreditoTEF.Maui.Views.Controls"
              x:Class="SistecreditoTEF.Maui.Views.ReciboPagoPage"
              x:DataType="vm:ReciboPagoViewModel"
+             Shell.NavBarIsVisible="False"
              Title="Recibo de pago">
-    <ScrollView>
-        <VerticalStackLayout Spacing="18" Padding="24,32,24,28">
+
+    <!--
+        Sin boton de volver: el abono ya se aplico. Lo que queda es imprimir y
+        cerrar, y esos botones estan abajo. Un "volver" sobre un cobro hecho es
+        una invitacion a cobrarlo dos veces.
+    -->
+    <ctrl:ScaffoldView EyebrowText="PAGAR CRÉDITO"
+                       TitleText="Pago realizado"
+                       ShowBack="False">
+        <VerticalStackLayout Spacing="18" Padding="24,28,24,28"
+                             MaximumWidthRequest="820" HorizontalOptions="Center">
 
             <Border WidthRequest="88" HeightRequest="88" BackgroundColor="{StaticResource Success}"
                     Stroke="Transparent" StrokeShape="RoundRectangle 44" HorizontalOptions="Center">
@@ -109,5 +120,5 @@
                     Style="{StaticResource OutlineButton}" />
 
         </VerticalStackLayout>
-    </ScrollView>
+    </ctrl:ScaffoldView>
 </ContentPage>

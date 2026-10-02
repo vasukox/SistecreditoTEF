@@ -21,7 +21,8 @@ public partial class PagoViewModel(
     SistecreditoService service,
     INavigationService nav,
     ITransactionStateStore state,
-    ISesionCajero sesion) : ObservableObject
+    ISesionCajero sesion,
+    IEstadoDeLaConexion? salud = null) : ObservableObject
 {
     public enum Estado { Idle, Loading, Success, Error, EnDuda }
 
@@ -91,9 +92,20 @@ public partial class PagoViewModel(
     public string Titulo    => CreditoSeleccionado is null
         ? "Abono"
         : $"Crédito #{CreditoSeleccionado.CreditNumber}";
+    /// <summary>
+    /// Bajo el numero de credito iba el <c>storeName</c> de Credinet, el mismo que
+    /// se quito de la lista: no es la tienda del credito sino la de la consulta, y
+    /// hacia creer al cajero que el cliente lo habia sacado en otra parte. Ver
+    /// [CreditosActivosPage] y [ReciboPagoViewModel.Tienda].
+    ///
+    /// La fecha de apertura si pertenece al credito y le sirve al cajero para
+    /// ubicarlo con el cliente cuando tiene mas de uno.
+    /// </summary>
     public string Subtitulo => CreditoSeleccionado is null
         ? string.Empty
-        : CreditoSeleccionado.StoreName;
+        : CreditoSeleccionado.TieneFechaDeApertura
+            ? $"Abierto el {CreditoSeleccionado.CreateDateDisplay}"
+            : string.Empty;
 
     // ══════════════════════════════════════════════════════════════════════
     // CLARIDAD DE LOS MONTOS
@@ -479,6 +491,21 @@ public partial class PagoViewModel(
     private string EvaluarBloqueo()
     {
         if (CreditoSeleccionado is null) return "No hay un crédito seleccionado.";
+
+        // ─────────────────────────────────────────────────────────────────────
+        // LA TIENDA QUE CREDINET YA RECHAZO NO COBRA
+        // ─────────────────────────────────────────────────────────────────────
+        // Va PRIMERO, antes que cualquier regla del monto: si Sistecredito no
+        // reconoce esta tienda, el abono se aplicaria igual al credito pero
+        // quedaria atribuido a otra —o a ninguna—, y eso no se ve desde la caja.
+        // Es el mismo motivo por el que se frena la venta en [MainActivity].
+        //
+        // Solo bloquea el rechazo de tienda. Sin red o sin respuesta se dejan
+        // pasar: son transitorios, y dejar a una tienda sin recaudar por un corte
+        // de wifi seria peor que el problema que se quiere evitar.
+        if (salud is { PuedeOperar: false })
+            return "Sistecrédito no reconoce la tienda de esta caja. No se puede cobrar " +
+                   "hasta corregirla: avisa al área de sistemas.";
 
         // Mientras el cobro esta en vuelo, el boton se DESHABILITA.
         //

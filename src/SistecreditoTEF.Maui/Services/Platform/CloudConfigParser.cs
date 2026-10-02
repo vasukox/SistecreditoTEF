@@ -89,6 +89,107 @@ public static class CloudConfigParser
         return null;
     }
 
+    /// <summary>
+    /// Claves del contrato que ICG define sin constante propia en
+    /// <see cref="Services.Credinet.ICloudConfig"/> pero que igual se provisionan
+    /// por terminal. Se declaran aca para que la normalizacion las cubra.
+    /// </summary>
+    private const string OtpResendCooldown  = "OTP_RESEND_COOLDOWN";
+    private const string OtpVerifyCooldown  = "OTP_VERIFY_COOLDOWN";
+    private const string OtpMaxVerifyTries  = "OTP_MAX_VERIFY_ATTEMPTS";
+    private const string EnableSunmiNativeK  = "ENABLE_SUNMI_NATIVE";
+
+    /// <summary>
+    /// Mapa de toda clave que puede llegar -> clave canonica. La clave del mapa
+    /// es el nombre "reducido" (sin guiones, sin espacios, en mayusculas).
+    /// </summary>
+    private static readonly Dictionary<string, string> Canonicos = ConstruirCanonicos();
+
+    private static Dictionary<string, string> ConstruirCanonicos()
+    {
+        var claves = new[]
+        {
+            Services.Credinet.ICloudConfig.ApiBaseUrl,
+            Services.Credinet.ICloudConfig.SubscriptionKey,
+            Services.Credinet.ICloudConfig.StoreId,
+            Services.Credinet.ICloudConfig.Environment,
+            Services.Credinet.ICloudConfig.StoreName,
+            Services.Credinet.ICloudConfig.OtpDestination,
+            Services.Credinet.ICloudConfig.CertificatePins,
+            Services.Credinet.ICloudConfig.Frequency,
+            Services.Credinet.ICloudConfig.Source,
+            Services.Credinet.ICloudConfig.AuthMethod,
+            Services.Credinet.ICloudConfig.TimeoutSeconds,
+            Services.Credinet.ICloudConfig.OtpMaxResends,
+            Services.Credinet.ICloudConfig.PaymentMeanIdRecaudo,
+            Services.Credinet.ICloudConfig.PaymentMeanIdVenta,
+            OtpResendCooldown,
+            OtpVerifyCooldown,
+            OtpMaxVerifyTries,
+            EnableSunmiNativeK,
+        };
+
+        return claves
+            .Distinct(StringComparer.Ordinal)
+            .ToDictionary(Reducir, k => k, StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// Forma de comparar claves sin importar como las escriba la persona que las
+    /// provisiona: sin guiones bajos, sin espacios y en mayusculas. Asi
+    /// "STORE_ID", "Store_Id", "StoreId" y "store id" son la MISMA clave.
+    /// </summary>
+    private static string Reducir(string key) =>
+        key.Replace("_", string.Empty, StringComparison.Ordinal)
+           .Replace(" ", string.Empty, StringComparison.Ordinal)
+           .Trim()
+           .ToUpperInvariant();
+
+    /// <summary>
+    /// NOMBRE CANONICO DE UN PARAMETRO.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────────
+    /// POR QUE ESTA ACA Y NO EN EL ALMACENAMIENTO
+    /// ─────────────────────────────────────────────────────────────────────────
+    /// [Parse] es tolerante: acepta el atributo <c>Key</c> en cualquier
+    /// capitalizacion y devuelve un diccionario <c>OrdinalIgnoreCase</c>, con las
+    /// claves TAL COMO las mando ICG — que es lo que uno quiere ver en el log.
+    ///
+    /// Pero de ahi los parametros iban a <c>Preferences</c>, que es SENSIBLE A
+    /// MAYUSCULAS, y se leian de vuelta con las constantes de
+    /// <see cref="Services.Credinet.ICloudConfig"/>, que estan en mayusculas.
+    ///
+    /// O sea: si CloudLicense trae la clave escrita <c>Store_Id</c> en vez de
+    /// <c>STORE_ID</c>, se guardaba en <c>cloudparam_Store_Id</c> y se buscaba en
+    /// <c>cloudparam_STORE_ID</c> — nunca se encontraba.
+    ///
+    /// Y era INVISIBLE. La linea "Parametros Cloud guardados: 5
+    /// [API_BASE_URL, Store_Id, ...]" se ve perfecta —el parametro llego y se
+    /// guardo— mientras el valor no lo lee nadie y la app opera con el del APK.
+    /// Para el STORE_ID eso significa una tienda reportando sus creditos a nombre
+    /// de otra, y no hay forma de notarlo desde la caja: hay que deducirlo
+    /// conciliando en la plataforma de Sistecredito, semanas despues.
+    ///
+    /// Nota sobre el separador: subir a mayusculas NO alcanza, porque
+    /// <c>StoreId</c> queda como <c>STOREID</c> y sigue sin ser <c>STORE_ID</c>.
+    /// Por eso la comparacion tambien ignora guiones y espacios: el tecnico que
+    /// escribe la clave en la hoja de ICG no tiene por que acordarse del guion.
+    ///
+    /// Vive aca y no en el almacenamiento para que sea PURO y se pueda probar en
+    /// xUnit: la regla que decide a nombre de que tienda se venden es de las mas
+    /// caras del modulo y no puede depender de que alguien recuerde normalizar.
+    /// </summary>
+    public static string NombreCanonico(string key)
+    {
+        if (string.IsNullOrWhiteSpace(key)) return key;
+
+        // Una clave que no este en el contrato se devuelve tal cual, en mayusculas:
+        // el modulo acepta parametros que ICG agregue despues y no se deben perder.
+        return Canonicos.TryGetValue(Reducir(key), out var canonica)
+            ? canonica
+            : key.Trim().ToUpperInvariant();
+    }
+
     // ══════════════════════════════════════════════════════════════════════
     // DIAGNÓSTICO DE ESTRUCTURA
     // ══════════════════════════════════════════════════════════════════════

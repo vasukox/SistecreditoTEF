@@ -1,0 +1,310 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    QUE TIENDA ES ESTA CAJA.
+
+    La pantalla tiene dos vidas (ver [TiendaViewModel]):
+
+      ajustes      se toca una tienda y queda aplicada. Nada mas.
+      asistente    se toca -> se confirma -> queda aplicada -> se sigue al paso 2.
+
+    Por eso los tres paneles comparten la fila central y se turnan: lista,
+    confirmacion y "listo". Turnarse —y no apilarse— es lo que hace que en una
+    pantalla de POS solo haya una cosa que leer y un boton que tocar.
+-->
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:SistecreditoTEF.Maui.ViewModels"
+             xmlns:tiendas="clr-namespace:SistecreditoTEF.Maui.Services.Tiendas"
+             xmlns:beh="clr-namespace:SistecreditoTEF.Maui.Common.Behaviors"
+             xmlns:ctrl="clr-namespace:SistecreditoTEF.Maui.Views.Controls"
+             x:Class="SistecreditoTEF.Maui.Views.TiendaPage"
+             x:DataType="vm:TiendaViewModel"
+             Shell.NavBarIsVisible="False"
+             Title="Tienda de esta caja">
+
+    <!--
+        La lista NO va dentro de un ScrollView: son 76 tiendas y anidar dos
+        desplazamientos hace que el dedo mueva el equivocado. La cabecera es fija y
+        la fila central se desplaza sola en el espacio que queda.
+    -->
+    <Grid RowDefinitions="Auto,*" RowSpacing="14" Padding="20,16,20,16">
+
+        <!-- ============ CABECERA ============ -->
+        <VerticalStackLayout Grid.Row="0" Spacing="12">
+
+            <ctrl:BackBarView x:Name="Barra"
+                              TitleText="{Binding TituloDeLaPantalla}"
+                              PuedeVolver="{Binding SePuedeVolver}" />
+
+            <!-- En el montaje se dice en voz alta en que paso va. -->
+            <Label Text="PASO 1 DE 2 · DÓNDE OPERA ESTA CAJA"
+                   Style="{StaticResource FieldLabel}"
+                   TextColor="{StaticResource Primary}"
+                   IsVisible="{Binding ModoAsistente}" />
+
+            <!-- ============ CON QUE TIENDA ESTA OPERANDO ============ -->
+            <Border Style="{StaticResource Card}" Padding="16,14"
+                    IsVisible="{Binding MostrandoLista}">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="ESTA CAJA OPERA COMO" Style="{StaticResource FieldLabel}" />
+                    <Label Text="{Binding Titulo}" Style="{StaticResource CardTitle}" />
+                    <Label Text="{Binding Detalle}" Style="{StaticResource Caption}"
+                           TextColor="{StaticResource TextSecondary}" />
+
+                    <!--
+                        LA PREGUNTA EXPLICITA.
+                        El indicador de la cabecera solo se entera operando, asi
+                        que en una caja recien montada no dice nada. Esto le
+                        pregunta a Sistecredito en el acto. No escribe nada: es
+                        una consulta de simulacion, sin datos de cliente.
+                    -->
+                    <Button Text="Verificar con Sistecrédito"
+                            Style="{StaticResource SecondaryButton}"
+                            IsEnabled="{Binding Verificando, Converter={StaticResource InvertedBoolConverter}}"
+                            Command="{Binding VerificarCommand}">
+                        <Button.Behaviors>
+                            <beh:PressableBehavior />
+                        </Button.Behaviors>
+                    </Button>
+
+                    <Label Text="{Binding MensajeDeVerificacion}"
+                           IsVisible="{Binding HayMensajeDeVerificacion}"
+                           Style="{StaticResource Caption}"
+                           TextColor="{StaticResource Error}">
+                        <Label.Triggers>
+                            <DataTrigger TargetType="Label" Binding="{Binding Verificada}" Value="True">
+                                <Setter Property="TextColor" Value="{StaticResource Success}" />
+                            </DataTrigger>
+                        </Label.Triggers>
+                    </Label>
+                </VerticalStackLayout>
+            </Border>
+
+            <!--
+                ============ LO QUE DICE HIOPOS, SI NO COINCIDE ============
+                Ambar y no rojo: esto NO frena nada. La tienda que manda es la
+                elegida aca. Se muestra igual porque una discrepancia significa que
+                ICG cree que este terminal es otra tienda, y eso es algo que
+                conviene saber antes de que aparezca en una conciliacion.
+            -->
+            <Border IsVisible="{Binding HayAvisoDeHioPos}"
+                    BackgroundColor="{StaticResource WarningSoft}"
+                    Stroke="Transparent" StrokeShape="RoundRectangle 12" Padding="16,14">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="HIOPOS DICE OTRA TIENDA" Style="{StaticResource FieldLabel}"
+                           TextColor="{StaticResource Warning}" />
+                    <Label Text="{Binding AvisoDeHioPos}" TextColor="{StaticResource Warning}"
+                           FontSize="13" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Label Text="{Binding MensajeOk}" IsVisible="{Binding TieneMensajeOk}"
+                   Style="{StaticResource Caption}"
+                   TextColor="{StaticResource Primary}"
+                   HorizontalTextAlignment="Center" />
+
+            <!-- ============ BUSCADOR ============ -->
+            <Border Style="{StaticResource FieldCard}" IsVisible="{Binding MostrandoLista}">
+                <Entry Placeholder="Buscar por código o nombre (037, suba, galerías…)"
+                       HeightRequest="48"
+                       IsTextPredictionEnabled="False"
+                       IsSpellCheckEnabled="False"
+                       Text="{Binding Busqueda, Mode=TwoWay}" />
+            </Border>
+
+            <Label Style="{StaticResource Caption}"
+                   TextColor="{StaticResource TextMuted}"
+                   IsVisible="{Binding MostrandoLista}"
+                   Text="Toque la tienda donde está instalada esta caja. Se elige de la lista, nunca se escribe el código." />
+        </VerticalStackLayout>
+
+        <!-- ============ LAS TIENDAS ============ -->
+        <CollectionView Grid.Row="1" ItemsSource="{Binding Tiendas}" SelectionMode="None"
+                        IsVisible="{Binding MostrandoLista}">
+            <CollectionView.ItemsLayout>
+                <LinearItemsLayout Orientation="Vertical" ItemSpacing="8" />
+            </CollectionView.ItemsLayout>
+
+            <CollectionView.EmptyView>
+                <Label Text="Ninguna tienda coincide con la búsqueda."
+                       Style="{StaticResource Caption}"
+                       HorizontalTextAlignment="Center" />
+            </CollectionView.EmptyView>
+
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="tiendas:TiendaDelCatalogo">
+                    <Border Style="{StaticResource Card}" Padding="16,13">
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer
+                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ElegirCommand}"
+                                CommandParameter="{Binding .}" />
+                        </Border.GestureRecognizers>
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14">
+                            <!-- El codigo en una pastilla: es por donde se busca y
+                                 por donde la operacion nombra a la tienda. -->
+                            <Border Grid.Column="0" BackgroundColor="{StaticResource PrimaryTint}"
+                                    StrokeShape="RoundRectangle 10" Stroke="Transparent"
+                                    Padding="10,6" VerticalOptions="Center">
+                                <Label Text="{Binding Codigo}"
+                                       FontAttributes="Bold" FontSize="16"
+                                       TextColor="{StaticResource PrimaryDark}" />
+                            </Border>
+                            <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                                <Label Text="{Binding NombreVisible}" FontAttributes="Bold"
+                                       TextColor="{StaticResource TextPrimary}" />
+                                <Label Text="{Binding Ciudad}" Style="{StaticResource Caption}"
+                                       TextColor="{StaticResource TextMuted}" />
+                            </VerticalStackLayout>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+
+            <!--
+                No hay boton de "quitar la tienda": quitarla solo dejaria la caja
+                sin poder cobrar. Para cambiarla se elige otra. Ver [TiendaViewModel].
+            -->
+        </CollectionView>
+
+        <!-- ============ CONFIRMAR (solo en el asistente) ============ -->
+        <ScrollView Grid.Row="1" IsVisible="{Binding MostrandoConfirmacion}">
+            <VerticalStackLayout Spacing="16">
+
+                <Border Style="{StaticResource Card}" Padding="22">
+                    <Border.Behaviors>
+                        <beh:EntranceBehavior />
+                    </Border.Behaviors>
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="¿ESTA CAJA ESTÁ EN ESTA TIENDA?" Style="{StaticResource FieldLabel}" />
+                        <Label Text="{Binding Seleccionada.Codigo}" Style="{StaticResource Display}"
+                               TextColor="{StaticResource Primary}" />
+                        <Label Text="{Binding Seleccionada.NombreVisible}" Style="{StaticResource CardTitle}" />
+                        <Label Text="{Binding Seleccionada.Ciudad}" Style="{StaticResource Caption}"
+                               TextColor="{StaticResource TextMuted}" />
+                        <!--
+                            El StoreId completo, sin recortar: es el dato que se
+                            coteja contra la hoja STOREID-SISTECREDITO, y recortado
+                            no sirve para comparar.
+                        -->
+                        <Label Text="{Binding Seleccionada.StoreId, StringFormat='StoreId: {0}'}"
+                               Style="{StaticResource Caption}"
+                               TextColor="{StaticResource TextSecondary}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Label Style="{StaticResource Caption}"
+                       TextColor="{StaticResource TextMuted}"
+                       HorizontalTextAlignment="Center"
+                       Text="Los créditos que se tomen en esta caja quedarán a nombre de esta tienda." />
+
+                <Button Text="Aceptar"
+                        Style="{StaticResource PrimaryButton}"
+                        Command="{Binding AceptarCommand}">
+                    <Button.Behaviors>
+                        <beh:PressableBehavior />
+                    </Button.Behaviors>
+                </Button>
+
+                <Button Text="Elegir otra tienda"
+                        Style="{StaticResource OutlineButton}"
+                        Command="{Binding ElegirOtraCommand}">
+                    <Button.Behaviors>
+                        <beh:PressableBehavior />
+                    </Button.Behaviors>
+                </Button>
+
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <!-- ============ LISTO (solo en el asistente) ============ -->
+        <ScrollView Grid.Row="1" IsVisible="{Binding MostrandoListo}">
+            <VerticalStackLayout Spacing="18">
+
+                <Border Style="{StaticResource HeroCard}" Padding="24">
+                    <Border.Behaviors>
+                        <beh:EntranceBehavior />
+                    </Border.Behaviors>
+                    <VerticalStackLayout Spacing="12" HorizontalOptions="Center">
+                        <Border BackgroundColor="{StaticResource OnHeroTile}"
+                                WidthRequest="64" HeightRequest="64"
+                                StrokeShape="RoundRectangle 32" Stroke="Transparent"
+                                HorizontalOptions="Center">
+                            <Label Text="✓" FontSize="30" FontAttributes="Bold"
+                                   TextColor="{StaticResource White}"
+                                   HorizontalOptions="Center" VerticalOptions="Center">
+                                <Label.Behaviors>
+                                    <beh:PopInBehavior DelayMs="80" />
+                                </Label.Behaviors>
+                            </Label>
+                        </Border>
+
+                        <Label Text="Esta caja quedó en"
+                               TextColor="{StaticResource OnHeroMuted}" FontSize="14"
+                               HorizontalTextAlignment="Center" />
+                        <Label Text="{Binding Titulo}"
+                               TextColor="{StaticResource White}" FontSize="21"
+                               FontAttributes="Bold"
+                               HorizontalTextAlignment="Center" />
+                        <Label Text="{Binding Detalle}"
+                               TextColor="{StaticResource OnHeroMuted}" FontSize="12"
+                               HorizontalTextAlignment="Center" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!--
+                    EL RESULTADO DE PREGUNTARLE A SISTECREDITO.
+
+                    Se dispara solo al aceptar, sin que nadie tenga que acordarse:
+                    este es el unico momento del montaje en que alguien esta
+                    mirando la pantalla con la tienda recien elegida. Si el
+                    identificador no sirve, se entera aqui y no con la primera
+                    venta, que es como se venia enterando.
+                -->
+                <Border Style="{StaticResource Card}" Padding="16,14"
+                        IsVisible="{Binding HayMensajeDeVerificacion}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="COMPROBACIÓN CON SISTECRÉDITO"
+                               Style="{StaticResource FieldLabel}" />
+                        <Label Text="{Binding MensajeDeVerificacion}"
+                               FontSize="13.5"
+                               TextColor="{StaticResource Error}">
+                            <Label.Triggers>
+                                <DataTrigger TargetType="Label" Binding="{Binding Verificada}" Value="True">
+                                    <Setter Property="TextColor" Value="{StaticResource Success}" />
+                                </DataTrigger>
+                            </Label.Triggers>
+                        </Label>
+
+                        <Button Text="Volver a verificar"
+                                Style="{StaticResource OutlineButton}"
+                                IsEnabled="{Binding Verificando, Converter={StaticResource InvertedBoolConverter}}"
+                                Command="{Binding VerificarCommand}">
+                            <Button.Behaviors>
+                                <beh:PressableBehavior />
+                            </Button.Behaviors>
+                        </Button>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Button Text="Siguiente"
+                        Style="{StaticResource PrimaryButton}"
+                        Command="{Binding SiguienteCommand}">
+                    <Button.Behaviors>
+                        <beh:EntranceBehavior DelayMs="120" />
+                        <beh:PressableBehavior />
+                    </Button.Behaviors>
+                </Button>
+
+                <Button Text="Elegir otra tienda"
+                        Style="{StaticResource OutlineButton}"
+                        Command="{Binding ElegirOtraCommand}">
+                    <Button.Behaviors>
+                        <beh:PressableBehavior />
+                    </Button.Behaviors>
+                </Button>
+
+            </VerticalStackLayout>
+        </ScrollView>
+
+    </Grid>
+</ContentPage>

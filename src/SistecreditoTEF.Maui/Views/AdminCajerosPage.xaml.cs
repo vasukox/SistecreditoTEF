@@ -15,6 +15,14 @@ public partial class AdminCajerosPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+
+        // Al volver de elegir la tienda hay que releerla: son propiedades calculadas
+        // y MAUI no las re-evalua sola. Ver [AdminCajerosViewModel.RefrescarTienda].
+        _vm.RefrescarTienda();
+
+        // La franja de estado de la cabecera lee lo mismo y por el mismo motivo.
+        Chrome.RefrescarEstado();
+
         try
         {
             // CargarAsync no hace nada si todavia no se puso el PIN, asi que es

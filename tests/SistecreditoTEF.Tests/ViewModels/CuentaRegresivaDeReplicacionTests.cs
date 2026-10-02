@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using SistecreditoTEF.Maui.Models;
 using SistecreditoTEF.Maui.Services.Auth;
 using SistecreditoTEF.Maui.Services.Credinet;
@@ -51,6 +52,9 @@ public class CuentaRegresivaDeReplicacionTests
         public Task GoToAdminCajerosAsync()      => Ir(nameof(GoToAdminCajerosAsync));
         public Task GoToReplicacionAsync()       => Ir(nameof(GoToReplicacionAsync));
         public Task GoToActualizarCajerosAsync() => Ir(nameof(GoToActualizarCajerosAsync));
+        public Task GoToTiendaAsync()            => Ir(nameof(GoToTiendaAsync));
+        public Task GoToElegirTiendaAsistenteAsync() => Ir(nameof(GoToElegirTiendaAsistenteAsync));
+        public Task GoToConfiguracionInicioAsync()   => Ir(nameof(GoToConfiguracionInicioAsync));
     }
 
     private static (ReplicacionViewModel vm, InMemoryAuthStore store, NavSpy nav) Armar()
@@ -64,7 +68,23 @@ public class CuentaRegresivaDeReplicacionTests
             StoreName = "Tienda de prueba",
         };
 
-        return (new ReplicacionViewModel(store, config, new SesionCajero(), nav), store, nav);
+        // La tienda de la caja y el proveedor de configuracion solo intervienen al
+        // MONTAR una caja (cuando se aplica la tienda que vino en el sobre). Estos
+        // tests son de la cuenta regresiva, asi que alcanzan los dobles vacios.
+        var tienda = new SistecreditoTEF.Maui.Services.Tiendas.TiendaDeLaCajaEnMemoria();
+        var proveedor = new ApiConfigProvider(
+            new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Credinet:SubscriptionKey"] = "no-se-usa-aca",
+                    ["Credinet:BaseUrl"] = "https://api.credinet.co/pos/"
+                })
+                .Build(),
+            EmptyCloudConfig.Instance,
+            tienda);
+
+        return (new ReplicacionViewModel(store, config, new SesionCajero(), nav, tienda, proveedor),
+                store, nav);
     }
 
     // ══════════════════════════════════════════════════════════════════════════
@@ -344,6 +364,60 @@ public class CuentaRegresivaDeReplicacionTests
 
         Assert.True(vm.ModoRecibir);
         Assert.False(vm.ModoCompartir);
+    }
+
+    /// <summary>
+    /// ACTUALIZAR VA EN LOS DOS SENTIDOS, Y ESO SE ELIGE.
+    ///
+    /// La primera version daba por hecho que quien abria "actualizar cajeros" venia a
+    /// RECIBIR. Pero el padron al dia lo puede tener cualquiera de las tres cajas: el
+    /// que acaba de dar de alta a un cajero esta parado frente a la suya, y desde ahi
+    /// lo normal es querer enviarlo.
+    ///
+    /// Obligarlo a recibir lo mandaba a caminar hasta la otra caja — o, peor, a
+    /// traerse el padron VIEJO encima del suyo, que es justo la baja silenciosa que
+    /// el diferencial vino a evitar.
+    /// </summary>
+    [Fact]
+    public void Al_actualizar_cajeros_tambien_se_puede_enviar()
+    {
+        var (vm, _, _) = Armar();
+        vm.SoloCajeros = true;
+
+        // Arranca en recibir, como antes...
+        Assert.True(vm.ModoRecibir);
+
+        // ...pero el sentido contrario esta disponible.
+        vm.VerCompartirCommand.Execute(null);
+        Assert.True(vm.ModoCompartir);
+    }
+
+    /// <summary>
+    /// Al ENVIAR hay que decir que aca no cambia nada, o el operador teme estar
+    /// pisandose su propio padron y no aprieta.
+    /// </summary>
+    [Fact]
+    public void Enviar_avisa_que_en_esta_caja_no_cambia_nada()
+    {
+        var (vm, _, _) = Armar();
+        vm.SoloCajeros = true;
+        vm.VerCompartirCommand.Execute(null);
+
+        Assert.Contains("no cambia nada", vm.Explicacion, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Las etiquetas del selector nombran la operacion, no la generica.</summary>
+    [Fact]
+    public void El_selector_se_llama_distinto_en_cada_operacion()
+    {
+        var (copiar, _, _) = Armar();
+        Assert.Equal("Traer a esta caja", copiar.TextoModoRecibir);
+        Assert.Equal("Compartir desde aquí", copiar.TextoModoCompartir);
+
+        var (actualizar, _, _) = Armar();
+        actualizar.SoloCajeros = true;
+        Assert.Equal("Traer cajeros", actualizar.TextoModoRecibir);
+        Assert.Equal("Enviar mis cajeros", actualizar.TextoModoCompartir);
     }
 
     [Fact]

@@ -17,6 +17,33 @@
         <VerticalStackLayout Spacing="16" Padding="20,26,20,28"
                              MaximumWidthRequest="820" HorizontalOptions="Center">
 
+            <!--
+                CON QUE TIENDA OPERA ESTA CAJA.
+
+                La tarjeta que repetia el nombre de la tienda se fue: ese dato ahora
+                vive en la franja de estado de la cabecera ([EstadoDeLaCajaView]), y
+                desde ahi se ve en TODAS las pantallas y no solo en esta. Tenerlo
+                dos veces en la misma pantalla no lo hacia mas visible; empujaba las
+                dos acciones hacia abajo, que es lo que el cajero viene a tocar.
+
+                Lo que SI queda es el aviso, y solo cuando falta elegir la tienda:
+                esa caja no registra creditos y eso no puede caber en un chip.
+            -->
+            <Border Style="{StaticResource Card}" Padding="16,14"
+                    BackgroundColor="{StaticResource WarningSoft}"
+                    Stroke="Transparent"
+                    IsVisible="{Binding MostrarAvisoTienda}">
+                <Border.Behaviors>
+                    <beh:EntranceBehavior />
+                </Border.Behaviors>
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="FALTA LA TIENDA DE ESTA CAJA" Style="{StaticResource FieldLabel}"
+                           TextColor="{StaticResource Warning}" />
+                    <Label Text="{Binding AvisoTienda}" Style="{StaticResource Caption}"
+                           TextColor="{StaticResource Warning}" />
+                </VerticalStackLayout>
+            </Border>
+
             <!-- Acción: Solicitar crédito -->
             <Border Style="{StaticResource Card}" Padding="12" StrokeShape="RoundRectangle 40">
                 <Border.Behaviors>
@@ -25,17 +52,23 @@
                 <Border.GestureRecognizers>
                     <TapGestureRecognizer Command="{Binding GoNuevoCreditoCommand}" />
                 </Border.GestureRecognizers>
-                <Grid ColumnDefinitions="52,*,Auto" ColumnSpacing="16" VerticalOptions="Center">
-                    <Border Grid.Column="0" BackgroundColor="{StaticResource SurfaceAlt}" WidthRequest="52" HeightRequest="52"
-                            StrokeShape="RoundRectangle 26" Stroke="Transparent">
-                        <Label Text="+" FontSize="26" FontAttributes="Bold" TextColor="{StaticResource TextSecondary}"
+                <!--
+                    Se fue el galon ">" de la derecha. Era decorativo: la tarjeta
+                    entera ya es el area que se toca, y el galon solo repetia en
+                    gris claro lo que el titulo ya dice. En su lugar el icono crece
+                    y se pinta con el color de marca, que es lo que de verdad
+                    distingue una accion de la otra de un vistazo.
+                -->
+                <Grid ColumnDefinitions="58,*" ColumnSpacing="16" VerticalOptions="Center">
+                    <Border Grid.Column="0" BackgroundColor="{StaticResource PrimaryTint}" WidthRequest="58" HeightRequest="58"
+                            StrokeShape="RoundRectangle 29" Stroke="Transparent">
+                        <Label Text="+" FontSize="28" FontAttributes="Bold" TextColor="{StaticResource PrimaryDark}"
                                HorizontalOptions="Center" VerticalOptions="Center" />
                     </Border>
-                    <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                    <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
                         <Label Text="Comprar a crédito" Style="{StaticResource CardTitle}" />
                         <Label Text="Financia una compra en cuotas mensuales" Style="{StaticResource Caption}" />
                     </VerticalStackLayout>
-                    <Label Grid.Column="2" Text="›" FontSize="26" TextColor="{StaticResource TextMuted}" VerticalOptions="Center" />
                 </Grid>
             </Border>
 
@@ -47,17 +80,16 @@
                 <Border.GestureRecognizers>
                     <TapGestureRecognizer Command="{Binding GoPagarCreditoCommand}" />
                 </Border.GestureRecognizers>
-                <Grid ColumnDefinitions="52,*,Auto" ColumnSpacing="16" VerticalOptions="Center">
-                    <Border Grid.Column="0" BackgroundColor="{StaticResource SurfaceAlt}" WidthRequest="52" HeightRequest="52"
-                            StrokeShape="RoundRectangle 26" Stroke="Transparent">
-                        <Label Text="$" FontSize="24" FontAttributes="Bold" TextColor="{StaticResource TextSecondary}"
+                <Grid ColumnDefinitions="58,*" ColumnSpacing="16" VerticalOptions="Center">
+                    <Border Grid.Column="0" BackgroundColor="{StaticResource SuccessSoft}" WidthRequest="58" HeightRequest="58"
+                            StrokeShape="RoundRectangle 29" Stroke="Transparent">
+                        <Label Text="$" FontSize="26" FontAttributes="Bold" TextColor="{StaticResource Success}"
                                HorizontalOptions="Center" VerticalOptions="Center" />
                     </Border>
-                    <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                    <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
                         <Label Text="Pagar crédito" Style="{StaticResource CardTitle}" />
                         <Label Text="Recauda la cuota de un cliente" Style="{StaticResource Caption}" />
                     </VerticalStackLayout>
-                    <Label Grid.Column="2" Text="›" FontSize="26" TextColor="{StaticResource TextMuted}" VerticalOptions="Center" />
                 </Grid>
             </Border>
 

@@ -44,7 +44,8 @@ public partial class SplashViewModel(
     ITransactionStateStore state,
     ILaunchContext launch,
     IHioposExit salida,
-    INavigationService nav) : ObservableObject
+    INavigationService nav,
+    ITiendaEnOperacion tienda) : ObservableObject
 {
     [ObservableProperty]
     private string? errorMessage;
@@ -134,18 +135,46 @@ public partial class SplashViewModel(
             MensajeDeLaPos = null;
             standalone.IsStandalone = true;
 
-            var destino =
-                await auth.RequiereConfiguracionInicialAsync() ? Destino.Configuracion
-                : sesion.Actual is null                        ? Destino.Ingreso
-                :                                                Destino.Cobrar;
+            // ─────────────────────────────────────────────────────────────────
+            // EL MONTAJE VA POR PASOS, Y LA TIENDA ES EL PRIMERO
+            // ─────────────────────────────────────────────────────────────────
+            // Antes la primera pantalla de una caja nueva era el formulario del
+            // PIN, con la tienda como una tarjeta mas ahi dentro. El orden
+            // importaba: el instalador creaba el PIN, daba de alta a los cajeros,
+            // y la tienda —lo unico que decide a nombre de quien quedan los
+            // creditos— quedaba para el final o no se tocaba. Asi fue como una
+            // caja de Suba termino reportando a la 037.
+            //
+            // Ahora la tienda se pregunta ANTES que nada y las dos preguntas del
+            // montaje van en pantallas separadas:
+            //
+            //   paso 1   ¿en que tienda esta esta caja?   -> asistente de tienda
+            //   paso 2   ¿como se configura?              -> copiar / desde cero
+            //
+            // Una caja YA configurada a la que le falta la tienda no esta
+            // montandose: va a la misma pantalla pero en modo ajustes, elige, y al
+            // volver esta raiz la manda a operar.
+            var requiereConfiguracion = await auth.RequiereConfiguracionInicialAsync();
+            var hayTienda = tienda.EstaProvisionada;
 
-            AppLogger.I("SplashViewModel", $"Destino resuelto: {destino}.");
+            var destino =
+                requiereConfiguracion && !hayTienda ? Destino.ElegirTienda
+                : requiereConfiguracion             ? Destino.ComoConfigurar
+                : !hayTienda                        ? Destino.TiendaPendiente
+                : sesion.Actual is null             ? Destino.Ingreso
+                :                                     Destino.Cobrar;
+
+            AppLogger.I("SplashViewModel",
+                $"Destino resuelto: {destino} (PIN configurado={!requiereConfiguracion}, " +
+                $"tienda elegida={hayTienda}).");
 
             switch (destino)
             {
-                case Destino.Configuracion: await nav.GoToConfigurarAdminAsync(); break;
-                case Destino.Ingreso:       await nav.GoToIngresoCajeroAsync();   break;
-                case Destino.Cobrar:        await nav.GoToCreditosActivosAsync(); break;
+                case Destino.ElegirTienda:    await nav.GoToElegirTiendaAsistenteAsync(); break;
+                case Destino.ComoConfigurar:  await nav.GoToConfiguracionInicioAsync();   break;
+                case Destino.TiendaPendiente: await nav.GoToTiendaAsync();                break;
+                case Destino.Ingreso:         await nav.GoToIngresoCajeroAsync();         break;
+                case Destino.Cobrar:          await nav.GoToCreditosActivosAsync();       break;
             }
         }
         catch (Exception ex)
@@ -198,7 +227,27 @@ public partial class SplashViewModel(
         await DecidirYNavegarAsync();
     }
 
-    private enum Destino { Configuracion, Ingreso, Cobrar }
+    /// <summary>
+    /// A donde entra la app. Los tres primeros son el montaje; los dos ultimos, la
+    /// operacion normal.
+    /// </summary>
+    private enum Destino
+    {
+        /// <summary>Paso 1 del montaje: elegir la tienda, con confirmacion.</summary>
+        ElegirTienda,
+
+        /// <summary>Paso 2 del montaje: copiar de otra caja o configurar de cero.</summary>
+        ComoConfigurar,
+
+        /// <summary>
+        /// Caja ya configurada a la que le falta la tienda. No se esta montando:
+        /// se le pide la tienda como ajuste y al volver sigue operando.
+        /// </summary>
+        TiendaPendiente,
+
+        Ingreso,
+        Cobrar
+    }
 
     [RelayCommand]
     private async Task ReintentarAsync()

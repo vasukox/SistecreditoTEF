@@ -386,6 +386,59 @@
   </Target>
 
   <!--
+    ============================================================================
+    EL APK DE PRODUCCION NO PUEDE DECIR QUE TIENDA ES (30/09/2026)
+    ============================================================================
+    Sintoma: creditos hechos en una tienda de Suba aparecieron registrados en la
+    plataforma de Sistecredito a nombre de la tienda 037 (Punto Calle 18). No fallo
+    nada y no se noto hasta conciliar.
+
+    Causa: appsettings.produccion.json traia horneado el StoreId de la 037, que es
+    el mismo para cualquier tienda que instale ese APK. Se penso como valor de
+    piloto —037 era la unica tienda en produccion— y sobrevivio al piloto.
+
+    Ahora ese campo va VACIO, y con eso la barrera de [ApiConfig.Validate] sirve
+    para algo: una caja que no sepa que tienda es, no opera. El StoreId sale de
+    STORE_ID de CloudLicense o de la tienda que el instalador elige en la caja
+    (ver [CatalogoDeTiendas]).
+
+    ─────────────────────────────────────────────────────────────────────────────
+    POR QUE ESTA COMPROBACION EXISTE
+    ─────────────────────────────────────────────────────────────────────────────
+    appsettings.produccion.json esta en .gitignore —trae la SubscriptionKey real—,
+    asi que el valor vacio NO esta versionado. Quien compile produccion en otra
+    maquina, o restaure un respaldo del archivo, reintroduce el defecto sin una
+    sola señal: el APK sale bien firmado, con el ambiente correcto, y vuelve a
+    reportar todas las tiendas como la 037.
+
+    El archivo no se puede versionar; la REGLA si. Por eso vive aca, en el csproj,
+    que si esta en git. Es el mismo criterio que la firma y el ambiente: una
+    verificacion que falla el build en vez de degradarse en silencio.
+  -->
+  <Target Name="VerificarTiendaNoHorneada"
+          AfterTargets="VerificarAmbienteEmpaquetado"
+          Condition="'$(Configuration)' == 'Release' And '$(TargetFramework)' == 'net10.0-android' And '$(PermodaAmbienteEsperado)' == 'production'">
+
+    <ReadLinesFromFile File="$(IntermediateOutputPath)assets\appsettings.json">
+      <Output TaskParameter="Lines" ItemName="PermodaLineasDeTienda" />
+    </ReadLinesFromFile>
+
+    <PropertyGroup>
+      <PermodaTextoDeTienda>@(PermodaLineasDeTienda)</PermodaTextoDeTienda>
+      <PermodaStoreIdVacio>false</PermodaStoreIdVacio>
+      <PermodaStoreIdVacio Condition="$(PermodaTextoDeTienda.Contains('&quot;StoreId&quot;: &quot;&quot;'))">true</PermodaStoreIdVacio>
+      <PermodaStoreIdVacio Condition="$(PermodaTextoDeTienda.Contains('&quot;StoreId&quot;:&quot;&quot;'))">true</PermodaStoreIdVacio>
+    </PropertyGroup>
+
+    <Message Importance="high"
+             Condition="'$(PermodaStoreIdVacio)' == 'true'"
+             Text="[TIENDA] El APK de produccion no lleva StoreId horneado. Cada caja toma el suyo de CloudLicense o de la tienda elegida al instalar." />
+
+    <Error Condition="'$(PermodaStoreIdVacio)' != 'true'"
+           Text="appsettings.produccion.json tiene un StoreId horneado. Ese valor es el de UNA tienda y viaja igual a todas las que instalen este APK: es lo que hizo que creditos de Suba quedaran registrados como tienda 037 en Sistecredito. Dejalo como &quot;StoreId&quot;: &quot;&quot; y volve a compilar. La tienda se define por STORE_ID de CloudLicense o eligiendola en la caja (Configuracion - Tienda de esta caja)." />
+  </Target>
+
+  <!--
     Copia el APK firmado a artefactos\ con el ambiente y la fecha en el NOMBRE.
     Los dos ambientes se construyen en la misma ruta y con el mismo nombre de
     archivo, asi que fuera de bin\ no hay forma de saber cual es cual.

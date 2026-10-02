@@ -18,7 +18,8 @@ namespace SistecreditoTEF.Maui.ViewModels;
 public partial class HomeViewModel(
     INavigationService nav,
     AuthService auth,
-    ISesionCajero sesion) : ObservableObject
+    ISesionCajero sesion,
+    ITiendaEnOperacion tienda) : ObservableObject
 {
     [RelayCommand]
     private async Task GoNuevoCreditoAsync()
@@ -86,4 +87,20 @@ public partial class HomeViewModel(
     public string CajeroActual => sesion.Actual?.NombreVisible ?? string.Empty;
 
     public bool HaySesion => sesion.Actual is not null;
+
+    // ─────────────────────────────────────────────────────────────────────
+    // CON QUE TIENDA OPERA ESTA CAJA
+    // ─────────────────────────────────────────────────────────────────────
+    // Esta es la pantalla a la que se entra al abrir el modulo, asi que es donde
+    // el cajero puede ver —de un vistazo y sin pedirle nada a nadie— con que
+    // tienda esta trabajando. Un modulo que se ve igual en 76 tiendas no
+    // distingue una de otra, y la unica diferencia real es el StoreId.
+    //
+    // Si el StoreId falta, el aviso aparece en rojo: esa caja no puede registrar
+    // creditos. Ver [TextoDeTienda].
+    public string Tienda => tienda.Linea;
+
+    public string AvisoTienda => tienda.Aviso;
+
+    public bool MostrarAvisoTienda => !string.IsNullOrEmpty(AvisoTienda);
 }

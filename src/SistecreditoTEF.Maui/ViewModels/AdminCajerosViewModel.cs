@@ -18,8 +18,34 @@ namespace SistecreditoTEF.Maui.ViewModels;
 /// </summary>
 public partial class AdminCajerosViewModel(
     AuthService auth,
-    INavigationService nav) : ObservableObject
+    INavigationService nav,
+    ITiendaEnOperacion tienda) : ObservableObject
 {
+    // ─────────────────────────────────────────────────────────────────────
+    // CON QUE TIENDA ESTA OPERANDO ESTA CAJA
+    // ─────────────────────────────────────────────────────────────────────
+    // Se lee en cada acceso, no se captura: la configuracion se reconstruye en
+    // cada INITIALIZE de HioPos, y una caja que cambia de tienda mientras la
+    // pantalla esta abierta tiene que mostrarlo. Ver [TiendaEnOperacion].
+    public string Tienda => tienda.Linea;
+
+    public string AvisoTienda => tienda.Aviso;
+
+    public bool MostrarAvisoTienda => !string.IsNullOrEmpty(AvisoTienda);
+
+    /// <summary>
+    /// Vuelve a leer la tienda y avisa a la pantalla. Mismo motivo que en
+    /// [ConfigurarAdminViewModel.RefrescarTienda]: son propiedades calculadas y MAUI
+    /// no las re-evalua sola, asi que al volver de elegir la tienda se seguia viendo
+    /// la anterior. Lo llama [AdminCajerosPage.OnAppearing].
+    /// </summary>
+    public void RefrescarTienda()
+    {
+        OnPropertyChanged(nameof(Tienda));
+        OnPropertyChanged(nameof(AvisoTienda));
+        OnPropertyChanged(nameof(MostrarAvisoTienda));
+    }
+
     // ------------------------------------------------------------------
     // Continuar al ingreso
     // ------------------------------------------------------------------
@@ -49,6 +75,31 @@ public partial class AdminCajerosViewModel(
     }
 
     private bool CanContinuar() => Cajeros.Any(c => c.Activo);
+
+    /// <summary>
+    /// Cambia que tienda es esta caja.
+    ///
+    /// Detras del PIN, y con mas motivo que el alta de cajeros: de este dato
+    /// depende a nombre de que tienda queda cada credito en Sistecredito. Un cajero
+    /// no tiene por que poder moverlo.
+    ///
+    /// Existe ademas de la configuracion inicial porque las cajas que ya estan
+    /// montadas —las que hoy pueden estar reportando a la tienda equivocada— ya
+    /// pasaron por aquella pantalla y no vuelven a verla.
+    /// </summary>
+    [RelayCommand]
+    private async Task TiendaAsync()
+    {
+        try
+        {
+            await nav.GoToTiendaAsync();
+        }
+        catch (Exception ex)
+        {
+            AppLogger.E("AdminCajerosViewModel", "Error abriendo la eleccion de tienda.", ex);
+            ErrorMessage = "No se pudo abrir la pantalla de tiendas.";
+        }
+    }
 
     /// <summary>
     /// Abre la replicacion entre cajas.
@@ -124,6 +175,23 @@ public partial class AdminCajerosViewModel(
 
     public bool TieneError => !string.IsNullOrEmpty(ErrorMessage);
     public bool TieneMensajeOk => !string.IsNullOrEmpty(MensajeOk);
+
+    /// <summary>
+    /// Sello de compilacion y ambiente, para el pie de la pantalla.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────────
+    /// POR QUE TAMBIEN ACA, Y NO SOLO EN PRIMER USO
+    /// ─────────────────────────────────────────────────────────────────────────
+    /// Estaba unicamente en la pantalla de configuracion inicial, o sea que se veia
+    /// UNA vez en la vida de la caja y nunca mas. Y es justo el dato que hay que
+    /// poder mirar despues: "¿esta caja quedo con el APK de pruebas o con el de
+    /// produccion?" no se responde de ninguna otra forma —los dos se llaman igual,
+    /// se ven igual, y la version que ve HioPos esta fija por contrato con ICG—.
+    ///
+    /// Administracion es la pantalla a la que siempre se puede llegar, asi que es
+    /// donde tiene que estar. Ver [BuildInfo].
+    /// </summary>
+    public string Build => BuildInfo.Descripcion;
 
     partial void OnErrorMessageChanged(string? value) => OnPropertyChanged(nameof(TieneError));
     partial void OnMensajeOkChanged(string? value) => OnPropertyChanged(nameof(TieneMensajeOk));

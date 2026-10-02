@@ -47,12 +47,28 @@ public class PuertaDeEntradaTests
         public Task GoToAdminCajerosAsync()      => Ir(nameof(GoToAdminCajerosAsync));
         public Task GoToReplicacionAsync()       => Ir(nameof(GoToReplicacionAsync));
         public Task GoToActualizarCajerosAsync() => Ir(nameof(GoToActualizarCajerosAsync));
+        public Task GoToTiendaAsync()            => Ir(nameof(GoToTiendaAsync));
+        public Task GoToElegirTiendaAsistenteAsync() => Ir(nameof(GoToElegirTiendaAsistenteAsync));
+        public Task GoToConfiguracionInicioAsync()   => Ir(nameof(GoToConfiguracionInicioAsync));
     }
 
     private static (AuthService auth, InMemoryAuthStore store, NavSpy nav) Armar()
     {
         var store = new InMemoryAuthStore();
         return (new AuthService(store), store, new NavSpy());
+    }
+
+    /// <summary>
+    /// Doble de la identidad de tienda. Fija una tienda de las 76 para que las
+    /// pruebas de la puerta de entrada no dependan de la configuracion real.
+    /// Ver <c>TextoDeTiendaTests</c> para las reglas del texto.
+    /// </summary>
+    private sealed class TiendaStub : ITiendaEnOperacion
+    {
+        public string Linea { get; init; } = "037 MULTIMARCA  ·  607af8e38c91f70001436058";
+        public string Etiqueta { get; init; } = "037 · MULTIMARCA";
+        public string Aviso { get; init; } = string.Empty;
+        public bool EstaProvisionada => string.IsNullOrEmpty(Aviso);
     }
 
     // ==================================================================
@@ -63,7 +79,7 @@ public class PuertaDeEntradaTests
     public async Task El_PIN_no_se_crea_si_los_dos_no_coinciden()
     {
         var (auth, store, nav) = Armar();
-        var vm = new ConfigurarAdminViewModel(auth, nav)
+        var vm = new ConfigurarAdminViewModel(auth, nav, new TiendaStub())
         {
             Pin = "1234", PinConfirmacion = "4321"
         };
@@ -79,7 +95,7 @@ public class PuertaDeEntradaTests
     public async Task Crear_el_PIN_lleva_al_alta_de_cajeros()
     {
         var (auth, store, nav) = Armar();
-        var vm = new ConfigurarAdminViewModel(auth, nav)
+        var vm = new ConfigurarAdminViewModel(auth, nav, new TiendaStub())
         {
             Pin = "246810", PinConfirmacion = "246810"
         };
@@ -98,7 +114,7 @@ public class PuertaDeEntradaTests
     public async Task El_PIN_se_guarda_derivado_y_no_en_claro()
     {
         var (auth, store, nav) = Armar();
-        var vm = new ConfigurarAdminViewModel(auth, nav)
+        var vm = new ConfigurarAdminViewModel(auth, nav, new TiendaStub())
         {
             Pin = "998877", PinConfirmacion = "998877"
         };
@@ -118,11 +134,72 @@ public class PuertaDeEntradaTests
     public async Task Desde_el_primer_uso_se_puede_ir_a_copiar_de_otra_caja()
     {
         var (auth, _, nav) = Armar();
-        var vm = new ConfigurarAdminViewModel(auth, nav);
+        var vm = new ConfigurarAdminViewModel(auth, nav, new TiendaStub());
 
         await vm.CopiarDeOtraCajaCommand.ExecuteAsync(null);
 
         Assert.Contains("GoToReplicacionAsync", nav.Visitadas);
+    }
+
+    // ==================================================================
+    // Paso 2 del montaje: ¿como se configura esta caja?
+    // ==================================================================
+    //
+    // Las dos opciones vivian en la misma pantalla que el formulario del PIN. El
+    // que llegaba con una caja ya montada en la tienda igual veia un campo de PIN
+    // delante, y lo normal es llenar el campo que te ponen: ese PIN quedaba pisado
+    // dos minutos despues al copiar de la otra caja. Ahora la eleccion ocurre antes
+    // de que haya nada que llenar, y cada camino lleva a una pantalla distinta.
+
+    [Fact]
+    public async Task El_paso_2_lleva_a_copiar_de_otra_caja()
+    {
+        var (_, _, nav) = Armar();
+        var vm = new ConfiguracionInicioViewModel(nav, new TiendaStub());
+
+        await vm.CopiarDeOtraCajaCommand.ExecuteAsync(null);
+
+        Assert.Contains("GoToReplicacionAsync", nav.Visitadas);
+    }
+
+    [Fact]
+    public async Task El_paso_2_lleva_a_configurar_desde_cero()
+    {
+        var (_, _, nav) = Armar();
+        var vm = new ConfiguracionInicioViewModel(nav, new TiendaStub());
+
+        await vm.ConfigurarDesdeCeroCommand.ExecuteAsync(null);
+
+        Assert.Contains("GoToConfigurarAdminAsync", nav.Visitadas);
+    }
+
+    /// <summary>
+    /// Y se puede corregir la tienda del paso anterior. Sin esto, una tienda mal
+    /// elegida solo se arregla detras del PIN de administrador... que en una caja
+    /// nueva todavia no existe.
+    /// </summary>
+    [Fact]
+    public async Task Desde_el_paso_2_se_puede_corregir_la_tienda()
+    {
+        var (_, _, nav) = Armar();
+        var vm = new ConfiguracionInicioViewModel(nav, new TiendaStub());
+
+        await vm.CambiarLaTiendaCommand.ExecuteAsync(null);
+
+        Assert.Contains("GoToElegirTiendaAsistenteAsync", nav.Visitadas);
+    }
+
+    /// <summary>
+    /// La tienda que quedo del paso 1 se muestra: es la ultima oportunidad de
+    /// verla antes de que la pantalla deje de preguntarla.
+    /// </summary>
+    [Fact]
+    public void El_paso_2_muestra_la_tienda_que_quedo()
+    {
+        var (_, _, nav) = Armar();
+        var vm = new ConfiguracionInicioViewModel(nav, new TiendaStub());
+
+        Assert.Contains("037", vm.Tienda, StringComparison.Ordinal);
     }
 
     // ==================================================================
@@ -242,7 +319,7 @@ public class PuertaDeEntradaTests
         var (auth, _, nav) = Armar();
         await auth.ConfigurarPinAdminAsync("246810");
 
-        var vm = new AdminCajerosViewModel(auth, nav) { Pin = "111111" };
+        var vm = new AdminCajerosViewModel(auth, nav, new TiendaStub()) { Pin = "111111" };
         await vm.DesbloquearCommand.ExecuteAsync(null);
 
         Assert.False(vm.Desbloqueado);
@@ -255,7 +332,7 @@ public class PuertaDeEntradaTests
         var (auth, _, nav) = Armar();
         await auth.ConfigurarPinAdminAsync("246810");
 
-        var vm = new AdminCajerosViewModel(auth, nav) { Pin = "246810" };
+        var vm = new AdminCajerosViewModel(auth, nav, new TiendaStub()) { Pin = "246810" };
         await vm.DesbloquearCommand.ExecuteAsync(null);
 
         Assert.True(vm.Desbloqueado);
@@ -271,7 +348,7 @@ public class PuertaDeEntradaTests
         var (auth, store, nav) = Armar();
         await auth.ConfigurarPinAdminAsync("246810");
 
-        var vm = new AdminCajerosViewModel(auth, nav) { Pin = "246810" };
+        var vm = new AdminCajerosViewModel(auth, nav, new TiendaStub()) { Pin = "246810" };
         await vm.DesbloquearCommand.ExecuteAsync(null);
 
         vm.NuevoUsuario = "mlopez";
@@ -296,7 +373,7 @@ public class PuertaDeEntradaTests
         var (auth, _, nav) = Armar();
         await auth.ConfigurarPinAdminAsync("246810");
 
-        var vm = new AdminCajerosViewModel(auth, nav) { Pin = "246810" };
+        var vm = new AdminCajerosViewModel(auth, nav, new TiendaStub()) { Pin = "246810" };
         await vm.DesbloquearCommand.ExecuteAsync(null);
 
         Assert.False(vm.SiguienteCommand.CanExecute(null));
@@ -314,7 +391,7 @@ public class PuertaDeEntradaTests
         var (auth, _, nav) = Armar();
         await auth.ConfigurarPinAdminAsync("246810");
 
-        var vm = new AdminCajerosViewModel(auth, nav) { Pin = "246810" };
+        var vm = new AdminCajerosViewModel(auth, nav, new TiendaStub()) { Pin = "246810" };
         await vm.DesbloquearCommand.ExecuteAsync(null);
 
         vm.NuevaClave = "clave123";

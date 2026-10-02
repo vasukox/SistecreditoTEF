@@ -146,6 +146,23 @@ public sealed class ShellNavigationService : INavigationService
     /// <summary>Replicacion entre cajas. Push: el "atras" vuelve a administracion.</summary>
     public Task GoToReplicacionAsync() => IrAsync(AppRoutes.Replicacion);
 
+    /// <summary>Eleccion de la tienda de esta caja. Push: el "atras" vuelve.</summary>
+    public Task GoToTiendaAsync() => IrAsync(AppRoutes.Tienda);
+
+    /// <summary>
+    /// La misma pantalla, en modo ASISTENTE (primer paso del montaje). El modo
+    /// viaja como parametro de ruta para que la pantalla no tenga que adivinarlo:
+    /// ver [AppRoutes.Params.Asistente].
+    /// </summary>
+    public Task GoToElegirTiendaAsistenteAsync() =>
+        IrAsync(AppRoutes.Tienda, new Dictionary<string, object>
+        {
+            { AppRoutes.Params.Asistente, true }
+        });
+
+    /// <summary>Segundo paso del montaje: como se configura esta caja.</summary>
+    public Task GoToConfiguracionInicioAsync() => IrAsync(AppRoutes.ConfiguracionInicio);
+
     /// <summary>
     /// La misma pantalla, en modo ACTUALIZAR. El modo viaja como parametro de ruta
     /// para que la pantalla no tenga que adivinarlo del estado de la caja: "ya hay

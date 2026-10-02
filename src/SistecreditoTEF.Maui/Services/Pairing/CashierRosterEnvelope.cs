@@ -41,19 +41,49 @@ public sealed record ReplicatedCajero(
 /// lleva— es el PIN de administrador y el alta de cada cajero con su clave.
 ///
 /// ─────────────────────────────────────────────────────────────────────────────
-/// NO EXISTE NI DEBE EXISTIR UN CAMPO DE IDENTIDAD DE LA CAJA
+/// NO EXISTE NI DEBE EXISTIR UN CAMPO DE IDENTIDAD DE LA *CAJA*
 /// ─────────────────────────────────────────────────────────────────────────────
 /// El diseño original tiene que esquivar con cuidado el identificador de terminal,
 /// porque dos cajas con el mismo id firman igual sus operaciones y el descuadre se
-/// descubre semanas despues. Aca ese riesgo no aplica —el modulo no guarda ninguna
-/// identidad propia— y la forma de que siga sin aplicar es que este sobre no
-/// crezca hacia alla. Si alguien agrega StoreId, Source o TerminalId "por
-/// conveniencia", estaria pisando con un valor copiado algo que CloudLicense
-/// asigna por terminal. Hay un test que lo verifica por reflexion.
+/// descubre semanas despues. Ese riesgo sigue vigente: si alguien agrega
+/// <c>TerminalId</c> o <c>Source</c> "por conveniencia", dos cajas quedarian
+/// firmando igual. Hay un test que lo verifica por reflexion.
+///
+/// ─────────────────────────────────────────────────────────────────────────────
+/// LA TIENDA SI VIAJA, Y POR QUE ESO NO CONTRADICE LO ANTERIOR
+/// ─────────────────────────────────────────────────────────────────────────────
+/// La regla es "si es de la TIENDA se copia, si es de la CAJA no". El StoreId es
+/// de la tienda: la hoja de Sistecredito lo dice con todas las letras
+/// ("SitC_WsStoreId, dato especifico por tienda"), y las tres cajas de un local
+/// comparten el mismo.
+///
+/// Antes este sobre no lo llevaba porque la tienda bajaba de CloudLicense y ya
+/// llegaba sola a cada terminal. Eso dejo de ser cierto: ahora se ELIGE en la caja
+/// (ver [CatalogoDeTiendas]), asi que sin esto habria que elegirla tres veces por
+/// local — tres oportunidades de equivocarse donde alcanza con una, y el error se
+/// paga como creditos a nombre de otra tienda.
+///
+/// Dos condiciones que lo hacen seguro, y las dos importan:
+///
+///   · Solo se aplica en el MONTAJE COMPLETO de una caja nueva. En "actualizar
+///     cajeros" se ignora: esa operacion es deliberadamente angosta y no toca nada
+///     mas que el padron. Lo garantiza [ReplicacionViewModel], no este registro.
+///
+///   · Es OPCIONAL y la version del sobre NO sube. Un APK viejo emite sobres sin
+///     el campo y se siguen aceptando; un APK viejo que reciba uno nuevo ignora la
+///     propiedad que no conoce. Las tiendas no se actualizan todas el mismo dia, y
+///     romper esa convivencia dejaria cajas sin poder montarse.
 /// </summary>
+/// <param name="AdminPinHash">PIN de administrador, ya derivado.</param>
+/// <param name="Cajeros">Padron completo.</param>
+/// <param name="StoreId">
+/// Tienda del local, para que las cajas 2 y 3 no haya que asociarlas a mano.
+/// Null en sobres de APK viejo: la caja receptora entonces pide elegirla.
+/// </param>
 public sealed record CashierRosterEnvelope(
     string? AdminPinHash,
-    IReadOnlyList<ReplicatedCajero> Cajeros)
+    IReadOnlyList<ReplicatedCajero> Cajeros,
+    string? StoreId = null)
 {
     /// <summary>
     /// Version del sobre. Las tiendas no se actualizan el mismo dia: una caja con

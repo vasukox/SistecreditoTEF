@@ -54,6 +54,24 @@ public class ConvivenciaDeModulosTests
         public Task GoToAdminCajerosAsync()      => Ir(nameof(GoToAdminCajerosAsync));
         public Task GoToReplicacionAsync()       => Ir(nameof(GoToReplicacionAsync));
         public Task GoToActualizarCajerosAsync() => Ir(nameof(GoToActualizarCajerosAsync));
+        public Task GoToTiendaAsync()            => Ir(nameof(GoToTiendaAsync));
+        public Task GoToElegirTiendaAsistenteAsync() => Ir(nameof(GoToElegirTiendaAsistenteAsync));
+        public Task GoToConfiguracionInicioAsync()   => Ir(nameof(GoToConfiguracionInicioAsync));
+    }
+
+    /// <summary>
+    /// Doble de la identidad de tienda. Lo unico que la raiz le pregunta es si la
+    /// caja ya tiene tienda elegida: de eso depende si el arranque entra al
+    /// asistente de montaje o sigue de largo.
+    /// </summary>
+    private sealed class TiendaStub : ITiendaEnOperacion
+    {
+        public bool Elegida { get; set; } = true;
+
+        public string Linea => Elegida ? "037 MULTIMARCA  ·  607af8e38c91f70001436058" : "(sin tienda)";
+        public string Etiqueta => Elegida ? "037 · MULTIMARCA" : "Sin tienda";
+        public string Aviso => Elegida ? string.Empty : "Falta elegir la tienda de esta caja.";
+        public bool EstaProvisionada => Elegida;
     }
 
     /// <summary>
@@ -85,10 +103,23 @@ public class ConvivenciaDeModulosTests
         public NavSpy Nav { get; } = new();
         public SalidaSpy Salida { get; }
 
+        /// <summary>
+        /// Por defecto la caja YA tiene tienda elegida: el escenario frecuente es
+        /// una caja instalada, y asi cada prueba dice explicitamente cuando no.
+        /// </summary>
+        public TiendaStub Tienda { get; } = new();
+
         public Escenario() => Salida = new SalidaSpy(Estado);
 
         public SplashViewModel Raiz() => new(
-            new AuthService(Store), Sesion, Standalone, Estado, Arranque, Salida, Nav);
+            new AuthService(Store), Sesion, Standalone, Estado, Arranque, Salida, Nav, Tienda);
+
+        /// <summary>Una caja recien instalada: sin tienda y sin PIN.</summary>
+        public Escenario SinTienda()
+        {
+            Tienda.Elegida = false;
+            return this;
+        }
 
         /// <summary>Deja la caja configurada y con un cajero dado de alta.</summary>
         public async Task<Cajero> DarDeAltaUnCajeroAsync()
@@ -242,15 +273,64 @@ public class ConvivenciaDeModulosTests
         Assert.True(e.Standalone.IsStandalone);
     }
 
+    // ══════════════════════════════════════════════════════════════════════════════
+    // EL MONTAJE VA POR PASOS, Y LA TIENDA ES EL PRIMERO
+    // ══════════════════════════════════════════════════════════════════════════════
+    //
+    // El orden no es una preferencia de diseño. Cuando la tienda era una tarjeta
+    // mas dentro del formulario del PIN, lo normal era crear el PIN, dar de alta a
+    // los cajeros y dejar la tienda para despues — y asi fue como una caja de Suba
+    // termino registrando sus creditos a nombre de la 037.
+
+    /// <summary>
+    /// Caja recien instalada: lo PRIMERO que se pregunta es en que tienda esta, y
+    /// se pregunta con el asistente (el que pide confirmar antes de aplicar).
+    /// </summary>
     [Fact]
-    public async Task Sin_PIN_de_administrador_el_icono_lleva_a_la_configuracion_inicial()
+    public async Task Una_caja_nueva_empieza_eligiendo_la_tienda()
+    {
+        var e = new Escenario().SinTienda();
+        e.ElCajeroTocaElIcono();
+
+        await e.Raiz().DecidirYNavegarAsync();
+
+        Assert.Contains("GoToElegirTiendaAsistenteAsync", e.Nav.Visitadas);
+        Assert.DoesNotContain("GoToConfigurarAdminAsync", e.Nav.Visitadas);
+    }
+
+    /// <summary>
+    /// Con la tienda ya elegida y todavia sin PIN, sigue el paso 2: copiar de otra
+    /// caja o configurar desde cero. Ya NO se cae directo al formulario del PIN,
+    /// que era lo que hacia que el que venia a copiar creara un PIN de mas.
+    /// </summary>
+    [Fact]
+    public async Task Con_la_tienda_puesta_y_sin_PIN_se_pregunta_como_configurar()
     {
         var e = new Escenario();
         e.ElCajeroTocaElIcono();
 
         await e.Raiz().DecidirYNavegarAsync();
 
-        Assert.Contains("GoToConfigurarAdminAsync", e.Nav.Visitadas);
+        Assert.Contains("GoToConfiguracionInicioAsync", e.Nav.Visitadas);
+    }
+
+    /// <summary>
+    /// Una caja YA configurada a la que le falta la tienda no se esta montando: va
+    /// a elegirla en modo ajustes y vuelve a operar. Mandarla al asistente la
+    /// pondria a configurar de cero un terminal que ya tiene cajeros.
+    /// </summary>
+    [Fact]
+    public async Task Una_caja_configurada_sin_tienda_va_a_elegirla_sin_asistente()
+    {
+        var e = new Escenario().SinTienda();
+        await e.DarDeAltaUnCajeroAsync();
+        e.ElCajeroTocaElIcono();
+
+        await e.Raiz().DecidirYNavegarAsync();
+
+        Assert.Contains("GoToTiendaAsync", e.Nav.Visitadas);
+        Assert.DoesNotContain("GoToElegirTiendaAsistenteAsync", e.Nav.Visitadas);
+        Assert.DoesNotContain("GoToIngresoCajeroAsync", e.Nav.Visitadas);
     }
 
     [Fact]

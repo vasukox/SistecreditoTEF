@@ -61,8 +61,31 @@ public static class AppRoutes
     public const string IngresoCajero     = "ingresoCajero";
     public const string AdminCajeros      = "adminCajeros";
 
+    /// <summary>
+    /// EL SEGUNDO PASO DEL MONTAJE: como se configura esta caja.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────────
+    /// POR QUE ES UNA PANTALLA Y NO DOS BOTONES DENTRO DE OTRA
+    /// ─────────────────────────────────────────────────────────────────────────
+    /// Las dos formas de montar una caja —copiarla de otra o crearla desde cero—
+    /// vivian en la MISMA pantalla que el formulario del PIN: el atajo arriba, el
+    /// formulario abajo. El que llegaba con una caja ya montada en la tienda veia
+    /// primero un campo de PIN, y lo normal era llenarlo; el PIN que creaba
+    /// quedaba pisado dos minutos despues al copiar de la otra caja.
+    ///
+    /// Separado en una pantalla que no hace mas que preguntar, la eleccion ocurre
+    /// ANTES de que haya nada que llenar.
+    /// </summary>
+    public const string ConfiguracionInicio = "configuracionInicio";
+
     /// <summary>Replicacion del padron de cajeros entre cajas de la misma tienda.</summary>
     public const string Replicacion       = "replicacion";
+
+    /// <summary>
+    /// Que tienda es esta caja. Se elige al instalar y decide a nombre de quien
+    /// quedan los creditos en Sistecredito. Ver [ResolucionDeTienda].
+    /// </summary>
+    public const string Tienda            = "tienda";
 
     /// <summary>
     /// Claves de parametros de QueryProperty.
@@ -77,5 +100,17 @@ public static class AppRoutes
         /// tocar el PIN de administrador. Ver [INavigationService.GoToActualizarCajerosAsync].
         /// </summary>
         public const string SoloCajeros  = "soloCajeros";
+
+        /// <summary>
+        /// Abre [Tienda] como PRIMER PASO del montaje, no como pantalla de
+        /// ajustes. Cambia dos cosas: al elegir se pide confirmar, y al confirmar
+        /// se sigue hacia adelante en vez de quedarse.
+        ///
+        /// Viaja como parametro y no se deduce del estado de la caja ("todavia no
+        /// hay tienda") porque ese estado tambien lo tiene una caja ya montada a
+        /// la que alguien le cambio la tienda: esa no esta instalandose, y
+        /// mandarla al asistente la sacaria de administracion sin motivo.
+        /// </summary>
+        public const string Asistente    = "asistente";
     }
 }

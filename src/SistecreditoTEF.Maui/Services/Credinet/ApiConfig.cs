@@ -1,5 +1,7 @@
 using System.Globalization;
 using Microsoft.Extensions.Configuration;
+using SistecreditoTEF.Maui.Common;
+using SistecreditoTEF.Maui.Services.Tiendas;
 
 namespace SistecreditoTEF.Maui.Services.Credinet;
 
@@ -25,7 +27,57 @@ namespace SistecreditoTEF.Maui.Services.Credinet;
 public record ApiConfig
 {
     public required string SubscriptionKey { get; init; }
+
+    /// <summary>
+    /// StoreId QUE SE LE MANDA A CREDINET.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────────
+    /// EN SANDBOX VA NULL, Y NO ES UN OLVIDO
+    /// ─────────────────────────────────────────────────────────────────────────
+    /// Las tiendas de [CatalogoDeTiendas] salen de la hoja STOREID-SISTECREDITO,
+    /// que es de PRODUCCION (<c>SitC_WsUrl = .../posprod</c>). El ambiente de
+    /// pruebas de Credinet no las conoce, y cualquier llamada que lleve uno de esos
+    /// identificadores vuelve con <c>errorCode 225 · StoreNotFound</c>.
+    ///
+    /// Verificado contra la API, misma cedula, con y sin el parametro:
+    ///
+    ///   getSimulatedMonthLimit  sin storeId -> 200 {"months":2}
+    ///   getSimulatedMonthLimit  con storeId -> 400 StoreNotFound
+    ///   getactivecredits        con storeId -> 400 StoreNotFound
+    ///   getCreditDetails        con storeId -> 400 StoreNotFound
+    ///
+    /// Eso dejaba el sandbox sin simular creditos y sin poder cobrar un abono, con
+    /// el mensaje "esta tienda no esta registrada en Sistecredito".
+    ///
+    /// La tienda elegida NO se descarta: sigue en <see cref="Tienda"/> y en
+    /// <see cref="StoreName"/>, asi que el comprobante y las pantallas la muestran
+    /// igual. Lo unico que no viaja es el identificador, porque el ambiente de
+    /// pruebas no tiene con que resolverlo.
+    /// </summary>
     public string? StoreId { get; init; }
+
+    /// <summary>
+    /// De donde salio el <see cref="StoreId"/>, y que dijo cada fuente.
+    ///
+    /// Se conserva entero —y no solo el valor resuelto— porque ante un conflicto
+    /// hay que poder mostrarle al instalador LAS DOS tiendas para que sepa cual
+    /// corregir. Ver [ResolucionDeTienda].
+    /// </summary>
+    public ResolucionDeTienda Tienda { get; init; } =
+        ResolucionDeTienda.Resolver(null, null);
+
+    /// <summary>
+    /// Si el APK se EMPAQUETO para produccion, segun su propio appsettings.
+    ///
+    /// Es distinto de [IsProduction], que es el ambiente ya resuelto. La
+    /// diferencia es justo donde vivia el defecto: un paquete de produccion al
+    /// que CloudLicense degradaba a sandbox seguia pareciendo sano porque todas
+    /// las comprobaciones miraban el ambiente resuelto.
+    ///
+    /// Este dato no se puede cambiar desde afuera: viaja dentro del APK.
+    /// </summary>
+    public bool PaqueteDeProduccion { get; init; }
+
     public required string BaseUrl { get; init; }
 
     /// <summary>
@@ -94,6 +146,30 @@ public record ApiConfig
     public const string SandboxKeyPlaceholder = "__SANDBOX__";
 
     /// <summary>
+    /// Como se llama una caja que todavia no tiene tienda. NO es un nombre de
+    /// tienda: es la ausencia de uno, dicha en voz alta.
+    ///
+    /// Existe como constante para que no vuelva a aparecer un literal generico
+    /// ("Permoda") haciendo de relleno. Ver el bloque de [FromConfiguration].
+    /// </summary>
+    public const string SinTienda = "(sin tienda)";
+
+    /// <summary>
+    /// ¿Este texto nombra al ambiente de produccion?
+    ///
+    /// Se compara por PREFIJO ("prod") y no por igualdad. La version anterior
+    /// exigia exactamente "production" o "prod", asi que "produccion",
+    /// "PRODUCCIÓN" o "PRODUCTIVO" —escrituras todas razonables para quien
+    /// provisiona en CloudLicense— se leian como "no es produccion", y eso
+    /// apagaba el envio de la tienda sin que nadie se enterara.
+    ///
+    /// Una comparacion exacta sobre un valor que teclea otra empresa, en otro
+    /// idioma, no es una validacion: es una trampa.
+    /// </summary>
+    public static bool EsProduccion(string? ambiente) =>
+        ambiente?.Trim().StartsWith("prod", StringComparison.OrdinalIgnoreCase) == true;
+
+    /// <summary>
     /// Clave sandbox de CREDINET (publicada en el manual). Es pública y solo
     /// sirve para pruebas; en producción llega por CloudLicense.
     /// </summary>
@@ -128,6 +204,52 @@ public record ApiConfig
         else if (!BaseUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
             problems.Add($"La API_BASE_URL no usa HTTPS: '{BaseUrl}'.");
 
+        // ─────────────────────────────────────────────────────────────────────
+        // SIN TIENDA ELEGIDA NO SE OPERA, EN LOS DOS AMBIENTES
+        // ─────────────────────────────────────────────────────────────────────
+        // El resto de este bloque solo aprieta en produccion, y tiene sentido: son
+        // incoherencias entre ambientes. Esta no. La tienda se elige a mano al montar
+        // el terminal, y ese paso tiene que ser igual de obligatorio en pruebas: si
+        // en sandbox se pudiera vender sin elegirla, el paso se descubriria el dia
+        // que la caja pasa a produccion, con la tienda ya instalada y vendiendo.
+        //
+        // El mensaje dice QUE HACER y donde. Antes decia "esta caja no esta
+        // provisionada como tienda", que describe un estado y deja al instalador
+        // igual que estaba: no habia nada que el pudiera hacer desde la caja.
+        if (!Tienda.SePuedeOperar)
+        {
+            problems.Add(
+                "SIN TIENDA: esta caja todavia no tiene tienda elegida, asi que los creditos " +
+                "no se pueden registrar a nombre de nadie. Eligela en Configuracion - " +
+                "Tienda de esta caja, buscandola por codigo o por nombre.");
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // LA TIENDA ESTA ELEGIDA PERO NO VA A VIAJAR
+        // ─────────────────────────────────────────────────────────────────────
+        // Esta comprobacion existe por un defecto concreto: en un APK de
+        // produccion, un ENVIRONMENT de CloudLicense que no se reconociera como
+        // produccion apagaba el envio del StoreId. La caja seguia mostrando su
+        // tienda en pantalla —muestra la ELEGIDA— y vendia contra la credencial
+        // real SIN decir a nombre de quien, asi que Sistecredito atribuia los
+        // creditos a su valor por defecto. Nadie se enteraba hasta conciliar.
+        //
+        // Se mira [PaqueteDeProduccion] y no [IsProduction] a proposito: el
+        // ambiente resuelto es justamente el que estaba mal. Lo que no se puede
+        // falsear es con que ambiente se empaqueto el APK.
+        //
+        // Operar asi es peor que no operar: la venta sale bien, el cajero entrega
+        // la mercancia y el credito queda a nombre de otro. Se frena.
+        if (PaqueteDeProduccion && Tienda.SePuedeOperar && string.IsNullOrWhiteSpace(StoreId))
+        {
+            problems.Add(
+                "LA TIENDA NO VIAJA: este APK es de produccion y la caja tiene tienda " +
+                $"elegida ({Tienda.StoreId}), pero el ambiente quedo resuelto como " +
+                $"'{Environment}' y por eso el StoreId NO se le envia a Sistecredito. " +
+                "Los creditos quedarian a nombre de otra tienda. Revisa el parametro " +
+                "ENVIRONMENT de este terminal en CloudLicense.");
+        }
+
         if (IsProduction)
         {
             if (UsesSandboxKey)
@@ -141,8 +263,8 @@ public record ApiConfig
                     $"ENVIRONMENT=production pero la BaseUrl apunta a sandbox ('{BaseUrl}'). " +
                     "Se espera /posprod/.");
 
-            if (string.IsNullOrWhiteSpace(StoreId))
-                problems.Add("ENVIRONMENT=production sin STORE_ID configurado.");
+            // La falta de tienda ya se reporta arriba, para los dos ambientes. Aca no
+            // se repite: dos quejas por lo mismo hacen dudar de si son dos problemas.
         }
 
         return problems;
@@ -157,7 +279,18 @@ public record ApiConfig
     /// Parámetros de CloudLicense. Si es null se usa [EmptyCloudConfig], lo que
     /// equivale a "no llegó nada de ICG".
     /// </param>
-    public static ApiConfig FromConfiguration(IConfiguration config, ICloudConfig? cloud = null)
+    /// <param name="storeIdDeLaCaja">
+    /// Tienda elegida por el instalador al montar el terminal (ver
+    /// [ITiendaDeLaCaja]). Null = no se eligió ninguna.
+    ///
+    /// NO participa de la precedencia normal: se CRUZA con el de CloudLicense en
+    /// [ResolucionDeTienda], porque si los dos existen y discrepan lo correcto no
+    /// es preferir uno, es frenar.
+    /// </param>
+    public static ApiConfig FromConfiguration(
+        IConfiguration config,
+        ICloudConfig? cloud = null,
+        string? storeIdDeLaCaja = null)
     {
         var section = config.GetSection("Credinet");
         var printing = config.GetSection("Printing");
@@ -184,14 +317,101 @@ public record ApiConfig
         var baseUrl = Value(ICloudConfig.ApiBaseUrl, "BaseUrl") ?? "https://api.credinet.co/pos/";
         if (!baseUrl.EndsWith('/')) baseUrl += "/";
 
+        // ─────────────────────────────────────────────────────────────────────
+        // LA TIENDA NO SIGUE LA PRECEDENCIA DE LOS DEMAS PARAMETROS
+        // ─────────────────────────────────────────────────────────────────────
+        // Para todo lo demas vale "el primero que exista gana". Para el StoreId no:
+        // si HioPosCloud dice una tienda y la caja fue configurada como otra,
+        // preferir cualquiera de las dos es elegir al azar cual de los dos errores
+        // se comete. [ResolucionDeTienda] las cruza y, ante discrepancia, deja el
+        // StoreId en null para que [Validate] frene la operacion.
+        //
+        // Ni el appsettings ni CloudLicense la definen: los dos son valores que
+        // llegan de afuera y que nadie reviso para ESTA caja. El del APK es el mismo
+        // para las 76 tiendas que lo instalen —fue lo que puso los creditos de Suba
+        // a nombre de la 037— y el de CloudLicense depende de que ICG provisione
+        // terminal por terminal. El STORE_ID del POS se pasa igual, pero solo para
+        // dejar constancia si no coincide.
+        var tienda = ResolucionDeTienda.Resolver(
+            Blank(cloud.Get(ICloudConfig.StoreId)),
+            Blank(storeIdDeLaCaja));
+
+        // ─────────────────────────────────────────────────────────────────────
+        // EL NOMBRE DE LA TIENDA SALE DEL CATALOGO CUANDO ICG NO LO MANDA
+        // ─────────────────────────────────────────────────────────────────────
+        // Antes esto era `Value(STORE_NAME, "StoreName") ?? "Permoda"`, y como el
+        // appsettings trae "Permoda", el generico ganaba SIEMPRE que CloudLicense
+        // no mandara STORE_NAME. O sea que el comprobante de abono de las 76
+        // tiendas decia lo mismo.
+        //
+        // ─────────────────────────────────────────────────────────────────────
+        // NO HAY NOMBRE DE TIENDA POR DEFECTO
+        // ─────────────────────────────────────────────────────────────────────
+        // Esto terminaba en `?? "Permoda"`, y el appsettings trae "Permoda", asi
+        // que una caja SIN tienda elegida mostraba "Permoda" en la cabecera, en el
+        // comprobante y en el saludo entre cajas. O sea que el estado mas
+        // peligroso del modulo —no saber a nombre de quien se vende— se veia
+        // exactamente igual que el estado sano. Un valor por defecto aqui no es
+        // una comodidad: es esconder el unico dato que hay que mirar.
+        //
+        // Y el orden cambio: ahora manda el CATALOGO sobre lo que diga ICG. El
+        // nombre tiene que describir el StoreId que de verdad se esta mandando; si
+        // CloudLicense dice "037" mientras la caja manda el id de la 012, mostrar
+        // el nombre de ICG convierte la pantalla en una mentira coherente. El de
+        // ICG queda de respaldo para una tienda que todavia no esta en la hoja.
+        var nombreDeLaTienda =
+            !tienda.SePuedeOperar
+                ? SinTienda
+                : CatalogoDeTiendas.PorStoreId(tienda.StoreId)?.NombreVisible
+                  ?? Blank(cloud.Get(ICloudConfig.StoreName))
+                  ?? TextoDeTienda.StoreId(tienda.StoreId);
+
+        // ─────────────────────────────────────────────────────────────────────
+        // EL AMBIENTE LO DECIDE EL PAQUETE. CLOUDLICENSE NO PUEDE DEGRADARLO.
+        // ─────────────────────────────────────────────────────────────────────
+        // Esto era `Value(ENVIRONMENT, "Environment")`, o sea que CloudLicense
+        // GANABA. Y el ambiente decide si el StoreId viaja:
+        //
+        //     StoreId = esProduccion ? tienda.StoreId : null
+        //
+        // Junta las dos cosas y sale el defecto: un APK de PRODUCCION al que ICG
+        // le mandara un ENVIRONMENT que no fuera exactamente "production" o
+        // "prod" —"produccion" en español, "PRODUCTIVO", un valor de pruebas que
+        // quedo de una homologacion— dejaba de mandar la tienda. En silencio:
+        //
+        //   · la pantalla seguia mostrando la tienda correcta, porque muestra la
+        //     ELEGIDA ([Tienda]) y no la que viaja ([StoreId]);
+        //   · [Validate] no se quejaba, porque todas sus comprobaciones de
+        //     produccion estan dentro de `if (IsProduction)`, que era false;
+        //   · y las peticiones salian a /posprod/ con la credencial real, pero sin
+        //     tienda, asi que Sistecredito las atribuia a su valor por defecto.
+        //
+        // CloudLicense se provisiona TERMINAL POR TERMINAL. Por eso esto explica
+        // que una tienda facture bien y la de al lado no, con el mismo APK y con
+        // las dos bien configuradas en pantalla.
+        //
+        // La regla ahora: si el paquete es de produccion, el modulo es de
+        // produccion y la tienda viaja. ICG puede PROMOVER un paquete de pruebas
+        // (sigue sirviendo para homologar sin recompilar), nunca degradar uno de
+        // produccion.
+        var ambienteDelPaquete = Blank(section["Environment"]) ?? "sandbox";
+        var ambienteDeIcg      = Blank(cloud.Get(ICloudConfig.Environment));
+
+        var paqueteDeProduccion = EsProduccion(ambienteDelPaquete);
+        var esProduccion        = paqueteDeProduccion || EsProduccion(ambienteDeIcg);
+
+        var environment = esProduccion ? "production" : (ambienteDeIcg ?? ambienteDelPaquete);
+
         return new ApiConfig
         {
             SubscriptionKey = subscriptionKey,
-            StoreId         = Value(ICloudConfig.StoreId, "StoreId"),
+            StoreId         = esProduccion ? tienda.StoreId : null,
+            Tienda          = tienda,
+            PaqueteDeProduccion = paqueteDeProduccion,
             BaseUrl         = baseUrl,
             OtpDestination  = Int(ICloudConfig.OtpDestination, "OtpDestination", 0),
-            Environment     = Value(ICloudConfig.Environment, "Environment") ?? "sandbox",
-            StoreName       = Value(ICloudConfig.StoreName, "StoreName") ?? "Permoda",
+            Environment     = environment,
+            StoreName       = nombreDeLaTienda,
             PaymentMeanIdRecaudo =
                 Value(ICloudConfig.PaymentMeanIdRecaudo, "PaymentMeanIdRecaudo") ?? "1",
             PaymentMeanIdVenta =

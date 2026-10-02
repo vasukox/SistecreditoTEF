@@ -1,61 +1,99 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <!--
-    ScaffoldView — HU8-973 (rediseño mockups). Chrome unificado de cada pantalla:
-    header verde (con back + eyebrow/título/subtítulo + marca opcional), cuerpo
-    scrolleable (slot de contenido) y footer oscuro "HI-POS".
+    ScaffoldView — chrome unificado de cada pantalla.
+
+    De arriba abajo:
+
+      1. franja de estado   tienda de esta caja + conexion  ([EstadoDeLaCajaView])
+      2. fila de accion     boton "Volver" (si corresponde) + marca
+      3. titulo             eyebrow / titulo / subtitulo
+      4. cuerpo             el contenido de la pagina, desplazable
+      5. pie                HI-POS
+
+    ─────────────────────────────────────────────────────────────────────────────
+    SE FUE LA FLECHA
+    ─────────────────────────────────────────────────────────────────────────────
+    El boton de atras era un "←" pelado de 26pt. Una flecha sola no dice a donde
+    lleva, y en este modulo habia DOS destinos posibles para el mismo gesto —volver
+    una pantalla o devolverle el control a la POS—, asi que el cajero tenia que
+    adivinar cual de los dos le tocaba. Ahora es un boton con la palabra: "Volver"
+    o "Volver a HioPos", y se lee antes de tocarlo.
+
     Uso:
-      <ctrl:ScaffoldView TitleText="..." SubtitleText="..." EyebrowText="..." ShowBack="True">
+      <ctrl:ScaffoldView TitleText="..." SubtitleText="..." EyebrowText="..."
+                         ShowBack="True">
           ...contenido...
       </ctrl:ScaffoldView>
 -->
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:ctrl="clr-namespace:SistecreditoTEF.Maui.Views.Controls"
              x:Class="SistecreditoTEF.Maui.Views.Controls.ScaffoldView">
     <ContentView.ControlTemplate>
         <ControlTemplate>
             <Grid RowDefinitions="Auto,*,Auto" BackgroundColor="{StaticResource Background}">
 
-                <!-- Header verde -->
+                <!-- ============ CABECERA ============ -->
                 <Border Grid.Row="0" Background="{StaticResource HeaderBrush}" Stroke="Transparent"
-                        StrokeShape="RoundRectangle 0,0,22,22" Padding="14,18,22,24">
-                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
+                        StrokeShape="RoundRectangle 0,0,22,22" Padding="18,14,18,22">
+                    <VerticalStackLayout Spacing="13">
+
+                        <!-- Que caja es esta y si tiene red. Siempre arriba. -->
+                        <ctrl:EstadoDeLaCajaView x:Name="PART_Estado" SobreOscuro="True"
+                                                 IsVisible="{TemplateBinding MostrarEstado}" />
+
                         <!--
-                            El texto, el ancho y el fondo los termina de decidir el
-                            code-behind: dentro de una operacion de HioPos este boton
-                            pasa a ser una pastilla que dice "Volver a HioPos", y
-                            fuera queda como la flecha sola. Por eso el ancho es
-                            MINIMO y no fijo: con WidthRequest="46" la pastilla
-                            quedaba cortada.
+                            El boton y la marca comparten fila. Si la pantalla no
+                            ofrece volver, la marca se queda sola a la derecha y no
+                            hay hueco: la fila entera se oculta desde el
+                            code-behind cuando no hay ninguno de los dos.
                         -->
-                        <Button x:Name="PART_Back" Grid.Column="0"
-                                Text="←" FontSize="26" FontAttributes="Bold"
-                                BackgroundColor="Transparent" TextColor="{StaticResource OnDark}"
-                                MinimumWidthRequest="46" HeightRequest="46" Padding="0" CornerRadius="23"
-                                VerticalOptions="Center"
-                                IsVisible="{TemplateBinding ShowBack}" />
-                        <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                        <Grid x:Name="PART_FilaAccion" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                            <!--
+                                Ancho MINIMO y no fijo: el texto cambia entre
+                                "Volver" y "Volver a HioPos" segun donde corra el
+                                modulo, y con ancho fijo el segundo quedaba cortado.
+                            -->
+                            <Button x:Name="PART_Back" Grid.Column="0"
+                                    Text="Volver"
+                                    FontSize="14" FontAttributes="Bold"
+                                    BackgroundColor="#33FFFFFF"
+                                    TextColor="{StaticResource OnDark}"
+                                    MinimumWidthRequest="104" HeightRequest="40"
+                                    Padding="18,0" CornerRadius="20"
+                                    HorizontalOptions="Start" VerticalOptions="Center"
+                                    IsVisible="{TemplateBinding ShowBack}" />
+
+                            <Label Grid.Column="2" Text="{TemplateBinding TrailingText}"
+                                   IsVisible="{TemplateBinding TrailingText, Converter={StaticResource StringNotEmptyConverter}}"
+                                   TextColor="{StaticResource OnHeroMuted}" FontSize="14"
+                                   FontAttributes="Bold,Italic"
+                                   VerticalOptions="Center" />
+                        </Grid>
+
+                        <!-- ============ TITULO ============ -->
+                        <VerticalStackLayout Spacing="3">
                             <Label Text="{TemplateBinding EyebrowText}"
                                    IsVisible="{TemplateBinding EyebrowText, Converter={StaticResource StringNotEmptyConverter}}"
-                                   TextColor="{StaticResource OnHeroMuted}" FontSize="13" />
+                                   TextColor="{StaticResource OnHeroMuted}" FontSize="12.5"
+                                   FontAttributes="Bold" CharacterSpacing="1.2" />
                             <Label Text="{TemplateBinding TitleText}"
-                                   TextColor="{StaticResource OnDark}" FontSize="23" FontAttributes="Bold" />
+                                   TextColor="{StaticResource OnDark}" FontSize="25"
+                                   FontAttributes="Bold" CharacterSpacing="-0.3" />
                             <Label Text="{TemplateBinding SubtitleText}"
                                    IsVisible="{TemplateBinding SubtitleText, Converter={StaticResource StringNotEmptyConverter}}"
-                                   TextColor="{StaticResource OnHeroMuted}" FontSize="13" />
+                                   TextColor="{StaticResource OnHeroMuted}" FontSize="13.5" />
                         </VerticalStackLayout>
-                        <Label Grid.Column="2" Text="{TemplateBinding TrailingText}"
-                               IsVisible="{TemplateBinding TrailingText, Converter={StaticResource StringNotEmptyConverter}}"
-                               TextColor="{StaticResource OnDark}" FontSize="15" FontAttributes="Bold,Italic"
-                               VerticalOptions="Start" />
-                    </Grid>
+
+                    </VerticalStackLayout>
                 </Border>
 
-                <!-- Contenido -->
+                <!-- ============ CONTENIDO ============ -->
                 <ScrollView Grid.Row="1">
                     <ContentPresenter />
                 </ScrollView>
 
-                <!-- Footer HI-POS -->
+                <!-- ============ PIE ============ -->
                 <Border Grid.Row="2" BackgroundColor="{StaticResource NavSurface}" Stroke="Transparent" Padding="0,9">
                     <VerticalStackLayout Spacing="0" HorizontalOptions="Center">
                         <Label Text="HI-POS" TextColor="{StaticResource OnDark}" FontSize="15" FontAttributes="Bold"
