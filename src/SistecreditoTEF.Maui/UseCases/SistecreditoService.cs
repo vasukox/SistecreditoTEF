@@ -658,11 +658,15 @@ public class SistecreditoService
         //     110.000      3       {1, 2}
         //     119.000      3       {1, 2}
         //
-        // Sondear los 8 candidatos cuando el techo dice 3 son 5 llamadas que solo
-        // pueden devolver 222. Y no son gratis: con MaxConnectionsPerServer=4 los 8
-        // candidatos van en DOS oleadas, asi que la pantalla esperaba 3 idas y
-        // vueltas (esta consulta + dos oleadas). Podando queda en 2, y de 9 llamadas
-        // se baja a 3 o 4 — que sobre red movil tambien se nota.
+        // Sondear los 24 candidatos cuando el techo dice 3 son 21 llamadas que solo
+        // pueden devolver 222. Y no son gratis: con MaxConnectionsPerServer=4 van en
+        // oleadas de cuatro. Podando por el techo, los montos de tienda —techos de
+        // 2, 3 o 6— se resuelven en una o dos oleadas.
+        //
+        // La poda es lo que hace barato preguntar por TODOS los plazos en vez de por
+        // una lista escrita a mano. Esa lista era { 1, 2, 3, 6, 9, 12, 18, 24 } y se
+        // comia los plazos del medio: en produccion la pantalla ofrecia "1, 2, 3, 6"
+        // mientras Credinet aceptaba tambien el 4 y el 5. Ver [CandidateMonths].
         //
         // La poda es una OPTIMIZACION, nunca una autoridad: si el techo no vino, o
         // no deja ningun candidato, o el sondeo podado no encuentra nada, se consulta

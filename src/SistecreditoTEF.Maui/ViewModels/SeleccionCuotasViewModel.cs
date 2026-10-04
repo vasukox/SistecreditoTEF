@@ -18,7 +18,50 @@ public partial class SeleccionCuotasViewModel(
     public enum EstadoSimulacion { Idle, Loading, Success, Error }
     public enum EstadoLimite     { Idle, Loading, Success, Error }
 
-    public static readonly int[] CandidateMonths = { 1, 2, 3, 6, 9, 12, 18, 24 };
+    /// <summary>
+    /// Plazo mas largo que se le llega a preguntar a Credinet.
+    ///
+    /// No es una regla nuestra: es el techo observado de la oferta. Existe para que
+    /// el sondeo tenga un final cuando <c>getSimulatedMonthLimit</c> no contesta y
+    /// no hay techo con el que podar.
+    /// </summary>
+    public const int PlazoMaximo = 24;
+
+    /// <summary>
+    /// TODOS los plazos, uno por uno. No una seleccion.
+    ///
+    /// ─────────────────────────────────────────────────────────────────────────────
+    /// EL DEFECTO QUE ESTO CORRIGE
+    /// ─────────────────────────────────────────────────────────────────────────────
+    /// Esto era una lista escrita a mano:
+    ///
+    ///     { 1, 2, 3, 6, 9, 12, 18, 24 }
+    ///
+    /// O sea que 4, 5, 7, 8, 10, 11… NUNCA se le preguntaban a Credinet. Y lo que
+    /// la pantalla ofrece son los plazos que Credinet confirmo DE LOS QUE SE LE
+    /// PREGUNTARON, asi que un plazo ausente de esta lista no aparecia jamas,
+    /// aunque Credinet lo aceptara sin problema.
+    ///
+    /// Reportado desde produccion: la pantalla decia "Plazos que Sistecredito
+    /// acepta para este monto: 1, 2, 3, 6" y en Credinet estaban tambien el 4 y el
+    /// 5. No faltaba el techo —el 6 se ofrecia—: faltaban los numeros del medio,
+    /// porque nadie los habia escrito aqui.
+    ///
+    /// El cajero perdia la venta o la cerraba en un plazo que no era el que el
+    /// cliente podia pagar. De los dos, el segundo es peor.
+    ///
+    /// La lista escrita a mano era ademas una suposicion sobre el negocio de otra
+    /// empresa: dice que Sistecredito financia a 9 pero no a 10, a 18 pero no a 15.
+    /// Nadie verifico eso nunca. Preguntando por todos, la respuesta la da quien la
+    /// sabe, y el dia que Sistecredito habilite el 7 aparece solo, sin recompilar.
+    ///
+    /// El costo esta acotado por la PODA: [SistecreditoService.ObtenerPlazosValidosAsync]
+    /// recorta por el techo que devuelve getSimulatedMonthLimit antes de sondear,
+    /// asi que para los montos de tienda —techos de 2, 3 o 6— se consultan 2, 3 o 6
+    /// plazos. Son MENOS llamadas que los 8 candidatos de antes, y ahora completas.
+    /// </summary>
+    public static readonly int[] CandidateMonths =
+        Enumerable.Range(1, PlazoMaximo).ToArray();
 
     [ObservableProperty]
     private EstadoSimulacion status = EstadoSimulacion.Idle;
@@ -206,7 +249,7 @@ public partial class SeleccionCuotasViewModel(
     /// FALLA CERRADO: SIN CONFIRMACION DE CREDINET NO SE OFRECE NINGUN PLAZO
     /// ─────────────────────────────────────────────────────────────────────────────
     /// Antes el caso "todavia no se sabe" devolvia CandidateMonths completo, o sea
-    /// 1, 2, 3, 6, 9, 12, 18 y 24 meses:
+    /// todos los plazos hasta [PlazoMaximo]:
     ///
     ///     LimitStatus == Success ? CandidateMonths.Where(...) : CandidateMonths;
     ///
