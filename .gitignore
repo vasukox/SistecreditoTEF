@@ -14,6 +14,12 @@
 # Config local de Claude Code (especifica de la maquina)
 .claude/settings.local.json
 
+# Herramientas que Claude Code instala en la carpeta del proyecto. No son
+# codigo de este modulo y se reinstalan solas: se colaron una vez en un commit
+# (61 archivos) por un `git add -A` y no tienen por que estar en el historial.
+.claude/skills/
+.claude/agents/
+
 # HU8-973 · Firma y secretos (NUNCA commitear)
 *.keystore
 *.jks
