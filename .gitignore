@@ -80,3 +80,7 @@ Thumbs.db
 
 # ASUMO que C:\Proyectos NO esta en OneDrive (verificado reparse point).
 # Si lo esta, mover el repo a otra unidad antes de hacer commit.
+
+# Archivo de trabajo de una herramienta de Claude Code, no documentacion del
+# modulo. Se colo dos veces por un `git add -A`.
+PRODUCT.md
