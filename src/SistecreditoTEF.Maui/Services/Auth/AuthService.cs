@@ -322,12 +322,23 @@ public class AuthService(IAuthStore store)
         // la misma persona entraba en la caja de origen y dejaba de entrar en la
         // que acababa de recibir el padron. Mismo usuario, misma clave, mismos
         // datos — y "se replican pero no los estamos tomando bien".
+        // Y si hubiera DOS activos con el mismo usuario —estado que ni el alta ni
+        // la reactivacion permiten crear, pero que puede venir de datos viejos de
+        // otra caja— se elige el MAS RECIENTE, no "el primero que salga". El
+        // padron tiene que poder viajar completo aunque traiga una rareza (ver
+        // [CashierRosterEnvelope]), asi que la ambiguedad se resuelve aqui y de
+        // forma estable: la misma caja, con los mismos datos, deja entrar siempre
+        // a la misma persona. Un criterio estable y discutible es manejable; uno
+        // que cambia con el orden de las filas no se puede ni diagnosticar.
         var candidatos = todos
             .Where(c => string.Equals(
                 c.UsuarioNormalizado, usuarioNormalizado, StringComparison.Ordinal))
+            .OrderByDescending(c => c.Activo)
+            .ThenByDescending(c => c.CreadoEn)
+            .ThenBy(c => c.Id, StringComparer.Ordinal)
             .ToList();
 
-        var porUsuario = candidatos.FirstOrDefault(c => c.Activo) ?? candidatos.FirstOrDefault();
+        var porUsuario = candidatos.FirstOrDefault();
 
         if (porUsuario is not null) return porUsuario;
 

@@ -111,18 +111,60 @@ public class ElPadronSeTomaBienTests
     }
 
     /// <summary>
-    /// Dos ACTIVOS con el mismo usuario. El ingreso busca por usuario y tendria
-    /// que elegir entre dos claves distintas; una de las dos personas no entraria,
-    /// y cual depende del orden de las filas.
+    /// EL PADRON VIAJA AUNQUE TRAIGA UNA RAREZA.
+    ///
+    /// Hubo una version de esto que rechazaba el sobre ENTERO si traia dos
+    /// cajeros activos con el mismo usuario. Se quito: que una caja tenga un dato
+    /// raro no puede dejar a la tienda sin poder replicar. El operador veria "no
+    /// se pudo interpretar lo que llego", sin ninguna pista, y se quedaria sin la
+    /// unica herramienta que tiene para montar la caja nueva.
+    ///
+    /// Ademas cubria un estado que la aplicacion no sabe crear —el alta y la
+    /// reactivacion ya rechazan usuarios repetidos entre activos—, asi que solo
+    /// podia venir de datos viejos. Y esos hay que poder moverlos.
+    ///
+    /// La ambiguedad se resuelve donde corresponde: en el ingreso, de forma
+    /// determinista. Ver [Con_dos_activos_del_mismo_usuario_siempre_entra_el_mismo].
     /// </summary>
     [Fact]
-    public void Un_sobre_con_dos_activos_del_mismo_usuario_se_rechaza_entero()
+    public void Un_sobre_con_dos_activos_del_mismo_usuario_viaja_igual()
     {
         var sobre = new CashierRosterEnvelope(
             "v1$1$c2FsdA==$aGFzaA==",
             [Cajero("a", "jperez"), Cajero("b", "JPEREZ")]);
 
-        Assert.Null(CashierRosterEnvelope.FromJson(sobre.ToJson()));
+        var leido = CashierRosterEnvelope.FromJson(sobre.ToJson());
+
+        Assert.NotNull(leido);
+        Assert.Equal(2, leido.Cajeros.Count);
+    }
+
+    /// <summary>
+    /// Y entonces el ingreso tiene que ser ESTABLE: la misma caja, con los mismos
+    /// datos, deja entrar siempre a la misma persona. Un criterio estable y
+    /// discutible es manejable; uno que cambia con el orden de las filas no se
+    /// puede ni diagnosticar. Se elige el mas reciente.
+    /// </summary>
+    [Fact]
+    public async Task Con_dos_activos_del_mismo_usuario_siempre_entra_el_mismo()
+    {
+        var store = new InMemoryAuthStore();
+        var auth = new AuthService(store);
+        await auth.ConfigurarPinAdminAsync("246810");
+
+        await store.GuardarCajeroAsync(new Cajero(
+            Id: "antiguo", Usuario: "jperez", Nombre: string.Empty,
+            ClaveHash: await PasswordHasher.HashAsync("clave-antigua"),
+            Activo: true, CreadoEn: new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc)));
+
+        await store.GuardarCajeroAsync(new Cajero(
+            Id: "reciente", Usuario: "jperez", Nombre: string.Empty,
+            ClaveHash: await PasswordHasher.HashAsync("clave-reciente"),
+            Activo: true, CreadoEn: new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc)));
+
+        var ok = Assert.IsType<ResultadoIngreso.Ok>(
+            await auth.IngresarAsync("jperez", "clave-reciente"));
+        Assert.Equal("reciente", ok.Cajero.Id);
     }
 
     /// <summary>
@@ -229,5 +271,62 @@ public class ElPadronSeTomaBienTests
         Assert.Equal(1, sobre.CajerosActivos);
         Assert.Contains(sobre.Cajeros, c => c.Id == activo!.Id && c.Activo);
         Assert.Contains(sobre.Cajeros, c => c.Id == baja.Id && !c.Activo);
+    }
+
+    /// <summary>
+    /// EL PADRON COMPLETO, DE PUNTA A PUNTA, CON LAS CLAVES INTACTAS.
+    ///
+    /// Es la garantia que se pidio: al escribir el padron en la caja nueva tienen
+    /// que estar TODOS —los que entran y los que estan de baja— cada uno con su
+    /// clave. Que alguien este desactivado es otro asunto; viajar, viajan siempre.
+    ///
+    /// La prueba recorre el camino entero: alta de tres personas en una caja, baja
+    /// de una, exportar, viajar como texto igual que por el socket, importar en
+    /// otra caja, y comprobar que estan las tres, que las dos activas entran con
+    /// SU clave, y que la de baja se puede reactivar y entrar con la suya.
+    /// </summary>
+    [Fact]
+    public async Task El_padron_llega_completo_y_cada_uno_con_su_clave()
+    {
+        var origen = new InMemoryAuthStore();
+        var authOrigen = new AuthService(origen);
+        await authOrigen.ConfigurarPinAdminAsync("246810");
+
+        await authOrigen.AgregarCajeroAsync("jperez", string.Empty, "clave-jperez");
+        await authOrigen.AgregarCajeroAsync("mgomez", string.Empty, "clave-mgomez");
+        var retirada = await authOrigen.AgregarCajeroAsync("alopez", string.Empty, "clave-alopez");
+        await authOrigen.DesactivarCajeroAsync(retirada!.Id);
+
+        var sobre = await origen.ExportarPadronAsync();
+        Assert.NotNull(sobre);
+        var viajado = CashierRosterEnvelope.FromJson(sobre.ToJson());
+        Assert.NotNull(viajado);
+
+        var destino = new InMemoryAuthStore();
+        Assert.True(await destino.ImportarPadronAsync(viajado));
+        var authDestino = new AuthService(destino);
+
+        // Estan los TRES, no solo los que pueden entrar.
+        Assert.Equal(3, (await destino.GetCajerosAsync()).Count);
+
+        // Y cada uno con SU clave, no con la del de al lado.
+        Assert.IsType<ResultadoIngreso.Ok>(
+            await authDestino.IngresarAsync("jperez", "clave-jperez"));
+        Assert.IsType<ResultadoIngreso.Ok>(
+            await authDestino.IngresarAsync("mgomez", "clave-mgomez"));
+        Assert.IsType<ResultadoIngreso.ClaveIncorrecta>(
+            await authDestino.IngresarAsync("jperez", "clave-mgomez"));
+
+        // La de baja llego como lo que es: de baja, pero entera.
+        Assert.IsType<ResultadoIngreso.NoHabilitado>(
+            await authDestino.IngresarAsync("alopez", "clave-alopez"));
+
+        // Y por eso se la puede reactivar en la caja nueva, con su clave de siempre.
+        Assert.True(await authDestino.ReactivarCajeroAsync(retirada.Id));
+        Assert.IsType<ResultadoIngreso.Ok>(
+            await authDestino.IngresarAsync("alopez", "clave-alopez"));
+
+        // El PIN de administrador tambien viajo.
+        Assert.True(await authDestino.VerificarPinAdminAsync("246810"));
     }
 }

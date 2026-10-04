@@ -156,12 +156,38 @@ public class SqliteAuthStore : IAuthStore
             var pin = await GetAdminPinHashAsync();
             if (string.IsNullOrWhiteSpace(pin)) return null;
 
+            // ─────────────────────────────────────────────────────────────────
+            // VIAJAN TODOS: ACTIVOS Y DE BAJA, CON SU CLAVE
+            // ─────────────────────────────────────────────────────────────────
+            // [GetCajerosAsync] devuelve el padron ENTERO y aqui no se filtra
+            // nada. Es deliberado y conviene que quede escrito, porque "mandar
+            // solo los que pueden entrar" suena razonable y romperia dos cosas:
+            //
+            //   · Al que esta de baja no se lo podria REACTIVAR en la caja nueva
+            //     —no estaria—, y tampoco recrearlo con su mismo usuario sin
+            //     chocar contra el historico de la otra caja.
+            //
+            //   · Los abonos viejos quedan referenciados por el nombre de quien
+            //     cobro. Si esa fila no viaja, la caja nueva no puede nombrar a
+            //     quien hizo un recaudo que si esta en Sistecredito.
+            //
+            // La clave viaja como DERIVACION, nunca en claro: el salt y las
+            // iteraciones van dentro de la cadena ([PasswordHasher]), asi que la
+            // misma clave de siempre funciona en la caja que recibe sin que nadie
+            // la vuelva a teclear.
             var cajeros = await GetCajerosAsync();
             if (cajeros.Count == 0) return null;
 
-            return new CashierRosterEnvelope(
+            var sobre = new CashierRosterEnvelope(
                 pin,
                 cajeros.Select(CashierRosterEnvelope.From).ToList());
+
+            AppLogger.I("IAuthStore",
+                $"Padron listo para replicar: {sobre.Cajeros.Count} cajeros " +
+                $"({sobre.CajerosActivos} activos, " +
+                $"{sobre.Cajeros.Count - sobre.CajerosActivos} de baja).");
+
+            return sobre;
         }
         catch (Exception ex)
         {
